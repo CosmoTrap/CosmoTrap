@@ -21,14 +21,14 @@ npm install
 ```
 
 ```bash
-php -S 127.0.0.1:8787 -t public &
+npm run local
 ```
 
-```bash
-npm run dev
-```
+Cette commande lance l'API PHP et le jeu, puis affiche deux adresses :
+- `http://localhost:5180` sur ton ordinateur ;
+- `http://<ton-ip>:5180` pour les collègues connectés au **même Wi-Fi**.
 
-Ouvrir ensuite `http://localhost:5180`. L'API PHP crée seule sa base SQLite dans `../cosmotrap-data/`, hors du dossier web.
+L'API crée seule sa base SQLite dans `../cosmotrap-data/`, hors du dossier web. Sur l'adresse réseau en `http://`, la manette et le verrouillage de la souris peuvent être bloqués par le navigateur (contexte non sécurisé). Tout marche en `https` une fois le site en ligne.
 
 ## Commandes
 

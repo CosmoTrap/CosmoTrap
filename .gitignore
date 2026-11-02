@@ -7,3 +7,4 @@ cosmotrap-data
 .claude
 playwright-report
 .DS_Store
+.vite
