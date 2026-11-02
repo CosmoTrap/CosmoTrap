@@ -1,0 +1,353 @@
+import { useFrame } from '@react-three/fiber'
+import { useEffect, useRef } from 'react'
+import * as THREE from 'three'
+import { audio } from '../game/audio/audio'
+import { enterZone, pendingZone, respawnAfterFaint, tick } from '../game/logic'
+import { GRID_MAPS, spawnOf } from '../game/maps'
+import { riverCenter, terrainHeight } from '../game/maps/zone4'
+import { AUTOSAVE_EVERY, G, clearSave, live, saveGame, useGame } from '../game/state'
+import { fr } from '../i18n/fr'
+import { Astronaut, type AstronautHandle } from './Astronaut'
+import { heli } from './zone4/Zone4'
+
+// Metteur en scène : briefing holographique, évanouissement, transitions de zone,
+// décollage + rentrée atmosphérique, arrivée de l'hélicoptère et fin.
+
+const sm = THREE.MathUtils.smoothstep
+
+export function GameLoop() {
+  const saveT = useRef(0)
+  useFrame((_, dt) => {
+    tick(Math.min(dt, 0.1))
+    saveT.current += dt
+    if (saveT.current > AUTOSAVE_EVERY) {
+      saveT.current = 0
+      saveGame()
+    }
+  })
+  return null
+}
+
+export function CineDirector() {
+  const cine = useGame((s) => s.cine)
+  const t0 = useGame((s) => s.cineT0)
+  const flags = useRef<Record<string, boolean>>({})
+  useEffect(() => {
+    flags.current = {}
+    if (cine === 'briefing') {
+      audio.sfx('holo')
+    }
+    if (cine === 'launch') {
+      document.exitPointerLock?.()
+    }
+  }, [cine, t0])
+
+  useFrame(() => {
+    const s = G()
+    const t = (performance.now() - t0) / 1000
+    const once = (k: string, fn: () => void) => {
+      if (!flags.current[k]) {
+        flags.current[k] = true
+        fn()
+      }
+    }
+    if (!cine) {
+      live.fade = Math.max(0, live.fade - 0.03)
+      live.flash = Math.max(0, live.flash - 0.03)
+      return
+    }
+    if (cine === 'briefing') {
+      const lines = fr.briefing
+      const per = 4.6
+      const i = Math.floor(t / per)
+      if (i < lines.length) {
+        once(`l${i}`, () => {
+          useGame.setState({ subtitle: lines[i] })
+          audio.speak(lines[i], { radio: true, rate: 1.08 })
+        })
+      } else
+        once('end', () => {
+          useGame.setState({ cine: null, subtitle: null, briefed: true })
+        })
+    } else if (cine === 'faint') {
+      live.fade = Math.min(1, t / 1.8)
+      if (t > 2.2) once('respawn', respawnAfterFaint)
+      if (t > 2.6) {
+        live.fade = Math.max(0, 1 - (t - 2.6) / 1.5)
+        useGame.setState({ subtitle: fr.msg.fainted })
+      }
+      if (t > 4.4) useGame.setState({ cine: null, subtitle: null })
+    } else if (cine === 'zoneCard') {
+      live.fade = t < 1.2 ? t / 1.2 : t < 2.4 ? 1 : Math.max(0, 1 - (t - 2.4) / 1.4)
+      if (t > 1.2 && pendingZone) once('enter', () => enterZone(pendingZone!))
+      const z = s.zone
+      const a = t < 1.4 ? 0 : t < 2.0 ? (t - 1.4) / 0.6 : t < 4.2 ? 1 : Math.max(0, 1 - (t - 4.2) / 0.8)
+      live.card = { title: fr.zones[z].name, sub: fr.zones[z].sub, a }
+      if (t > 5) {
+        live.card = null
+        if (!s.toured.includes(s.zone)) useGame.setState({ cine: 'tour', cineT0: performance.now() })
+        else afterTour()
+      }
+    } else if (cine === 'tour') {
+      const path = tourPath(s.zone)
+      const D = tourDur(s.zone)
+      const k = Math.min(1, t / D)
+      const e = k * k * (3 - 2 * k)
+      const p = path.getPointAt(e)
+      const ahead = path.getPointAt(Math.min(1, e + 0.04))
+      live.camOverride = { pos: [p.x, p.y, p.z], look: [ahead.x, ahead.y - 0.25, ahead.z] }
+      live.fade = t < 0.6 ? 1 - t / 0.6 : t > D - 0.8 ? Math.min(1, (t - (D - 0.8)) / 0.8) : 0
+      const lines = fr.story.tours[s.zone] ?? []
+      const i = Math.min(lines.length - 1, Math.floor((t / D) * lines.length))
+      once(`t${i}`, () => {
+        useGame.setState({ subtitle: lines[i] })
+        audio.speak(lines[i], { rate: 1.05 })
+      })
+      if (t > D) once('end', endTour)
+    } else if (cine === 'fail') {
+      live.fade = Math.min(1, t / 3)
+      const lines = fr.story.fail
+      const i = Math.min(lines.length - 1, Math.floor(t / 3))
+      once(`f${i}`, () => {
+        useGame.setState({ subtitle: lines[i] })
+        if (i === 0) {
+          audio.sfx('faint')
+          audio.stopAllLoops()
+        }
+      })
+      if (t > 7)
+        once('end', () => {
+          clearSave()
+          live.fade = 0
+          useGame.setState({ cine: null, ended: true, ending: 'fail', screen: 'end', subtitle: null })
+        })
+    } else if (cine === 'launch') {
+      // compte à rebours
+      if (t < 4) {
+        const n = 3 - Math.floor(t)
+        live.countdown = n > 0 ? String(n) : fr.cine.liftoff
+        once(`c${n}`, () => audio.sfx(n > 0 ? 'keypad' : 'success'))
+      } else live.countdown = null
+      once('music', () => audio.oneShotMusic('launch'))
+      if (t > 3) once('rumble', () => audio.sfx('launch'))
+      const shake = t < 3 ? 0 : t < 9 ? sm(t, 3, 6) * 1.6 : t < 10 ? 0.4 : t < 17 ? 1.2 + Math.sin(t * 9) * 0.3 : 0
+      useGame.setState({ shake })
+      // la Lune s'éloigne sous la fusée
+      live.ext.y = t < 4 ? 0 : -Math.pow(t - 4, 2.2) * 6
+      if (t > 8.6 && t < 10) live.flash = sm(t, 8.6, 9.3) * (1 - sm(t, 9.4, 10))
+      if (t > 9.5) {
+        once('reentry', () => {
+          audio.loop('reentry', 'reentry', { vol: 1 })
+          useGame.setState({ subtitle: fr.cine.reentry })
+        })
+        live.ext.plasma = Math.min(1, (t - 9.5) / 1.5) * (1 - sm(t, 16, 17.5))
+      }
+      if (t > 16.5) live.flash = sm(t, 16.5, 18)
+      if (t > 18)
+        once('land', () => {
+          audio.stopLoop('reentry')
+          live.ext.y = 0
+          live.ext.plasma = 0
+          useGame.setState({ shake: 0, subtitle: null })
+          enterZone(4)
+          useGame.setState({ cine: 'zoneCard', cineT0: performance.now() - 1300 })
+          live.flash = 0
+          live.fade = 1
+        })
+    } else if (cine === 'heli') {
+      const sp = spawnOf(4)
+      void sp
+      const pad = new THREE.Vector3(6, 2.1, -60)
+      // fusée de détresse
+      if (t < 5) useGame.setState({ subtitle: fr.cine.heli })
+      // trajectoire de l'hélicoptère
+      const k = sm(t, 2, 13)
+      heli.visible = t > 2
+      const from = new THREE.Vector3(-150, 70, -220)
+      const hover = new THREE.Vector3(pad.x, pad.y + 9, pad.z - 4)
+      const p = from.clone().lerp(hover, k)
+      p.y += Math.sin(k * Math.PI) * 15
+      if (t > 13) p.copy(hover).setY(pad.y + 9 - sm(t, 13, 18) * 8.6)
+      heli.x = p.x
+      heli.y = p.y + Math.sin(t * 1.3) * 0.15
+      heli.z = p.z
+      heli.yaw = Math.atan2(hover.x - from.x, hover.z - from.z) * (1 - sm(t, 11, 15)) + sm(t, 11, 15) * 0.6
+      if (t > 2) once('heliSnd', () => audio.loop('rotor', 'rotor', { vol: 0.2 }))
+      audio.loopVol('rotor', 0.2 + k * 1.2)
+      // caméra 3e personne
+      if (t > 8) {
+        const a = 0.6 + (t - 8) * 0.05
+        const c = new THREE.Vector3(live.pos[0], live.pos[1], live.pos[2])
+        live.camOverride = {
+          pos: [c.x + Math.sin(a) * 4.2, c.y + 1.6, c.z + Math.cos(a) * 4.2],
+          look: [c.x, c.y + 1.3 + sm(t, 8, 12) * 0.6, c.z],
+        }
+      }
+      if (t > 19) live.fade = sm(t, 19, 21)
+      if (t > 21.2)
+        once('end', () => {
+          audio.stopLoop('rotor')
+          audio.stopAllLoops()
+          audio.oneShotMusic('victory')
+          live.camOverride = null
+          heli.visible = false
+          clearSave()
+          useGame.setState({ cine: null, ended: true, ending: 'rescue', screen: 'end', subtitle: null })
+          live.fade = 0
+        })
+    }
+  })
+  return null
+}
+
+const tourCache = new Map<number, THREE.CatmullRomCurve3>()
+function tourDur(zone: number) {
+  return THREE.MathUtils.clamp(tourPath(zone).getLength() / 6, 12, 24)
+}
+
+/** trajet de caméra qui présente la map (salles dans l'ordre, en passant par les portes) */
+function tourPath(zone: number) {
+  const hit = tourCache.get(zone)
+  if (hit) return hit
+  const curve = buildTourPath(zone)
+  tourCache.set(zone, curve)
+  return curve
+}
+
+function buildTourPath(zone: number) {
+  const pts: THREE.Vector3[] = []
+  if (zone < 4) {
+    const map = GRID_MAPS[zone as 1 | 2 | 3]
+    const sp = spawnOf(zone as 1 | 2 | 3)
+    const targets = map.rooms.map((r) => [Math.floor((r.rect[0] + r.rect[2]) / 2), Math.floor((r.rect[1] + r.rect[3]) / 2)] as [number, number])
+    targets.push([Math.floor(sp.pos[0] / 2), Math.floor(sp.pos[2] / 2)])
+    const walk = (a: [number, number], b: [number, number]) => {
+      const key = (x: number, z: number) => `${x},${z}`
+      const prev = new Map<string, string | null>([[key(...a), null]])
+      const q: [number, number][] = [a]
+      while (q.length) {
+        const [x, z] = q.shift()!
+        if (x === b[0] && z === b[1]) break
+        for (const [dx, dz] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const nx = x + dx
+          const nz = z + dz
+          const c = map.grid[nz]?.[nx]
+          if (!c || (c !== '.' && c !== 'D') || prev.has(key(nx, nz))) continue
+          prev.set(key(nx, nz), key(x, z))
+          q.push([nx, nz])
+        }
+      }
+      const out: [number, number][] = []
+      let k: string | null | undefined = key(...b)
+      while (k) {
+        const [x, z] = k.split(',').map(Number)
+        out.unshift([x, z])
+        k = prev.get(k)
+      }
+      return out
+    }
+    let cur = targets[0]
+    const tiles: [number, number][] = [cur]
+    for (const t of targets.slice(1)) {
+      tiles.push(...walk(cur, t).slice(1))
+      cur = t
+    }
+    tiles.forEach(([x, z], i) => {
+      if (i % 2 === 0 || i === tiles.length - 1) pts.push(new THREE.Vector3(x * 2 + 1, 1.85, z * 2 + 1))
+    })
+  } else {
+    const h = (x: number, z: number, dy: number) => new THREE.Vector3(x, terrainHeight(x, z) + dy, z)
+    pts.push(h(-6, 14, 9), h(4, 0, 6), h(10, riverCenter(10) + 6, 4), h(12, -36, 6), h(4, -54, 9), h(-4, -30, 14), h(0, -8, 3))
+  }
+  return new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.3)
+}
+
+function afterTour() {
+  const s = G()
+  live.camOverride = null
+  live.fade = 0
+  useGame.setState({ cine: null, subtitle: null })
+  if (s.zone === 1 && !s.briefed) useGame.setState({ cine: 'briefing', cineT0: performance.now() })
+}
+
+function endTour() {
+  const s = G()
+  audio.stopSpeech()
+  useGame.setState({ toured: [...s.toured, s.zone] })
+  afterTour()
+}
+
+/** passer la cinématique en cours */
+export function skipCine() {
+  const s = G()
+  const now = performance.now()
+  if (s.cine === 'tour') endTour()
+  else if (s.cine === 'briefing') {
+    audio.stopSpeech()
+    useGame.setState({ cine: null, subtitle: null, briefed: true })
+  } else if (s.cine === 'zoneCard') useGame.setState({ cineT0: Math.min(s.cineT0, now - 4900) })
+  else if (s.cine === 'launch') useGame.setState({ cineT0: now - 18000 })
+  else if (s.cine === 'heli') useGame.setState({ cineT0: now - 21000 })
+}
+
+/** le personnage vu à la 3e personne pendant la fin : il lève le bras */
+export function EndAvatar() {
+  const cine = useGame((s) => s.cine)
+  const t0 = useGame((s) => s.cineT0)
+  const character = useGame((s) => s.character)
+  const ref = useRef<AstronautHandle>(null)
+  const g = useRef<THREE.Group>(null)
+  useFrame(() => {
+    if (!g.current) return
+    const show = cine === 'heli' && !!live.camOverride
+    g.current.visible = show
+    if (!show) return
+    const t = (performance.now() - t0) / 1000
+    g.current.position.set(live.pos[0], live.pos[1], live.pos[2])
+    g.current.rotation.y = Math.atan2(heli.x - live.pos[0], heli.z - live.pos[2])
+    const a = ref.current
+    if (a?.armR) {
+      const k = sm(t, 9, 10.5)
+      a.armR.rotation.x = -k * 2.7 + Math.sin(t * 5) * 0.15 * k
+      a.armR.rotation.z = k * 0.3
+    }
+    if (a?.head) a.head.rotation.x = -0.25 * sm(t, 9, 11)
+  })
+  return (
+    <group ref={g} visible={false}>
+      <Astronaut ref={ref} accent={fr.characters[character]?.color ?? '#d9673a'} />
+    </group>
+  )
+}
+
+/** fusée éclairante tirée à l'hélisurface */
+export function Flare() {
+  const cine = useGame((s) => s.cine)
+  const t0 = useGame((s) => s.cineT0)
+  const g = useRef<THREE.Group>(null)
+  const light = useRef<THREE.PointLight>(null)
+  useFrame(() => {
+    if (!g.current) return
+    const t = (performance.now() - t0) / 1000
+    const on = cine === 'heli' && t < 9
+    g.current.visible = on
+    if (!on) return
+    const h = Math.min(60, t * 28 - t * t * 1.6)
+    g.current.position.set(live.pos[0] + 1 + t * 0.3, live.pos[1] + 1.6 + h, live.pos[2] - 2)
+    if (light.current) light.current.intensity = 400 * (1 - t / 9)
+  })
+  return (
+    <group ref={g} visible={false}>
+      <mesh>
+        <sphereGeometry args={[0.25, 10, 8]} />
+        <meshBasicMaterial color={new THREE.Color(30, 4, 2)} />
+      </mesh>
+      <pointLight ref={light} color="#ff3a20" distance={120} decay={1.4} />
+    </group>
+  )
+}

@@ -1,0 +1,5 @@
+# l'API répond en JSON ; le dossier data/ et la config ne sont jamais servis
+<FilesMatch "^(config\.php|config\.local\.php|db\.php)$">
+  Require all denied
+</FilesMatch>
+Options -Indexes

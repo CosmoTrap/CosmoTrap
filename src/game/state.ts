@@ -1,0 +1,358 @@
+import { create } from 'zustand'
+import { FLAGS, type Flags, type ItemId, type PuzzleId, type ZoneId } from './types'
+import { DEFAULT_KEYS, type KeyMap } from '../player/input'
+
+export type Screen = 'login' | 'title' | 'charSelect' | 'prologue' | 'playing' | 'end' | 'leaderboard'
+export type Quality = 'low' | 'medium' | 'high' | 'ultra'
+export type CineKind = 'briefing' | 'faint' | 'zoneCard' | 'tour' | 'launch' | 'heli' | 'fail' | null
+
+/** limite de temps de la partie (s) : au-delà, échec */
+export const TIME_LIMIT = 30 * 60
+export const AUTOSAVE_EVERY = 30
+
+export interface Settings {
+  quality: Quality
+  sensitivity: number
+  invertY: boolean
+  music: number
+  sfx: number
+  voice: number
+  fov: number
+  colorblind: boolean
+  keys: KeyMap
+  showFps: boolean
+}
+
+export interface Toast {
+  id: number
+  text: string
+  kind?: 'info' | 'good' | 'bad' | 'item'
+}
+
+/** état non réactif mis à jour à chaque image (position du joueur, etc.) */
+export const live = {
+  pos: [0, 0, 0] as [number, number, number],
+  yaw: 0,
+  pitch: 0,
+  speed: 0,
+  aimed: null as string | null,
+  inDarkRoom: false,
+  roomId: '' as string,
+  fps: 60,
+  /** décor extérieur pendant les cinématiques (décollage, rentrée) */
+  ext: { y: 0, plasma: 0 },
+  /** contrôle caméra par une cinématique */
+  camOverride: null as null | { pos: [number, number, number]; look: [number, number, number] },
+  bob: 0,
+  /** fondu au noir (0..1) et flash blanc (0..1) pilotés par les cinématiques */
+  fade: 0,
+  flash: 0,
+  penaltyFlash: 0,
+  card: null as null | { title: string; sub: string; a: number },
+  countdown: null as null | string,
+}
+
+function initialValves() {
+  // départ : tout vert, puis appuis (0,0), (1,1), (2,2)
+  const v = Array(9).fill(true)
+  for (const [r, c] of [
+    [0, 0],
+    [1, 1],
+    [2, 2],
+  ])
+    pressValveGrid(v, r, c)
+  return v
+}
+
+export function pressValveGrid(v: boolean[], r: number, c: number) {
+  const flip = (rr: number, cc: number) => {
+    if (rr < 0 || rr > 2 || cc < 0 || cc > 2) return
+    v[rr * 3 + cc] = !v[rr * 3 + cc]
+  }
+  flip(r, c)
+  flip(r - 1, c)
+  flip(r + 1, c)
+  flip(r, c - 1)
+  flip(r, c + 1)
+}
+
+const emptyFlags = () => Object.fromEntries(FLAGS.map((f) => [f, false])) as Flags
+
+export interface GameData {
+  zone: ZoneId
+  character: string
+  flags: Flags
+  inv: Partial<Record<ItemId, number>>
+  res: { o2: number; lamp: number; water: number }
+  lampOn: boolean
+  notes: string[]
+  taken: string[]
+  discovered: string[]
+  hintsUsed: number
+  hintsShown: string[]
+  faints: number
+  playTime: number
+  valves: boolean[]
+  seq: string[]
+  briefed: boolean
+  ended: boolean
+  /** objet clé tenu en main (barre 1-9) */
+  held: ItemId | null
+  /** secondes de pénalité (erreurs, indices) ajoutées au chrono */
+  penalty: number
+  errors: number
+  /** planning pré-vol (zone 3) */
+  plan: string[]
+  planDone: boolean
+  /** embranchement : garder ou larguer les échantillons */
+  choice: 'keep' | 'drop' | null
+  /** zones dont la présentation cinématique a été vue */
+  toured: number[]
+  ending: 'rescue' | 'fail' | null
+}
+
+export const newGameData = (character = 'nova'): GameData => ({
+  zone: 1,
+  character,
+  flags: emptyFlags(),
+  inv: {},
+  res: { o2: 100, lamp: 100, water: 100 },
+  lampOn: false,
+  notes: [],
+  taken: [],
+  discovered: [],
+  hintsUsed: 0,
+  hintsShown: [],
+  faints: 0,
+  playTime: 0,
+  valves: initialValves(),
+  seq: [],
+  briefed: false,
+  ended: false,
+  held: null,
+  penalty: 0,
+  errors: 0,
+  plan: [],
+  planDone: false,
+  choice: null,
+  toured: [],
+  ending: null,
+})
+
+export interface GameState extends GameData {
+  screen: Screen
+  paused: boolean
+  locked: boolean // pointer lock actif
+  tabletOpen: boolean
+  tab: number
+  puzzle: PuzzleId | null
+  readNote: string | null
+  cine: CineKind
+  cineT0: number
+  toasts: Toast[]
+  settingsOpen: boolean
+  creditsOpen: boolean
+  tp: { pos: [number, number, number]; yaw: number; n: number } | null
+  loading: number // 0..1, 1 = prêt
+  settings: Settings
+  subtitle: string | null
+  shake: number
+  aimLabel: string | null
+  resume: { pos: [number, number, number]; yaw: number } | null
+  user: { id: number; email: string; pseudo: string } | null
+  offline: boolean
+  lastResult: { timeMs: number; score: number; rank: number | null } | null
+  set: (p: Partial<GameState>) => void
+}
+
+const SETTINGS_KEY = 'cosmotrap.settings.v1'
+
+export function isMobile() {
+  return typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches
+}
+
+/** estimation de la puissance graphique pour choisir la qualité par défaut */
+export function detectQuality(): Quality {
+  if (isMobile()) return 'low'
+  try {
+    const c = document.createElement('canvas')
+    const gl = c.getContext('webgl2') as WebGL2RenderingContext | null
+    if (!gl) return 'low'
+    const ext = gl.getExtension('WEBGL_debug_renderer_info')
+    const r = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)).toLowerCase()
+    const cores = navigator.hardwareConcurrency || 4
+    if (/swiftshader|llvmpipe|software|basic render/.test(r)) return 'low'
+    if (/rtx|radeon rx [67]|rx 7|apple m[2-9] (pro|max|ultra)|apple m[3-9]/.test(r)) return 'ultra'
+    if (/apple m|apple gpu|geforce gtx 1[0-9]|rx 5|arc a/.test(r)) return 'high'
+    if (/intel|uhd|iris|mali|adreno/.test(r)) return cores >= 8 ? 'medium' : 'low'
+    return cores >= 8 ? 'high' : 'medium'
+  } catch {
+    return 'medium'
+  }
+}
+
+function loadSettings(): Settings {
+  const def: Settings = {
+    quality: detectQuality(),
+    sensitivity: 1,
+    invertY: false,
+    music: 0.7,
+    sfx: 0.85,
+    voice: 0.9,
+    fov: 72,
+    colorblind: false,
+    keys: DEFAULT_KEYS,
+    showFps: false,
+  }
+  try {
+    const q = new URLSearchParams(location.search).get('quality') as Quality | null
+    const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null')
+    const out = { ...def, ...(s || {}), keys: { ...DEFAULT_KEYS, ...(s?.keys || {}) } }
+    if (q) out.quality = q
+    return out
+  } catch {
+    return def
+  }
+}
+
+export function saveSettings(s: Settings) {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s))
+  } catch {
+    /* stockage indisponible */
+  }
+}
+
+export const useGame = create<GameState>((set) => ({
+  ...newGameData(),
+  screen: 'login',
+  paused: false,
+  locked: false,
+  tabletOpen: false,
+  tab: 0,
+  puzzle: null,
+  readNote: null,
+  cine: null,
+  cineT0: 0,
+  toasts: [],
+  settingsOpen: false,
+  creditsOpen: false,
+  tp: null,
+  loading: 1,
+  settings: loadSettings(),
+  subtitle: null,
+  shake: 0,
+  aimLabel: null,
+  resume: null,
+  user: null,
+  offline: false,
+  lastResult: null,
+  set: (p) => set(p),
+}))
+
+export const G = () => useGame.getState()
+
+let toastId = 1
+export function toast(text: string, kind: Toast['kind'] = 'info', ms = 3200) {
+  const id = toastId++
+  useGame.setState((s) => ({ toasts: [...s.toasts.slice(-3), { id, text, kind }] }))
+  setTimeout(() => useGame.setState((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), ms)
+}
+
+export function has(item: ItemId) {
+  return (G().inv[item] ?? 0) > 0
+}
+
+export function addItem(item: ItemId, n = 1) {
+  useGame.setState((s) => ({ inv: { ...s.inv, [item]: (s.inv[item] ?? 0) + n } }))
+}
+
+export function removeItem(item: ItemId, n = 1) {
+  useGame.setState((s) => {
+    const c = Math.max(0, (s.inv[item] ?? 0) - n)
+    const inv = { ...s.inv }
+    if (c === 0) delete inv[item]
+    else inv[item] = c
+    return { inv }
+  })
+}
+
+export function setFlag(f: keyof Flags, v = true) {
+  useGame.setState((s) => ({ flags: { ...s.flags, [f]: v } }))
+}
+
+export function addNote(id: string) {
+  const s = G()
+  if (s.notes.includes(id)) return false
+  useGame.setState({ notes: [...s.notes, id] })
+  return true
+}
+
+export function discover(pid: string) {
+  const s = G()
+  if (!s.discovered.includes(pid)) useGame.setState({ discovered: [...s.discovered, pid] })
+}
+
+export const takenKey = (zone: ZoneId, id: string) => `${zone}:${id}`
+export function isTaken(id: string, zone = G().zone) {
+  return G().taken.includes(takenKey(zone, id))
+}
+export function markTaken(id: string) {
+  const s = G()
+  useGame.setState({ taken: [...s.taken, takenKey(s.zone, id)] })
+}
+
+// ——— sauvegarde ———
+/** une sauvegarde locale par compte */
+const saveKey = () => `cosmotrap.save.v2.${G().user?.id ?? 'guest'}`
+
+export function saveData(): GameData & { pos: number[]; yaw: number; savedAt: number } {
+  const s = G()
+  const keys = Object.keys(newGameData()) as (keyof GameData)[]
+  const d = Object.fromEntries(keys.map((k) => [k, s[k]])) as unknown as GameData
+  return { ...d, seq: [], pos: live.pos, yaw: live.yaw, savedAt: Date.now() }
+}
+
+/** sauvegarde locale + dans le compte (si connecté) */
+export function saveGame(cloud = true) {
+  const s = G()
+  if (s.screen !== 'playing' || s.ended) return
+  const d = saveData()
+  try {
+    localStorage.setItem(saveKey(), JSON.stringify(d))
+  } catch {
+    /* stockage indisponible */
+  }
+  if (cloud && s.user) cloudSave?.(d)
+}
+
+/** branché par api.ts pour éviter une dépendance circulaire */
+export let cloudSave: ((d: unknown) => void) | null = null
+export function setCloudSave(fn: (d: unknown) => void) {
+  cloudSave = fn
+}
+
+export type SaveFile = GameData & { pos?: [number, number, number]; yaw?: number; savedAt?: number }
+
+export function normalizeSave(d: any): SaveFile | null {
+  if (!d || !d.zone) return null
+  return { ...newGameData(d.character), ...d, flags: { ...emptyFlags(), ...d.flags } }
+}
+
+export function loadSave(): SaveFile | null {
+  try {
+    const raw = localStorage.getItem(saveKey())
+    if (!raw) return null
+    return normalizeSave(JSON.parse(raw))
+  } catch {
+    return null
+  }
+}
+
+export function clearSave() {
+  try {
+    localStorage.removeItem(saveKey())
+  } catch {
+    /* rien */
+  }
+}

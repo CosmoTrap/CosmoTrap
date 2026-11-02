@@ -1,0 +1,50 @@
+import { useEffect, useState } from 'react'
+import { fr } from '../../i18n/fr'
+import { audio } from '../audio/audio'
+import { submitKeypad } from '../logic'
+
+// Énigme 1 (zone 1) : casier de secours, code à 4 chiffres.
+export function Keypad() {
+  const T = fr.puzzles.keypad
+  const [code, setCode] = useState('')
+  const [state, setState] = useState<'' | 'err' | 'ok'>('')
+  const press = (d: string) => {
+    audio.sfx('keypad')
+    setState('')
+    if (d === 'C') return setCode('')
+    if (d === 'OK') {
+      const ok = submitKeypad(code)
+      setState(ok ? 'ok' : 'err')
+      if (!ok) setTimeout(() => setCode(''), 400)
+      return
+    }
+    setCode((c) => (c.length < 4 ? c + d : c))
+  }
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      if (/^(Digit|Numpad)[0-9]$/.test(e.code)) press(e.code.slice(-1))
+      else if (e.code === 'Enter' || e.code === 'NumpadEnter') press('OK')
+      else if (e.code === 'Backspace') setCode((c) => c.slice(0, -1))
+      else return
+      e.stopPropagation()
+    }
+    window.addEventListener('keydown', k, true)
+    return () => window.removeEventListener('keydown', k, true)
+  })
+  return (
+    <div className="panel" data-testid="keypad">
+      <h2>{T.title}</h2>
+      <p className="sub">{T.sub}</p>
+      <div className={`lcd ${state}`} data-testid="keypad-lcd">
+        {code.padEnd(4, '·')}
+      </div>
+      <div className="keypad">
+        {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', 'OK'].map((d) => (
+          <button key={d} data-testid={`key-${d}`} onClick={() => press(d)}>
+            {d}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}

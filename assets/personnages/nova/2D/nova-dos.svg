@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 260" width="200" height="260">
+<defs>
+<radialGradient id="astGlass" cx="34%" cy="26%" r="72%"><stop offset="0" stop-color="#fff" stop-opacity="0.6"/><stop offset="0.4" stop-color="#fff" stop-opacity="0.06"/><stop offset="1" stop-color="#0E1033" stop-opacity="0.28"/></radialGradient>
+<radialGradient id="astFace" cx="38%" cy="30%" r="78%"><stop offset="0" stop-color="#fff" stop-opacity="0.3"/><stop offset="0.5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.22"/></radialGradient>
+<linearGradient id="astShade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.35"/><stop offset="0.45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.3"/></linearGradient>
+<linearGradient id="astSide" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0.28"/><stop offset="0.45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.25"/></linearGradient>
+</defs>
+<ellipse cx="100" cy="250" rx="56" ry="7" fill="#000" opacity="0.28"/>
+<line x1="80" y1="26" x2="67" y2="10" stroke="#137A71" stroke-width="4" stroke-linecap="round"/>
+<circle cx="66" cy="8" r="5.5" fill="#FF8A5B" stroke="#1A1033" stroke-width="3" stroke-linejoin="round"/>
+<rect x="66" y="192" width="28" height="48" rx="12" fill="#1FB5A8" stroke="#1A1033" stroke-width="3" stroke-linejoin="round"/>
+<path d="M64,226 h32 v10 a6,6 0 0 1 -6,6 h-20 a6,6 0 0 1 -6,-6 Z" fill="#137A71" stroke="#1A1033" stroke-width="3" stroke-linejoin="round"/>
+<rect x="64" y="224" width="32" height="4" fill="#FF8A5B"/>
+<rect x="106" y="192" width="28" height="48" rx="12" fill="#1FB5A8" stroke="#1A1033" stroke-width="3" stroke-linejoin="round"/>
+<path d="M104,226 h32 v10 a6,6 0 0 1 -6,6 h-20 a6,6 0 0 1 -6,-6 Z" fill="#137A71" stroke="#1A1033" stroke-width="3" stroke-linejoin="round"/>
+<rect x="104" y="224" width="32" height="4" fill="#FF8A5B"/>
+<rect x="36" y="134" width="26" height="62" rx="13" fill="#1FB5A8" transform="rotate(14 49 140)" stroke="#1A1033" stroke-width="3" stroke-linejoin="round"/>
+<circle cx="36" cy="192" r="12" fill="#F4F1E8" stroke="#1A1033" stroke-width="3" stroke-linejoin="round"/>
+<rect x="138" y="134" width="26" height="62" rx="13" fill="#1FB5A8" transform="rotate(-14 151 140)" stroke="#1A1033" stroke-width="3" stroke-linejoin="round"/>
+<circle cx="164" cy="192" r="12" fill="#F4F1E8" stroke="#1A1033" stroke-width="3" stroke-linejoin="round"/>
+<rect x="50" y="124" width="100" height="84" rx="36" fill="#1FB5A8" stroke="#1A1033" stroke-width="3" stroke-linejoin="round"/>
+<rect x="72" y="146" width="56" height="40" rx="10" fill="#137A71" stroke="#1A1033" stroke-width="3" stroke-linejoin="round"/>
+<rect x="80" y="156" width="40" height="6" rx="3" fill="#FF8A5B"/>
+<rect x="80" y="168" width="26" height="6" rx="3" fill="#F4F1E8" opacity="0.8"/>
+<circle cx="100" cy="80" r="60" fill="#CFE6FF"/>
+<circle cx="62" cy="92" r="7" fill="#8D5A3B" stroke="#1A1033" stroke-width="3" stroke-linejoin="round"/>
+<circle cx="138" cy="92" r="7" fill="#8D5A3B" stroke="#1A1033" stroke-width="3" stroke-linejoin="round"/>
+<circle cx="100" cy="86" r="38" fill="#8D5A3B" stroke="#1A1033" stroke-width="3" stroke-linejoin="round"/>
+<path d="M62,86 A38,38 0 0 1 138,86 C138,104 130,116 118,120 C106,123 94,123 82,120 C70,116 62,104 62,86 Z" fill="#1B1B1B"/>
+<circle cx="66" cy="80" r="12" fill="#1B1B1B"/>
+<circle cx="68" cy="100" r="11" fill="#1B1B1B"/>
+<circle cx="134" cy="80" r="12" fill="#1B1B1B"/>
+<circle cx="132" cy="100" r="11" fill="#1B1B1B"/>
+<circle cx="84" cy="112" r="11" fill="#1B1B1B"/>
+<circle cx="100" cy="115" r="11" fill="#1B1B1B"/>
+<circle cx="116" cy="112" r="11" fill="#1B1B1B"/>
+<circle cx="100" cy="52" r="14" fill="#1B1B1B"/>
+<circle cx="80" cy="58" r="13" fill="#1B1B1B"/>
+<circle cx="120" cy="58" r="13" fill="#1B1B1B"/>
+<path d="M144,70 A46,46 0 0 0 110,34" fill="none" stroke="#fff" opacity="0.75" stroke-width="6" stroke-linecap="round"/>
+<circle cx="144" cy="84" r="3" fill="#fff" opacity="0.75"/>
+<circle cx="100" cy="80" r="60" fill="none" stroke="#1A1033" stroke-width="8"/>
+<circle cx="100" cy="80" r="60" fill="none" stroke="#137A71" stroke-width="4"/>
+<ellipse cx="100" cy="137" rx="46" ry="10" fill="#137A71" stroke="#1A1033" stroke-width="3" stroke-linejoin="round"/>
+<ellipse cx="100" cy="135" rx="38" ry="5" fill="#1FB5A8" opacity="0.6"/>
+</svg>
