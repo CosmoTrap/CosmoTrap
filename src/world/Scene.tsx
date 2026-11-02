@@ -112,19 +112,32 @@ function PhysicsWorld() {
 }
 
 /** ajuste le DPR si les performances chutent (tous types de PC) */
+/** résolution de rendu : automatique (baisse si les images/s chutent) ou fixée par le joueur */
 function AdaptiveDpr() {
   const quality = useGame((s) => s.settings.quality)
+  const resolution = useGame((s) => s.settings.resolution)
   const acc = useRef({ t: 0, n: 0, dpr: 0 })
-  useFrame(({ gl }, dt) => {
+  useFrame(({ gl, size }, dt) => {
     const a = acc.current
+    a.t += dt
+    a.n++
+    if (resolution !== 'auto') {
+      // hauteur de rendu choisie (720p, 1080p, 4K…) quelle que soit la taille de la fenêtre
+      const want = THREE.MathUtils.clamp(resolution / Math.max(1, size.height), 0.25, 3)
+      if (Math.abs(gl.getPixelRatio() - want) > 0.01) gl.setPixelRatio(want)
+      if (a.t > 2) {
+        live.fps = a.n / a.t
+        a.t = 0
+        a.n = 0
+      }
+      return
+    }
     const [lo, hi] = QUALITY[quality].dpr
     const target = Math.min(window.devicePixelRatio || 1, hi)
     if (!a.dpr) {
       a.dpr = target
       gl.setPixelRatio(a.dpr)
     }
-    a.t += dt
-    a.n++
     if (a.t > 2) {
       const fps = a.n / a.t
       live.fps = fps
@@ -137,7 +150,7 @@ function AdaptiveDpr() {
   })
   useEffect(() => {
     acc.current.dpr = 0
-  }, [quality])
+  }, [quality, resolution])
   return null
 }
 

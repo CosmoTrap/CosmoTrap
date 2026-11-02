@@ -25,6 +25,8 @@ export interface Settings {
   showFps: boolean
   /** afficher la réplique fantôme du record */
   ghost: boolean
+  /** hauteur de rendu en pixels, ou automatique */
+  resolution: 'auto' | number
   /** regarder en glissant à deux doigts sur le pavé tactile (ou molette) */
   trackpadLook: boolean
 }
@@ -237,6 +239,7 @@ function loadSettings(): Settings {
     keys: DEFAULT_KEYS,
     showFps: false,
     ghost: true,
+    resolution: 'auto',
     trackpadLook: true,
   }
   try {
@@ -290,10 +293,20 @@ export const useGame = create<GameState>((set) => ({
 export const G = () => useGame.getState()
 
 let toastId = 1
+const toastTimers = new Map<number, ReturnType<typeof setTimeout>>()
 export function toast(text: string, kind: Toast['kind'] = 'info', ms = 3200) {
-  const id = toastId++
-  useGame.setState((s) => ({ toasts: [...s.toasts.slice(-3), { id, text, kind }] }))
-  setTimeout(() => useGame.setState((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), ms)
+  // même message déjà affiché : on prolonge au lieu de l'empiler
+  const same = useGame.getState().toasts.find((t) => t.text === text)
+  const id = same?.id ?? toastId++
+  if (!same) useGame.setState((s) => ({ toasts: [...s.toasts.slice(-3), { id, text, kind }] }))
+  clearTimeout(toastTimers.get(id))
+  toastTimers.set(
+    id,
+    setTimeout(() => {
+      toastTimers.delete(id)
+      useGame.setState((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }))
+    }, ms),
+  )
 }
 
 export function has(item: ItemId) {
@@ -391,5 +404,21 @@ export function clearSave() {
     localStorage.removeItem(saveKey())
   } catch {
     /* rien */
+  }
+}
+
+/** plein écran (avec repli Safari) ; sur mobile, verrouille aussi le paysage */
+export async function toggleFullscreen() {
+  const d = document as any
+  const el = document.documentElement as any
+  try {
+    if (document.fullscreenElement || d.webkitFullscreenElement) {
+      await (document.exitFullscreen?.() ?? d.webkitExitFullscreen?.())
+    } else {
+      await (el.requestFullscreen?.({ navigationUI: 'hide' }) ?? el.webkitRequestFullscreen?.())
+      await (screen.orientation as any)?.lock?.('landscape').catch?.(() => {})
+    }
+  } catch {
+    /* refusé par le navigateur */
   }
 }

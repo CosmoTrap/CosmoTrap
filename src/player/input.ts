@@ -14,6 +14,7 @@ export type Action =
   | 'drink'
   | 'tablet'
   | 'pause'
+  | 'fullscreen'
 
 export type KeyMap = Record<Action, string[]>
 
@@ -30,9 +31,10 @@ export const DEFAULT_KEYS: KeyMap = {
   drink: ['KeyB'],
   tablet: ['Tab'],
   pause: ['KeyP', 'Escape'],
+  fullscreen: ['F11', 'KeyG'],
 }
 
-export const ACTION_ORDER: Action[] = ['forward', 'back', 'left', 'right', 'run', 'act', 'lamp', 'o2', 'battery', 'drink', 'tablet', 'pause']
+export const ACTION_ORDER: Action[] = ['forward', 'back', 'left', 'right', 'run', 'act', 'lamp', 'o2', 'battery', 'drink', 'tablet', 'pause', 'fullscreen']
 
 let layout: Map<string, string> | null = null
 ;(navigator as any).keyboard

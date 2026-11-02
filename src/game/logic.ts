@@ -175,7 +175,10 @@ export function act(id: string) {
   const e = entById(id)
   if (!e || !entActive(e)) return false
   const { p } = entWorld(e)
-  const needsLight = !!e.item || ['board', 'plate', 'postit', 'labNote', 'serreNote', 'cargoNote', 'terminal', 'locker'].includes(e.id)
+  // les ressources (O₂, piles, eau) portent un marquage phosphorescent : on peut les prendre dans le noir,
+  // sinon une lampe vide sans piles bloquerait la partie. Les objets clés et la lecture exigent de la lumière.
+  const glows = !!e.item && ITEM_KIND[e.item] === 'resource'
+  const needsLight = (!!e.item && !glows) || ['board', 'plate', 'postit', 'labNote', 'serreNote', 'cargoNote', 'terminal', 'locker'].includes(e.id)
   if (needsLight && isDarkAt(p[0], p[2]) && !canSeeInDark()) {
     toast(!has('lamp') ? M.noLamp : s.res.lamp <= 0 ? M.lampEmpty : M.tooDark, 'bad')
     audio.sfx('error', { vol: 0.5 })

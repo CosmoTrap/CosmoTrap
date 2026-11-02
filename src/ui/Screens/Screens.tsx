@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { audio } from '../../game/audio/audio'
 import { SURVIVAL_ITEMS } from '../../game/items'
-import { G, clearSave, live, loadSave, newGameData, useGame, type SaveFile } from '../../game/state'
+import { G, clearSave, live, loadSave, newGameData, toggleFullscreen, useGame, type SaveFile } from '../../game/state'
 import { deleteCloudSave, fetchCloudSave, fmtTime, leaderboard, logout, submitScore, type Row } from '../../game/api'
 import { skipCine } from '../../world/Cinematics'
 import { IMPACT_T, prologue } from '../../world/TitleScene'
@@ -86,6 +86,9 @@ export function Title() {
       <div className="user-chip">
         <i style={{ background: user ? undefined : '#ffd23a' }} />
         {user ? fr.auth.hello(user.pseudo) : offline ? 'Hors ligne · invité' : '—'}
+        <button className="chip-link" onClick={() => toggleFullscreen()}>
+          ⛶ Plein écran
+        </button>
         <button className="chip-link" onClick={() => (user ? logout() : useGame.setState({ screen: 'login', offline: false }))}>
           {user ? fr.auth.logout : fr.auth.login}
         </button>
@@ -292,6 +295,9 @@ export function Pause() {
           </button>
           <button className="btn" onClick={() => setSettings(true)}>
             {M.settings}
+          </button>
+          <button className="btn" onClick={() => toggleFullscreen()}>
+            Plein écran
           </button>
           <button
             className="btn"

@@ -180,6 +180,21 @@ function PenaltyFlash() {
   return <div className="penalty-flash" ref={ref} style={{ opacity: 0 }} />
 }
 
+/** rappel « verrouiller la souris » : affiché quelques secondes seulement, puis disparaît */
+function LockHint() {
+  const [show, setShow] = useState(true)
+  useEffect(() => {
+    const t = setTimeout(() => setShow(false), 6000)
+    return () => clearTimeout(t)
+  }, [])
+  if (!show) return null
+  return (
+    <div className="click-to-play" style={{ pointerEvents: 'auto' }} onClick={requestLock}>
+      {fr.menu.clickToPlay}
+    </div>
+  )
+}
+
 function Fps() {
   const show = useGame((s) => s.settings.showFps)
   const [v, setV] = useState(0)
@@ -247,11 +262,7 @@ export function Hud() {
       <PenaltyFlash />
       <Banner />
       <CineOverlay />
-      {!touch && !locked && !overlay && !cine && (
-        <div className="click-to-play" style={{ pointerEvents: 'auto' }} onClick={requestLock}>
-          {fr.menu.clickToPlay}
-        </div>
-      )}
+      {!touch && !locked && !overlay && !cine && <LockHint />}
       <Fps />
     </div>
   )

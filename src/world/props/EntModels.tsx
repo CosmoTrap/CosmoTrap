@@ -6,6 +6,7 @@ import { audio } from '../../game/audio/audio'
 import { fr } from '../../i18n/fr'
 import { GRID_MAPS, placeOf, roomAt } from '../../game/maps'
 import { allEnts, entActive } from '../../game/logic'
+import { ITEM_KIND } from '../../game/items'
 import { live, useGame } from '../../game/state'
 import type { Ent, ZoneId } from '../../game/types'
 import { Astronaut } from '../Astronaut'
@@ -39,19 +40,37 @@ function Hitbox({ e }: { e: Ent }) {
 }
 
 /** petit reflet pulsé pour repérer les objets à ramasser */
-function Glint() {
-  const ref = useRef<THREE.Mesh>(null)
-  const mat = useMemo(() => new THREE.MeshBasicMaterial({ color: '#fff1d6', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }), [])
-  useFrame(({ clock, camera }) => {
-    const t = clock.elapsedTime
-    mat.opacity = 0.15 + Math.pow(Math.max(0, Math.sin(t * 2.2)), 8) * 0.9
-    ref.current?.quaternion.copy(camera.quaternion)
-  })
-  return (
-    <mesh ref={ref} position={[0, 0.12, 0.05]} material={mat}>
-      <planeGeometry args={[0.05, 0.05]} />
-    </mesh>
+// petite étincelle douce (texture ronde, plus de carré visible)
+let sparkTex: THREE.Texture | null = null
+function sparkTexture() {
+  if (sparkTex) return sparkTex
+  const c = document.createElement('canvas')
+  c.width = c.height = 64
+  const g = c.getContext('2d')!
+  const r = g.createRadialGradient(32, 32, 0, 32, 32, 32)
+  r.addColorStop(0, 'rgba(255,255,255,1)')
+  r.addColorStop(0.15, 'rgba(255,255,255,0.6)')
+  r.addColorStop(1, 'rgba(255,255,255,0)')
+  g.fillStyle = r
+  g.fillRect(0, 0, 64, 64)
+  g.fillStyle = 'rgba(255,255,255,0.7)'
+  g.fillRect(31, 4, 2, 56)
+  g.fillRect(4, 31, 56, 2)
+  sparkTex = new THREE.CanvasTexture(c)
+  return sparkTex
+}
+
+function Glint({ resource }: { resource: boolean }) {
+  const mat = useMemo(
+    () => new THREE.SpriteMaterial({ map: sparkTexture(), color: resource ? '#7dffb0' : '#fff1d6', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }),
+    [resource],
   )
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime
+    // les ressources gardent une lueur phosphorescente visible dans le noir
+    mat.opacity = (resource ? 0.35 : 0.05) + Math.pow(Math.max(0, Math.sin(t * 2.2)), 8) * 0.9
+  })
+  return <sprite position={[0, 0.14, 0.05]} scale={resource ? 0.14 : 0.1} material={mat} />
 }
 
 function Bracket() {
@@ -654,7 +673,7 @@ function EntNode({ e, zone }: { e: Ent; zone: ZoneId }) {
       <group position={p} rotation={[0, r, 0]}>
         {model ? model(e) : null}
         {e.item && e.wall && (e.y ?? 0) > 0.3 && WALL_BRACKET.has(e.model) && <Bracket />}
-        {e.item && <Glint />}
+        {e.item && <Glint resource={ITEM_KIND[e.item] === 'resource'} />}
         {active && <Hitbox e={e} />}
       </group>
     </RoomCtx.Provider>

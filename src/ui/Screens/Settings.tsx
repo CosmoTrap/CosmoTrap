@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { audio } from '../../game/audio/audio'
-import { saveSettings, useGame, type Quality, type Settings as S } from '../../game/state'
+import { saveSettings, toggleFullscreen, useGame, type Quality, type Settings as S } from '../../game/state'
 import { fr } from '../../i18n/fr'
 import { ACTION_ORDER, DEFAULT_KEYS, keyName, type Action } from '../../player/input'
 
@@ -18,6 +18,7 @@ const ACTION_LABEL: Record<Action, string> = {
   drink: 'Boire',
   tablet: 'Tablette',
   pause: 'Pause',
+  fullscreen: 'Plein écran',
 }
 
 export function update(p: Partial<S>) {
@@ -74,8 +75,35 @@ function KeyRow({ a }: { a: Action }) {
   )
 }
 
+function useFullscreen() {
+  const [fs, setFs] = useState(!!document.fullscreenElement)
+  useEffect(() => {
+    const on = () => setFs(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', on)
+    return () => document.removeEventListener('fullscreenchange', on)
+  }, [])
+  return fs
+}
+
+/** résolution réelle du rendu 3D (mise à jour toutes les secondes) */
+function useRenderRes() {
+  const [r, setR] = useState('')
+  useEffect(() => {
+    const read = () => {
+      const c = document.querySelector('canvas')
+      if (c) setR(`${c.width} × ${c.height}`)
+    }
+    read()
+    const id = setInterval(read, 1000)
+    return () => clearInterval(id)
+  }, [])
+  return r
+}
+
 export function Settings({ onClose }: { onClose: () => void }) {
   const s = useGame((st) => st.settings)
+  const fs = useFullscreen()
+  const res = useRenderRes()
   const [tab, setTab] = useState<'gfx' | 'audio' | 'keys'>('gfx')
   return (
     <div className="modal-bg" style={{ zIndex: 40 }} onClick={onClose}>
@@ -107,6 +135,32 @@ export function Settings({ onClose }: { onClose: () => void }) {
                 {(['low', 'medium', 'high', 'ultra'] as Quality[]).map((q) => (
                   <button key={q} className={s.quality === q ? 'on' : ''} onClick={() => update({ quality: q })}>
                     {q === 'ultra' ? 'Ultra' : T.qualities[q]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="set-row">
+              <span>
+                Plein écran
+                <br />
+                <small style={{ color: 'var(--muted)' }}>Raccourci : {keyName(s.keys.fullscreen?.[0] ?? 'F11')} (modifiable dans Touches)</small>
+              </span>
+              <button className="btn" data-testid="fullscreen" onClick={() => toggleFullscreen()}>
+                {fs ? 'Quitter le plein écran' : 'Passer en plein écran'}
+              </button>
+            </div>
+            <div className="set-row">
+              <span>
+                Résolution de rendu
+                <br />
+                <small style={{ color: 'var(--muted)' }}>
+                  Auto : s’adapte à ta machine. Une valeur fixe force la résolution, même en fenêtre. Actuellement : {res}
+                </small>
+              </span>
+              <div className="seg">
+                {(['auto', 720, 900, 1080, 1440, 2160] as const).map((r) => (
+                  <button key={r} data-testid={`res-${r}`} className={s.resolution === r ? 'on' : ''} onClick={() => update({ resolution: r })}>
+                    {r === 'auto' ? 'Auto' : r === 2160 ? '4K' : `${r}p`}
                   </button>
                 ))}
               </div>

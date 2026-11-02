@@ -72,7 +72,9 @@ export function Ghost() {
     const s = G()
     const gh = live.ghost
     const p = show && gh && !s.cine ? sample(gh.track, s.playTime) : null
-    if (!p || p[0] !== s.zone) {
+    // caché s'il est collé au joueur (sinon des morceaux traversent la caméra au départ)
+    const near = p && Math.hypot(p[1] - live.pos[0], p[2] - live.pos[2]) < 1.6
+    if (!p || p[0] !== s.zone || near) {
       grp.visible = false
       return
     }

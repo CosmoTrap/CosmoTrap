@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { audio } from '../game/audio/audio'
 import { act, drinkPouch, entById, labelOf, toggleLamp, useBattery, useO2, useSlot } from '../game/logic'
 import { GRID_MAPS, roomAt, spawnOf } from '../game/maps'
-import { G, live, useGame } from '../game/state'
+import { G, live, toggleFullscreen, useGame } from '../game/state'
 import { QUALITY } from '../world/quality'
 import { hitboxes } from '../world/props/EntModels'
 import { lampCookie } from '../world/textures'
@@ -28,6 +28,11 @@ export function useInputListeners() {
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       const s = G()
+      if (matches(s.settings.keys, 'fullscreen', e.code) && !(window as any).__rebinding && (e.target as HTMLElement)?.tagName !== 'INPUT') {
+        e.preventDefault()
+        toggleFullscreen()
+        return
+      }
       if (s.screen !== 'playing') return
       if ((window as any).__rebinding) return
       markKeyboard()
