@@ -111,6 +111,8 @@ export interface RoomDef {
   intensity?: number
   /** pas de lumière dynamique dans cette pièce (néons émissifs seulement) */
   noDynLight?: boolean
+  /** néons défaillants qui grésillent */
+  flicker?: boolean
   /** palette de murs */
   theme?: 'station' | 'lab' | 'machine' | 'rocket' | 'green'
 }

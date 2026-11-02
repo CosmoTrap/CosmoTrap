@@ -409,7 +409,7 @@ export function Zone4() {
       <Environment frames={1} resolution={128}>
         <Sky sunPosition={sunPos} turbidity={7} rayleigh={2.4} mieCoefficient={0.007} mieDirectionalG={0.86} />
       </Environment>
-      <hemisphereLight args={['#a9c2e6', '#5a4a30', 0.75]} />
+      <hemisphereLight args={['#a9c2e6', '#5a4a30', 0.5]} />
       <SunLight size={q.sunShadow} />
       <Terrain />
       <Mountains />

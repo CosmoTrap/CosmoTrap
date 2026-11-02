@@ -20,7 +20,7 @@ export const zone1: GridMap = {
   rooms: [
     { id: 'dortoir', name: 'dortoir', rect: [1, 1, 6, 3], light: '#ffe2c0', intensity: 9 },
     { id: 'refectoire', name: 'refectoire', rect: [8, 1, 22, 3], light: '#fff1de', intensity: 14 },
-    { id: 'couloir', name: 'couloir', rect: [1, 5, 22, 5], light: '#dfe9ff', intensity: 9 },
+    { id: 'couloir', name: 'couloir', rect: [1, 5, 22, 5], light: '#dfe9ff', intensity: 9, flicker: true },
     { id: 'reserve', name: 'reserve', rect: [1, 7, 6, 9], dark: true, noDynLight: true },
     { id: 'infirmerie', name: 'infirmerie', rect: [8, 7, 16, 9], light: '#e8f6ff', intensity: 11, theme: 'lab' },
     { id: 'sas', name: 'sas', rect: [18, 7, 22, 9], light: '#ff5a3a', intensity: 7, theme: 'machine' },

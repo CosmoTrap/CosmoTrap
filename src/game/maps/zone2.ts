@@ -21,7 +21,7 @@ export const zone2: GridMap = {
     { id: 'labo', name: 'labo', rect: [1, 1, 7, 3], light: '#eef6ff', intensity: 12, theme: 'lab' },
     { id: 'serre', name: 'serre', rect: [9, 1, 15, 3], light: '#ff7ad9', intensity: 10, theme: 'green' },
     { id: 'disjoncteur', name: 'disjoncteur', rect: [17, 1, 23, 3], light: '#ffb070', intensity: 5, theme: 'machine' },
-    { id: 'couloir', name: 'couloir', rect: [1, 5, 23, 5], light: '#dfe9ff', intensity: 8 },
+    { id: 'couloir', name: 'couloir', rect: [1, 5, 23, 5], light: '#dfe9ff', intensity: 8, flicker: true },
     { id: 'machinerie', name: 'machinerie', rect: [1, 7, 15, 10], dark: true, light: '#cfe0ff', intensity: 16, theme: 'machine' },
     { id: 'amarrage', name: 'amarrage', rect: [17, 7, 23, 10], light: '#9fd0ff', intensity: 9, theme: 'machine' },
   ],

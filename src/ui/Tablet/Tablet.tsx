@@ -5,6 +5,7 @@ import { allEnts, drinkPouch, entActive, hintFor, hintKey, puzzleStatus, request
 import { GRID_MAPS, entWorld } from '../../game/maps'
 import { BOUNDS, BRIDGE_X, RIVER_HALF, riverCenter } from '../../game/maps/zone4'
 import { live, useGame } from '../../game/state'
+import { CELL4, isExplored } from '../../game/explore'
 import type { DotKind, ItemId } from '../../game/types'
 import { closeTablet } from '../../player/Player'
 import { ItemIcon } from '../Icons'
@@ -126,79 +127,106 @@ function Notebook() {
   )
 }
 
+// couleur de chaque pièce une fois explorée
+const ROOM_COLORS = ['#ff8a5b', '#5bc6ff', '#b18cff', '#5bffb1', '#ffd45b', '#ff5bb0', '#7affea']
+
 function MapTab() {
   const zone = useGame((s) => s.zone)
   const ref = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
     let raf = 0
+    let t = 0
     const draw = () => {
       const c = ref.current
       if (!c) return
+      t += 0.05
       const ctx = c.getContext('2d')!
       const W = c.width
       const H = c.height
       ctx.clearRect(0, 0, W, H)
+      // grain de fond « radar »
+      ctx.fillStyle = 'rgba(2,10,14,0.9)'
+      ctx.fillRect(0, 0, W, H)
+      ctx.strokeStyle = 'rgba(127,227,255,0.05)'
+      for (let x = 0; x < W; x += 22) {
+        ctx.beginPath()
+        ctx.moveTo(x, 0)
+        ctx.lineTo(x, H)
+        ctx.stroke()
+      }
+      for (let y = 0; y < H; y += 22) {
+        ctx.beginPath()
+        ctx.moveTo(0, y)
+        ctx.lineTo(W, y)
+        ctx.stroke()
+      }
       let toPx: (x: number, z: number) => [number, number]
-      let scale: number
       if (zone < 4) {
         const map = GRID_MAPS[zone as 1 | 2 | 3]
         const gw = Math.max(...map.grid.map((r) => r.length))
         const gh = map.grid.length
-        const ts = Math.min((W - 20) / gw, (H - 20) / gh)
+        const ts = Math.min((W - 30) / gw, (H - 30) / gh)
         const ox = (W - gw * ts) / 2
         const oy = (H - gh * ts) / 2
-        scale = ts / 2
         toPx = (x, z) => [ox + (x / 2) * ts, oy + (z / 2) * ts]
         map.grid.forEach((row, tz) =>
           [...row].forEach((ch, tx) => {
-            if (ch === ' ') return
-            const room = map.rooms.find((r) => tx >= r.rect[0] && tx <= r.rect[2] && tz >= r.rect[1] && tz <= r.rect[3])
-            ctx.fillStyle = ch === '#' ? 'rgba(127,227,255,0.22)' : ch === 'W' || ch === 'V' ? 'rgba(127,227,255,0.55)' : ch === 'D' ? 'rgba(255,255,255,0.35)' : room?.dark ? 'rgba(10,30,40,0.9)' : 'rgba(127,227,255,0.07)'
-            ctx.fillRect(ox + tx * ts, oy + tz * ts, ts - 0.5, ts - 0.5)
+            if (ch === ' ' || !live.explored.has(`${zone}:${tx},${tz}`)) return
+            const ri = map.rooms.findIndex((r) => tx >= r.rect[0] && tx <= r.rect[2] && tz >= r.rect[1] && tz <= r.rect[3])
+            const room = map.rooms[ri]
+            if (ch === '#') ctx.fillStyle = 'rgba(216,244,255,0.28)'
+            else if (ch === 'W' || ch === 'V') ctx.fillStyle = 'rgba(127,227,255,0.85)'
+            else if (ch === 'D') ctx.fillStyle = 'rgba(255,255,255,0.55)'
+            else {
+              const col = ROOM_COLORS[ri % ROOM_COLORS.length] ?? '#7fe3ff'
+              ctx.fillStyle = room?.dark ? col + '33' : col + '55'
+            }
+            ctx.fillRect(ox + tx * ts, oy + tz * ts, ts - 0.6, ts - 0.6)
           }),
         )
-        ctx.font = '600 11px Rajdhani, sans-serif'
-        ctx.fillStyle = 'rgba(216,244,255,0.55)'
+        ctx.font = '700 12px Rajdhani, sans-serif'
         ctx.textAlign = 'center'
-        for (const r of map.rooms) ctx.fillText((fr.rooms[r.name] ?? r.name).toUpperCase(), ox + ((r.rect[0] + r.rect[2] + 1) / 2) * ts, oy + r.rect[1] * ts + 13)
+        map.rooms.forEach((r, i) => {
+          const cx = Math.floor((r.rect[0] + r.rect[2]) / 2)
+          const cz = Math.floor((r.rect[1] + r.rect[3]) / 2)
+          if (!live.explored.has(`${zone}:${cx},${cz}`)) return
+          ctx.fillStyle = ROOM_COLORS[i % ROOM_COLORS.length]
+          ctx.fillText((fr.rooms[r.name] ?? r.name).toUpperCase() + (r.dark ? ' ◐' : ''), ox + ((r.rect[0] + r.rect[2] + 1) / 2) * ts, oy + r.rect[1] * ts + 14)
+        })
       } else {
         const bw = BOUNDS.x1 - BOUNDS.x0
         const bh = BOUNDS.z1 - BOUNDS.z0
-        const s = Math.min((W - 20) / bw, (H - 20) / bh)
-        const ox = (W - bw * s) / 2
-        const oy = (H - bh * s) / 2
-        scale = s
-        toPx = (x, z) => [ox + (x - BOUNDS.x0) * s, oy + (z - BOUNDS.z0) * s]
-        ctx.fillStyle = 'rgba(79,227,154,0.08)'
-        ctx.fillRect(ox, oy, bw * s, bh * s)
-        ctx.strokeStyle = 'rgba(90,168,255,0.7)'
-        ctx.lineWidth = RIVER_HALF * 2 * s
-        ctx.beginPath()
-        for (let x = BOUNDS.x0; x <= BOUNDS.x1; x += 1) {
-          const [px, py] = toPx(x, riverCenter(x))
-          if (x === BOUNDS.x0) ctx.moveTo(px, py)
-          else ctx.lineTo(px, py)
+        const sc = Math.min((W - 30) / bw, (H - 30) / bh)
+        const ox = (W - bw * sc) / 2
+        const oy = (H - bh * sc) / 2
+        toPx = (x, z) => [ox + (x - BOUNDS.x0) * sc, oy + (z - BOUNDS.z0) * sc]
+        for (let z = BOUNDS.z0; z < BOUNDS.z1; z += CELL4)
+          for (let x = BOUNDS.x0; x < BOUNDS.x1; x += CELL4) {
+            if (!isExplored(4, x + 1, z + 1)) continue
+            const [px, py] = toPx(x, z)
+            const river = Math.abs(z + CELL4 / 2 - riverCenter(x)) < RIVER_HALF + 1
+            const pad = Math.hypot(x - 6, z + 60) < 8
+            ctx.fillStyle = river ? 'rgba(90,168,255,0.55)' : pad ? 'rgba(216,244,255,0.35)' : z < -46 ? 'rgba(201,180,120,0.35)' : 'rgba(79,227,154,0.22)'
+            ctx.fillRect(px, py, CELL4 * sc - 0.6, CELL4 * sc - 0.6)
+          }
+        if (isExplored(4, BRIDGE_X, riverCenter(BRIDGE_X))) {
+          const [bx, by] = toPx(BRIDGE_X, riverCenter(BRIDGE_X))
+          ctx.fillStyle = useGame.getState().flags.bridge ? '#c9a46a' : 'rgba(201,164,106,0.4)'
+          ctx.fillRect(bx - 4, by - RIVER_HALF * sc - 6, 8, RIVER_HALF * 2 * sc + 12)
         }
-        ctx.stroke()
-        const fixed = useGame.getState().flags.bridge
-        const [bx, by] = toPx(BRIDGE_X, riverCenter(BRIDGE_X))
-        ctx.fillStyle = fixed ? '#c9a46a' : 'rgba(201,164,106,0.35)'
-        ctx.fillRect(bx - 4, by - RIVER_HALF * s - 6, 8, RIVER_HALF * 2 * s + 12)
-        const [hx, hy] = toPx(6, -60)
-        ctx.strokeStyle = 'rgba(216,244,255,0.7)'
-        ctx.lineWidth = 1.5
-        ctx.beginPath()
-        ctx.arc(hx, hy, 6 * s, 0, Math.PI * 2)
-        ctx.stroke()
-        ctx.font = '700 14px Rajdhani'
-        ctx.fillStyle = 'rgba(216,244,255,0.8)'
-        ctx.textAlign = 'center'
-        ctx.fillText('H', hx, hy + 5)
+        if (isExplored(4, 6, -60)) {
+          const [hx, hy] = toPx(6, -60)
+          ctx.font = '700 16px Rajdhani'
+          ctx.fillStyle = 'rgba(216,244,255,0.9)'
+          ctx.textAlign = 'center'
+          ctx.fillText('H', hx, hy + 5)
+        }
       }
-      // points d'intérêt
+      // points d'intérêt : seulement dans les lieux explorés
       for (const e of allEnts(zone)) {
         if (!e.dot || !entActive(e)) continue
         const { p } = entWorld(e)
+        if (!isExplored(zone, p[0], p[2])) continue
         const [px, py] = toPx(p[0], p[2])
         ctx.fillStyle = DOT[e.dot]
         ctx.shadowColor = DOT[e.dot]
@@ -208,8 +236,13 @@ function MapTab() {
         ctx.fill()
         ctx.shadowBlur = 0
       }
-      // joueur
+      // joueur + onde radar
       const [px, py] = toPx(live.pos[0], live.pos[2])
+      const r = (t * 14) % 40
+      ctx.strokeStyle = `rgba(255,255,255,${0.5 * (1 - r / 40)})`
+      ctx.beginPath()
+      ctx.arc(px, py, r, 0, Math.PI * 2)
+      ctx.stroke()
       ctx.save()
       ctx.translate(px, py)
       ctx.rotate(-live.yaw)
@@ -222,7 +255,6 @@ function MapTab() {
       ctx.closePath()
       ctx.fill()
       ctx.restore()
-      void scale
       raf = requestAnimationFrame(draw)
     }
     draw()
@@ -230,7 +262,7 @@ function MapTab() {
   }, [zone])
   return (
     <div>
-      <canvas ref={ref} width={880} height={380} style={{ width: '100%', height: 'auto', borderRadius: 8, background: 'rgba(0,0,0,0.25)' }} />
+      <canvas ref={ref} width={880} height={380} data-testid="minimap" style={{ width: '100%', height: 'auto', borderRadius: 8 }} />
       <div className="legend">
         {(Object.keys(DOT) as DotKind[]).map((k) => (
           <span key={k}>
@@ -242,6 +274,7 @@ function MapTab() {
           <i style={{ background: '#fff' }} />
           {T.legend.you}
         </span>
+        <span style={{ color: 'rgba(216,244,255,.55)' }}>◐ pièce sombre · seuls les lieux explorés s’affichent</span>
       </div>
     </div>
   )

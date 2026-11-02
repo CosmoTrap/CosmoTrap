@@ -3,6 +3,11 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  // dépendances préoptimisées dès le démarrage : évite qu'une réoptimisation en cours de partie
+  // ne charge deux copies de Rapier (écran noir « raweventqueue_new »)
+  optimizeDeps: {
+    include: ['three', '@react-three/fiber', '@react-three/drei', '@react-three/postprocessing', 'postprocessing', '@react-three/rapier', '@dimforge/rapier3d-compat', 'howler', 'zustand', 'three/examples/jsm/utils/BufferGeometryUtils.js'],
+  },
   server: {
     host: true,
     port: 5180,

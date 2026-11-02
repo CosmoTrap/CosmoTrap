@@ -6,6 +6,7 @@ import { deleteCloudSave, fetchCloudSave, fmtTime, leaderboard, logout, submitSc
 import { skipCine } from '../../world/Cinematics'
 import { IMPACT_T, prologue } from '../../world/TitleScene'
 import { computeScore, transitionTo } from '../../game/logic'
+import { loadExplored } from '../../game/explore'
 import { fr } from '../../i18n/fr'
 import { requestLock } from '../../player/Player'
 import { Keypad } from '../../game/puzzles/Keypad'
@@ -70,6 +71,7 @@ export function Title() {
     await audio.init()
     const { pos, yaw, savedAt, ...data } = d
     void savedAt
+    loadExplored(data.explored)
     useGame.setState({ ...data, screen: 'playing', paused: false, cine: null, resume: pos ? { pos, yaw: yaw ?? 0 } : null, tp: null, tabletOpen: false, puzzle: null, readNote: null })
     requestLock()
   }
@@ -186,6 +188,7 @@ export function CharSelect() {
     await audio.init()
     clearSave()
     deleteCloudSave()
+    loadExplored([])
     useGame.setState({ ...newGameData(sel), screen: 'prologue', paused: false, tp: null, resume: null, tabletOpen: false, puzzle: null, readNote: null, lastResult: null })
   }
   return (

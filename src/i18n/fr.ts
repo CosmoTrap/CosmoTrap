@@ -15,7 +15,7 @@ export const fr = {
     back: 'Retour',
     chooseChar: 'Choisis ton astronaute',
     start: 'Commencer la mission',
-    clickToPlay: 'Clique pour reprendre le contrôle',
+    clickToPlay: 'Clique pour verrouiller la souris · ou fais glisser la vue · pavé tactile : glisse à deux doigts',
     loading: 'Chargement',
     rotate: 'Tourne ton téléphone',
     rotateSub: 'Cosmotrap se joue en mode paysage.',

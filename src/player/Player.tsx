@@ -10,6 +10,7 @@ import { QUALITY } from '../world/quality'
 import { hitboxes } from '../world/props/EntModels'
 import { lampCookie } from '../world/textures'
 import { input, isDown, matches } from './input'
+import { reveal } from '../game/explore'
 
 const EYE = 0.77 // au-dessus du centre de la capsule → yeux à 1,62 m
 const REACH = 2.7
@@ -60,28 +61,53 @@ export function useInputListeners() {
       } else if (/^(Digit|Numpad)[1-9]$/.test(e.code)) useSlot(Number(e.code.slice(-1)) - 1)
     }
     const up = (e: KeyboardEvent) => input.down.delete(e.code)
+    // souris verrouillée (souris ou pavé tactile) ; sinon glisser-cliquer sur la vue
+    let dragging = false
     const move = (e: MouseEvent) => {
-      if (document.pointerLockElement) {
+      if (document.pointerLockElement || dragging) {
         input.look.dx += e.movementX
         input.look.dy += e.movementY
       }
     }
+    const pdown = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse' && (e.target as HTMLElement)?.tagName === 'CANVAS' && !document.pointerLockElement) dragging = true
+    }
+    const pup = () => (dragging = false)
+    // pavé tactile : glisser à deux doigts pour regarder (molette : haut / bas)
+    const wheel = (e: WheelEvent) => {
+      const s = G()
+      if (s.screen !== 'playing' || !s.settings.trackpadLook || overlayOpen() || (s.cine && s.cine !== 'briefing')) return
+      if ((e.target as HTMLElement)?.tagName !== 'CANVAS') return
+      e.preventDefault()
+      const k = e.deltaMode === 1 ? 16 : 1
+      input.look.dx += e.deltaX * k * 0.9
+      input.look.dy += e.deltaY * k * 0.9
+    }
     const blur = () => input.down.clear()
+    let lockedAt = 0
     const plc = () => {
       const locked = !!document.pointerLockElement
       useGame.setState({ locked })
+      if (locked) lockedAt = performance.now()
       const s = G()
-      if (!locked && s.screen === 'playing' && !overlayOpen() && !s.cine && !isTouch()) useGame.setState({ paused: true })
+      // pause sur Échap ; on ignore un verrouillage refusé ou relâché aussitôt par le navigateur
+      if (!locked && performance.now() - lockedAt > 600 && s.screen === 'playing' && !overlayOpen() && !s.cine && !isTouch()) useGame.setState({ paused: true })
     }
     window.addEventListener('keydown', down)
     window.addEventListener('keyup', up)
     window.addEventListener('mousemove', move)
+    window.addEventListener('pointerdown', pdown)
+    window.addEventListener('pointerup', pup)
+    window.addEventListener('wheel', wheel, { passive: false })
     window.addEventListener('blur', blur)
     document.addEventListener('pointerlockchange', plc)
     return () => {
       window.removeEventListener('keydown', down)
       window.removeEventListener('keyup', up)
       window.removeEventListener('mousemove', move)
+      window.removeEventListener('pointerdown', pdown)
+      window.removeEventListener('pointerup', pup)
+      window.removeEventListener('wheel', wheel)
       window.removeEventListener('blur', blur)
       document.removeEventListener('pointerlockchange', plc)
     }
@@ -286,7 +312,8 @@ export function Player() {
     // son : écouteur
     audio.setListener([camera.position.x, camera.position.y, camera.position.z], [fwd.x, 0, fwd.z])
 
-    // pièce courante
+    // pièce courante + brouillard de la carte
+    if (!s.cine) reveal(s.zone, nx, nz)
     if (s.zone < 4) {
       const room = roomAt(GRID_MAPS[s.zone as 1 | 2 | 3], nx, nz)
       live.roomId = room?.id ?? ''

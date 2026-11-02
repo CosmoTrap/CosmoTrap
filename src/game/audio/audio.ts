@@ -1,6 +1,6 @@
 import { Howl, Howler } from 'howler'
 import { GenerativeMusic, type ThemeId } from './music'
-import { SFX, makeImpulse, makeNoise, startLoop, type LoopName, type SfxName, type SynthCtx } from './synth'
+import { SFX, heart, makeImpulse, makeNoise, startLoop, type LoopName, type SfxName, type SynthCtx } from './synth'
 
 // Gestionnaire audio : fichiers (howler, .ogg + .m4a) si présents dans public/audio/manifest.json,
 // sinon synthèse Web Audio. Ducking de la musique, réverbération intérieure, passe-bas à O₂ < 10 %.
@@ -301,12 +301,28 @@ class AudioManager {
     } else this.music.play(theme)
   }
 
-  setTension(v: number) {
+  setTension(v: number, urgency = 0) {
     if (!this.ctx || !this.ready) return
-    this.music.setTension(v)
+    this.music.setTension(v, urgency)
     const { calm, tension } = this.musicHowls
-    if (calm) calm.volume(this.vols.music * (1 - v * 0.8))
-    if (tension) tension.volume(this.vols.music * v)
+    const k = Math.max(v, urgency * 0.7)
+    if (calm) {
+      calm.volume(this.vols.music * (1 - k * 0.8))
+      calm.rate(1 + 0.25 * Math.max(v, urgency * 0.8))
+    }
+    if (tension) {
+      tension.volume(this.vols.music * k)
+      tension.rate(1 + 0.25 * Math.max(v, urgency * 0.8))
+    }
+  }
+
+  setHeartRate(bpm: number) {
+    heart.bpm = bpm
+  }
+
+  sting(kind: 'solved' | 'discover' | 'danger') {
+    if (!this.ctx || !this.ready) return
+    this.music.sting(kind)
   }
 
   oneShotMusic(kind: 'launch' | 'victory') {

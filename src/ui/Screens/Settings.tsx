@@ -124,6 +124,21 @@ export function Settings({ onClose }: { onClose: () => void }) {
               <input type="range" min={0.2} max={3} step={0.05} value={s.sensitivity} onChange={(e) => update({ sensitivity: +e.target.value })} />
             </div>
             <div className="set-row">
+              <span>
+                Regarder avec le pavé tactile
+                <br />
+                <small style={{ color: 'var(--muted)' }}>Glisser à deux doigts (ou la molette) tourne la caméra, en plus de la souris.</small>
+              </span>
+              <div className="seg">
+                <button className={!s.trackpadLook ? 'on' : ''} onClick={() => update({ trackpadLook: false })}>
+                  {T.off}
+                </button>
+                <button className={s.trackpadLook ? 'on' : ''} onClick={() => update({ trackpadLook: true })}>
+                  {T.on}
+                </button>
+              </div>
+            </div>
+            <div className="set-row">
               <span>{T.invertY}</span>
               <div className="seg">
                 <button className={!s.invertY ? 'on' : ''} onClick={() => update({ invertY: false })}>

@@ -21,6 +21,8 @@ export interface Settings {
   colorblind: boolean
   keys: KeyMap
   showFps: boolean
+  /** regarder en glissant à deux doigts sur le pavé tactile (ou molette) */
+  trackpadLook: boolean
 }
 
 export interface Toast {
@@ -50,6 +52,9 @@ export const live = {
   penaltyFlash: 0,
   card: null as null | { title: string; sub: string; a: number },
   countdown: null as null | string,
+  /** cases explorées (brouillard de la mini-carte) : « zone:x,z » */
+  explored: new Set<string>(),
+  banner: null as null | { title: string; sub: string; t: number },
 }
 
 function initialValves() {
@@ -109,6 +114,8 @@ export interface GameData {
   /** zones dont la présentation cinématique a été vue */
   toured: number[]
   ending: 'rescue' | 'fail' | null
+  /** copie sérialisée de live.explored */
+  explored: string[]
 }
 
 export const newGameData = (character = 'nova'): GameData => ({
@@ -137,6 +144,7 @@ export const newGameData = (character = 'nova'): GameData => ({
   choice: null,
   toured: [],
   ending: null,
+  explored: [],
 })
 
 export interface GameState extends GameData {
@@ -203,6 +211,7 @@ function loadSettings(): Settings {
     colorblind: false,
     keys: DEFAULT_KEYS,
     showFps: false,
+    trackpadLook: true,
   }
   try {
     const q = new URLSearchParams(location.search).get('quality') as Quality | null
@@ -310,7 +319,7 @@ export function saveData(): GameData & { pos: number[]; yaw: number; savedAt: nu
   const s = G()
   const keys = Object.keys(newGameData()) as (keyof GameData)[]
   const d = Object.fromEntries(keys.map((k) => [k, s[k]])) as unknown as GameData
-  return { ...d, seq: [], pos: live.pos, yaw: live.yaw, savedAt: Date.now() }
+  return { ...d, seq: [], explored: [...live.explored], pos: live.pos, yaw: live.yaw, savedAt: Date.now() }
 }
 
 /** sauvegarde locale + dans le compte (si connecté) */

@@ -260,6 +260,7 @@ export function act(id: string) {
         return false
       }
       setFlag('steamFixed')
+      celebrate('p_steam')
       audio.sfx('valve')
       audio.stopLoop('steam')
       toast(M.steamFixed, 'good')
@@ -318,6 +319,7 @@ export function act(id: string) {
       }
       removeItem('cell')
       setFlag('engine')
+      celebrate('p_engine')
       audio.sfx('power_up')
       toast(M.engineOn, 'good')
       return true
@@ -356,6 +358,7 @@ export function act(id: string) {
       }
       removeItem('rope')
       setFlag('bridge')
+      celebrate('p_bridge')
       audio.sfx('rope')
       toast(M.bridgeFixed, 'good')
       return true
@@ -415,6 +418,7 @@ function openPuzzle(p: 'keypad' | 'valves' | 'power' | 'sequence' | 'radio' | 'a
 export function submitKeypad(code: string) {
   if (code === '2041') {
     setFlag('lockerOpen')
+    celebrate('p_locker')
     addItem('badge')
     audio.sfx('success')
     audio.sfx('pickup_key')
@@ -436,6 +440,7 @@ export function pressValve(i: number) {
   audio.sfx('valve', { vol: 0.5 })
   if (v.every(Boolean)) {
     setFlag('pressurized')
+    celebrate('p_valves')
     audio.sfx('airlock')
     audio.sfx('success')
     toast(M.pressurized, 'good', 4000)
@@ -465,6 +470,8 @@ export function togglePower(sys: (typeof POWER_SYSTEMS)[number]) {
     return
   }
   setFlag(sys, !f[sys])
+  const nf = G().flags
+  if (!(f.pw_sas && f.pw_terminal) && nf.pw_sas && nf.pw_terminal) celebrate('p_power')
   audio.sfx(f[sys] ? 'lamp_off' : 'lamp_on')
   if (!f[sys] && sys === 'pw_lights') audio.sfx('power_up', { vol: 0.5 })
 }
@@ -484,6 +491,7 @@ export function pressSeq(color: string) {
   useGame.setState({ seq })
   if (seq.length === SEQUENCE.length) {
     audio.sfx('success')
+    celebrate('p_sequence')
     toast(M.seqOk, 'good')
     setTimeout(() => useGame.setState({ puzzle: null, cine: 'launch', cineT0: performance.now() }), 900)
   }
@@ -494,6 +502,7 @@ export function emitRadio(freq: number) {
     removeItem('carBattery')
     removeItem('antenna')
     setFlag('beacon')
+    celebrate('p_radio')
     audio.sfx('success')
     audio.speak('Signal reçu sur 121,5. Hélicoptère en route.', { radio: true })
     useGame.setState({ subtitle: fr.puzzles.radio.voice })
@@ -513,6 +522,7 @@ export function submitAlgo(colors: string[]) {
   const ok = colors.length === 4 && colors.every((c, i) => c === SEQUENCE[i])
   if (ok) {
     setFlag('readTerminal')
+    celebrate('p_algo')
     addNote('terminal')
     audio.sfx('success')
     toast(fr.algo.ok, 'good', 3500)
@@ -542,6 +552,7 @@ export function pressPlan(task: string) {
   useGame.setState({ plan, planDone: done })
   if (done) {
     audio.sfx('success')
+    celebrate('p_plan')
     toast(fr.plan.ok, 'good', 3500)
     setTimeout(() => useGame.setState({ puzzle: 'dilemma' }), 1100)
   }
@@ -653,6 +664,16 @@ export function useItem(item: ItemId) {
 // ——— boucle des ressources ———
 let alarmT = 0
 let lowO2On = false
+let lastTick = -1
+let urgentWarned = false
+
+/** bannière animée + motif musical quand une énigme est résolue */
+export function celebrate(id: string) {
+  const p = fr.puzzleList.find((x) => x.id === id)
+  if (!p) return
+  live.banner = { title: 'Énigme résolue', sub: `${p.name} · ${p.domain}`, t: performance.now() }
+  audio.sting('solved')
+}
 export function tick(dt: number) {
   const s = G()
   if (s.screen !== 'playing' || s.paused || s.cine) return
@@ -711,7 +732,21 @@ export function tick(dt: number) {
     audio.stopLoop('heartbeat')
     lowO2On = false
   }
-  audio.setTension(low ? 1 : res.o2 < 40 && s.zone < 4 ? 0.35 : 0)
+  // musique : accélère quand l'oxygène baisse ou que le temps presse
+  const left = TIME_LIMIT - (s.playTime + s.penalty)
+  const urgency = left < 180 ? 1 - left / 180 : 0
+  const o2t = s.zone < 4 ? (res.o2 < 25 ? 0.6 + 0.4 * (1 - res.o2 / 25) : res.o2 < 40 ? 0.35 : 0) : 0
+  audio.setTension(o2t, urgency)
+  audio.setHeartRate(low ? 70 + 80 * (1 - res.o2 / 25) : 62)
+  if (left < 60 && Math.floor(left) !== lastTick) {
+    lastTick = Math.floor(left)
+    audio.sfx('tick', { vol: 0.6 })
+  }
+  if (left < 180 && !urgentWarned) {
+    urgentWarned = true
+    audio.sting('danger')
+    toast('Plus que 3 minutes !', 'bad', 3500)
+  }
   audio.setMuffle(s.zone < 4 && res.o2 < 10 ? 1 - res.o2 / 10 : 0)
 }
 
@@ -738,6 +773,7 @@ export function transitionTo(z: ZoneId) {
 
 export function enterZone(z: ZoneId) {
   pendingZone = null
+  urgentWarned = false
   const sp = spawnOf(z)
   audio.stopAllLoops()
   useGame.setState({ zone: z, held: null, tp: { pos: sp.pos, yaw: sp.yaw, n: Date.now() }, lampOn: G().lampOn })

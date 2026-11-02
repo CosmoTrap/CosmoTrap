@@ -88,6 +88,7 @@ export type SfxName =
   | 'rope'
   | 'click'
   | 'gasp'
+  | 'tick'
 
 export const SFX: Record<SfxName, (s: SynthCtx, t: number) => number> = {
   door_open(s, t) {
@@ -356,6 +357,11 @@ export const SFX: Record<SfxName, (s: SynthCtx, t: number) => number> = {
     noise(s, t, 0.015, 0.3, 'highpass', 3000, 1, 0.001)
     return 0.05
   },
+  tick(s, t) {
+    noise(s, t, 0.02, 0.25, 'bandpass', 3800, 6, 0.001)
+    osc(s, 'sine', 1900, t, 0.03, 0.05, 0.001)
+    return 0.05
+  },
   gasp(s, t) {
     const { bf } = noise(s, t, 0.5, 0.2, 'bandpass', 900, 1.5, 0.08)
     bf.frequency.linearRampToValueAtTime(1600, t + 0.5)
@@ -365,6 +371,9 @@ export const SFX: Record<SfxName, (s: SynthCtx, t: number) => number> = {
 }
 
 /** boucles continues : renvoie les noeuds à arrêter */
+/** fréquence cardiaque du joueur (battements / min) */
+export const heart = { bpm: 62 }
+
 export type LoopName = 'steam' | 'heartbeat' | 'amb_station' | 'amb_wind' | 'reentry' | 'rotor' | 'static'
 
 export function startLoop(s: SynthCtx, name: LoopName): { stop: () => void; out: GainNode } {
@@ -375,6 +384,7 @@ export function startLoop(s: SynthCtx, name: LoopName): { stop: () => void; out:
   out.gain.linearRampToValueAtTime(1, ctx.currentTime + 1)
   const nodes: (AudioScheduledSourceNode)[] = []
   let timer: number | null = null
+  let stopExtra: (() => void) | null = null
   const nsrc = (brown = false) => {
     const n = ctx.createBufferSource()
     n.buffer = brown ? s.brown : s.noise
@@ -414,6 +424,7 @@ export function startLoop(s: SynthCtx, name: LoopName): { stop: () => void; out:
     const bp = filt('bandpass', 900, 0.8)
     n2.connect(bp).connect(gain(0.15)).connect(out)
   } else if (name === 'heartbeat') {
+    let alive = true
     const beat = () => {
       const t = ctx.currentTime + 0.05
       const s2 = { ...s, out }
@@ -422,8 +433,14 @@ export function startLoop(s: SynthCtx, name: LoopName): { stop: () => void; out:
       const b = osc(s2, 'sine', 55, t + 0.28, 0.2, 0.45, 0.008)
       b.o.frequency.exponentialRampToValueAtTime(34, t + 0.48)
     }
-    beat()
-    timer = window.setInterval(beat, 1000)
+    // le cœur accélère avec heart.bpm (piloté par l'oxygène)
+    const loop = () => {
+      if (!alive) return
+      beat()
+      timer = window.setTimeout(loop, 60000 / heart.bpm) as unknown as number
+    }
+    loop()
+    stopExtra = () => (alive = false)
   } else if (name === 'amb_station') {
     const n = nsrc(true)
     n.connect(filt('lowpass', 260, 0.7)).connect(gain(0.28)).connect(out)
@@ -501,7 +518,11 @@ export function startLoop(s: SynthCtx, name: LoopName): { stop: () => void; out:
       out.gain.cancelScheduledValues(t)
       out.gain.setValueAtTime(out.gain.value, t)
       out.gain.linearRampToValueAtTime(0, t + 0.8)
-      if (timer) clearInterval(timer)
+      if (timer) {
+        clearInterval(timer)
+        clearTimeout(timer)
+      }
+      stopExtra?.()
       setTimeout(() => {
         nodes.forEach((n) => {
           try {

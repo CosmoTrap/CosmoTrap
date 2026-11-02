@@ -8,8 +8,9 @@ import { GaugeIcon, ItemIcon } from './Icons'
 
 function Gauge({ kind, value, color, label }: { kind: 'o2' | 'lamp' | 'water'; value: number; color: string; label: string }) {
   const low = value < 25
+  const beat = kind === 'o2' && low ? 60 / (70 + 80 * (1 - value / 25)) : 0
   return (
-    <div className={`gauge ${low ? 'low' : ''}`} title={label}>
+    <div className={`gauge ${low ? 'low' : ''} ${beat ? 'beat' : ''}`} title={label} style={beat ? ({ '--beat': `${beat}s` } as React.CSSProperties) : undefined}>
       <GaugeIcon kind={kind} />
       <div className="bar">
         <div className="fill" style={{ width: `${Math.max(0, value)}%`, background: low ? '#ff5a4a' : color }} />
@@ -118,12 +119,35 @@ function Chrono() {
   const mm = Math.floor(left / 60)
   const ss = Math.floor(left % 60)
   return (
-    <div className={`chrono ${left < 180 ? 'low' : ''}`} data-testid="chrono">
+    <div className={`chrono ${left < 180 ? 'low' : ''} ${left < 60 ? 'urgent' : ''}`} data-testid="chrono">
       <small>
         {fr.rules.chrono}
         {errors ? ` · ${fr.rules.errors} ${errors}` : ''}
       </small>
       {mm}:{String(ss).padStart(2, '0')}
+    </div>
+  )
+}
+
+/** bannière « Énigme résolue » animée */
+function Banner() {
+  const [b, setB] = useState<typeof live.banner>(null)
+  useEffect(() => {
+    let raf = 0
+    const loop = () => {
+      const cur = live.banner
+      if (cur && performance.now() - cur.t > 3600) live.banner = null
+      setB((old) => (old === live.banner ? old : live.banner))
+      raf = requestAnimationFrame(loop)
+    }
+    loop()
+    return () => cancelAnimationFrame(raf)
+  }, [])
+  if (!b) return null
+  return (
+    <div className="banner" key={b.t} data-testid="banner">
+      <small>{b.title}</small>
+      <b>{b.sub}</b>
     </div>
   )
 }
@@ -207,6 +231,7 @@ export function Hud() {
         </div>
       )}
       <PenaltyFlash />
+      <Banner />
       <CineOverlay />
       {!touch && !locked && !overlay && !cine && (
         <div className="click-to-play" style={{ pointerEvents: 'auto' }} onClick={requestLock}>

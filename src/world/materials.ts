@@ -7,7 +7,7 @@ import { ceilingSet, floorSet, paintedMetal, wallSet, type PBRSet, type WallThem
 // Matériaux partagés, mis en cache. Les pièces sombres ont leurs propres instances
 // (réflexions d'environnement quasi nulles) pour que la lampe frontale compte vraiment.
 
-export const ENV_LIT = 0.85
+export const ENV_LIT = 0.42
 export const ENV_DARK = 0.025
 
 export const RoomCtx = createContext<{ id: string; dark: boolean }>({ id: '', dark: false })

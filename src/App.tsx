@@ -1,5 +1,5 @@
 import { Canvas } from '@react-three/fiber'
-import { useEffect } from 'react'
+import { Component, useEffect, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { audio } from './game/audio/audio'
 import { useGame } from './game/state'
@@ -11,6 +11,31 @@ import { Login } from './ui/Screens/Login'
 import { Settings } from './ui/Screens/Settings'
 import { Tablet } from './ui/Tablet/Tablet'
 import { Scene } from './world/Scene'
+
+/** si le rendu 3D plante, on affiche un message clair plutôt qu'un écran noir */
+class CrashGuard extends Component<{ children: ReactNode }, { err: string | null }> {
+  state = { err: null as string | null }
+  static getDerivedStateFromError(e: Error) {
+    return { err: e.message }
+  }
+  componentDidCatch(e: Error) {
+    console.error('Cosmotrap — erreur de rendu :', e)
+  }
+  render() {
+    if (!this.state.err) return this.props.children
+    return (
+      <div className="modal-bg" style={{ zIndex: 90 }}>
+        <div className="panel" style={{ width: 'min(460px, 92vw)', textAlign: 'center' }}>
+          <h2>Problème d’affichage 3D</h2>
+          <p className="sub">Ta progression est sauvegardée. Recharge la page pour reprendre (bouton Continuer).</p>
+          <button className="btn primary" onClick={() => location.reload()}>
+            Recharger
+          </button>
+        </div>
+      </div>
+    )
+  }
+}
 
 export default function App() {
   const screen = useGame((s) => s.screen)
@@ -32,6 +57,7 @@ export default function App() {
   const playing = screen === 'playing'
   return (
     <>
+      <CrashGuard>
       <Canvas
         shadows={{ type: THREE.PCFSoftShadowMap }}
         dpr={1}
@@ -49,6 +75,7 @@ export default function App() {
       >
         <Scene />
       </Canvas>
+      </CrashGuard>
       {screen === 'login' && <Login />}
       {screen === 'title' && <Title />}
       {screen === 'leaderboard' && <Leaderboard />}

@@ -43,6 +43,9 @@ export class GenerativeMusic {
   private beat = 0
   private drone: { stop: () => void } | null = null
   tensionLevel = 0
+  /** multiplicateur de tempo (accélère avec la tension) */
+  rate = 1
+  private targetRate = 1
 
   constructor(ctx: AudioContext, dest: AudioNode) {
     this.ctx = ctx
@@ -89,7 +92,10 @@ export class GenerativeMusic {
     this.themeId = null
   }
 
-  setTension(v: number) {
+  /** v : tension (0..1) ; urgency : chrono presque écoulé (0..1) */
+  setTension(v: number, urgency = 0) {
+    this.targetRate = 1 + 0.55 * Math.max(v, urgency * 0.8)
+    v = Math.max(v, urgency * 0.7)
     this.tensionLevel = v
     const t = this.ctx.currentTime
     this.calm.gain.setTargetAtTime(1 - v * 0.75, t, 0.8)
@@ -99,7 +105,8 @@ export class GenerativeMusic {
   private schedule() {
     const th = this.theme
     if (!th) return
-    const spb = 60 / th.bpm
+    this.rate += (this.targetRate - this.rate) * 0.08
+    const spb = 60 / (th.bpm * this.rate)
     while (this.nextBeat < this.ctx.currentTime + 0.3) {
       const t = this.nextBeat
       const beatsPerChord = th.bars * 4
@@ -113,6 +120,7 @@ export class GenerativeMusic {
       if (th.sub && this.beat % 2 === 0) this.subPulse(t)
       // couche tension : pulsation et chocs métalliques
       if (this.beat % 4 === 0) this.tensionHit(t)
+      if (this.tensionLevel > 0.5) this.pulse(t, this.beat % 2 === 0)
       this.nextBeat += spb
       this.beat++
     }
@@ -249,6 +257,49 @@ export class GenerativeMusic {
       o.start(t)
       o.stop(t + 1.3)
     }
+  }
+
+  /** basse pulsée qui suit le tempo quand la tension monte */
+  private pulse(t: number, accent: boolean) {
+    const th = this.theme!
+    const o = this.ctx.createOscillator()
+    o.type = 'sawtooth'
+    o.frequency.value = st(th.root, -24)
+    const lp = this.ctx.createBiquadFilter()
+    lp.type = 'lowpass'
+    lp.frequency.setValueAtTime(accent ? 600 : 380, t)
+    lp.frequency.exponentialRampToValueAtTime(90, t + 0.25)
+    const g = this.ctx.createGain()
+    g.gain.setValueAtTime(0.0001, t)
+    g.gain.exponentialRampToValueAtTime(accent ? 0.12 : 0.07, t + 0.01)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3)
+    o.connect(lp).connect(g).connect(this.tension)
+    o.start(t)
+    o.stop(t + 0.35)
+  }
+
+  /** courts motifs musicaux sur les événements */
+  sting(kind: 'solved' | 'discover' | 'danger') {
+    const t = this.ctx.currentTime + 0.02
+    const root = this.theme?.root ?? 146.83
+    const notes = kind === 'solved' ? [0, 7, 12, 16, 19, 24] : kind === 'discover' ? [0, 5, 12] : [0, 1, -11]
+    notes.forEach((n, i) => {
+      const tt = t + i * (kind === 'danger' ? 0.18 : 0.09)
+      const o = this.ctx.createOscillator()
+      o.type = kind === 'danger' ? 'sawtooth' : 'triangle'
+      o.frequency.value = st(root, n + (kind === 'danger' ? 0 : 12))
+      const lp = this.ctx.createBiquadFilter()
+      lp.type = 'lowpass'
+      lp.frequency.value = kind === 'danger' ? 700 : 3200
+      const g = this.ctx.createGain()
+      g.gain.setValueAtTime(0.0001, tt)
+      g.gain.exponentialRampToValueAtTime(kind === 'danger' ? 0.09 : 0.07, tt + 0.01)
+      g.gain.exponentialRampToValueAtTime(0.0001, tt + (kind === 'solved' ? 1.6 : 0.9))
+      o.connect(lp).connect(g).connect(this.out)
+      g.connect(this.delay)
+      o.start(tt)
+      o.stop(tt + 1.8)
+    })
   }
 
   private startDrone() {

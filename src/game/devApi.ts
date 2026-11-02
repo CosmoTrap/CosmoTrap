@@ -64,6 +64,7 @@ export function installDevApi() {
     goto: (z: ZoneId) => enterZone(z),
     doorOpen: (id: string) => doorUnlocked(id),
     start(character = 'nova', skipIntro = true) {
+      live.explored.clear()
       useGame.setState({ ...newGameData(character), screen: 'playing', briefed: skipIntro, cine: null, paused: false })
       const sp = spawnOf(1)
       useGame.setState({ tp: { pos: sp.pos, yaw: sp.yaw, n: Date.now() } })

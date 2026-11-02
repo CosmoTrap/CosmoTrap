@@ -37,7 +37,7 @@ function InteriorSun({ map }: { map: GridMap }) {
         target={target}
         position={center.clone().addScaledVector(sun, 60)}
         color="#fff2e0"
-        intensity={size ? 7.5 : 0}
+        intensity={size ? 6 : 0}
         castShadow={size > 0}
         shadow-mapSize={[size || 512, size || 512]}
         shadow-camera-left={-ext}
@@ -91,7 +91,7 @@ function PhysicsWorld() {
     <Physics key={zone} gravity={[0, -9.81, 0]} timeStep="vary">
       {map ? (
         <>
-          <fogExp2 attach="fog" args={['#07090d', 0.022]} />
+          <fogExp2 attach="fog" args={['#05070a', 0.034]} />
           <InteriorEnv zone={zone} />
           <InteriorSun map={map} />
           <Level map={map} shadows={shadows} />
