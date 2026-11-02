@@ -134,9 +134,37 @@ export interface Row {
   me: boolean
 }
 
-export const leaderboard = () => req<{ rows: Row[] }>('leaderboard.php')
+export const leaderboard = (difficulty = 'astronaut') => req<{ rows: Row[] }>(`leaderboard.php?difficulty=${difficulty}`)
 
-export async function submitScore(p: { timeMs: number; hints: number; errors: number; score: number; character: string; ending: string }) {
+export async function fetchGhost(difficulty: string) {
+  try {
+    const r = await req<{ ghost: { pseudo: string; timeMs: number; track: number[] } | null }>(`leaderboard.php?ghost=1&difficulty=${difficulty}`)
+    return r.ghost
+  } catch {
+    return null
+  }
+}
+
+export async function fetchAchievements(): Promise<string[] | null> {
+  if (!G().user) return null
+  try {
+    const r = await req<{ achievements: { code: string }[] }>('achievements.php')
+    return r.achievements.map((a) => a.code)
+  } catch {
+    return null
+  }
+}
+
+export async function pushAchievements(codes: string[]) {
+  if (!G().user || !codes.length) return
+  try {
+    await req('achievements.php', { method: 'POST', body: JSON.stringify({ codes }) })
+  } catch {
+    /* hors ligne : gardé en local */
+  }
+}
+
+export async function submitScore(p: { timeMs: number; hints: number; errors: number; score: number; character: string; ending: string; difficulty: string; ghost?: number[] }) {
   if (!G().user) return null
   try {
     const r = await req<{ rank: number }>('leaderboard.php', { method: 'POST', body: JSON.stringify(p) })

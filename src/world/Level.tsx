@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { CEIL, TILE, cellAt, isFloor, isSolid, roomAt, tileCenter } from '../game/maps'
-import { useGame } from '../game/state'
+import { G, diff, useGame } from '../game/state'
 import type { GridMap, RoomDef } from '../game/types'
 import { Door } from './Door'
 import { LightShafts } from './LightShafts'
@@ -293,8 +293,11 @@ function RoomLight({ room, on, flicker }: { room: RoomDef; on: boolean; flicker?
     if (!ref.current) return
     let k = on ? 1 : 0
     if (on && flicker) k = flickerAt(clock.elapsedTime, room.rect[0] * 3.1 + room.rect[1])
+    // coupure de courant : quelques sursauts puis le noir
+    if (G().event?.kind === 'blackout') k *= Math.sin(clock.elapsedTime * 31) > 0.97 ? 0.4 : 0.02
     roomLevel.set(room.id, k)
-    ref.current.intensity = flicker ? base * k : THREE.MathUtils.lerp(ref.current.intensity, base * k, 0.15)
+    k *= diff().light
+    ref.current.intensity = flicker || G().event ? base * k : THREE.MathUtils.lerp(ref.current.intensity, base * k, 0.15)
   })
   return <pointLight ref={ref} position={[cx, CEIL - 0.45, cz]} color={room.light} intensity={on ? base : 0} distance={reach} decay={1.5} />
 }

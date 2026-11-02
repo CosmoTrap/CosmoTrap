@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { fr } from '../i18n/fr'
 import { hotbarItems, stepsState, useItem } from '../game/logic'
-import { TIME_LIMIT, live, useGame } from '../game/state'
+import { timeLimit, live, useGame } from '../game/state'
 import { isTouch, requestLock } from '../player/Player'
 import { keyName } from '../player/input'
 import { GaugeIcon, ItemIcon } from './Icons'
+import { fmtTime } from '../game/api'
 
 function Gauge({ kind, value, color, label }: { kind: 'o2' | 'lamp' | 'water'; value: number; color: string; label: string }) {
   const low = value < 25
@@ -46,6 +47,8 @@ function Hotbar() {
   const inv = useGame((s) => s.inv)
   const held = useGame((s) => s.held)
   const lampOn = useGame((s) => s.lampOn)
+  const padActive = useGame((s) => s.padActive)
+  useGame((s) => s.padSlotTick)
   void inv
   const items = hotbarItems()
   if (!items.length) return null
@@ -56,13 +59,13 @@ function Hotbar() {
         {items.map((it, i) => (
           <button
             key={it}
-            className={`slot ${held === it || (it === 'lamp' && lampOn) ? 'held' : ''}`}
+            className={`slot ${held === it || (it === 'lamp' && lampOn) ? 'held' : ''} ${padActive && i === Math.min(live.padSlot, items.length - 1) ? 'pad-cursor' : ''}`}
             onClick={(e) => {
               e.stopPropagation()
               useItem(it)
             }}
           >
-            <span className="num">{i + 1}</span>
+            <span className="num">{padActive ? '' : i + 1}</span>
             <ItemIcon item={it} />
             {(inv[it] ?? 0) > 1 && <span className="cnt">×{inv[it]}</span>}
             <span className="tip">
@@ -115,7 +118,11 @@ function CineOverlay() {
 function Chrono() {
   const t = useGame((s) => s.playTime + s.penalty)
   const errors = useGame((s) => s.errors)
-  const left = Math.max(0, TIME_LIMIT - t)
+  const ev = useGame((s) => s.event)
+  const playTime = useGame((s) => s.playTime)
+  const ghostOn = useGame((s) => s.settings.ghost)
+  useGame((s) => s.difficulty)
+  const left = Math.max(0, timeLimit() - t)
   const mm = Math.floor(left / 60)
   const ss = Math.floor(left % 60)
   return (
@@ -125,6 +132,12 @@ function Chrono() {
         {errors ? ` · ${fr.rules.errors} ${errors}` : ''}
       </small>
       {mm}:{String(ss).padStart(2, '0')}
+      {ev && (
+        <div className={`event-tag ${ev.kind}`} data-testid="event">
+          {ev.kind === 'blackout' ? '⚡ Coupure de courant' : '💨 Micro-fuite'} · {Math.max(0, Math.ceil(ev.until - playTime))} s
+        </div>
+      )}
+      {live.ghost && ghostOn && <div className="ghost-tag">Fantôme : {live.ghost.pseudo} · {fmtTime(live.ghost.timeMs)}</div>}
     </div>
   )
 }
@@ -188,6 +201,7 @@ export function Hud() {
   const locked = useGame((s) => s.locked)
   const overlay = useGame((s) => s.tabletOpen || !!s.puzzle || !!s.readNote || s.paused || s.settingsOpen)
   const keys = useGame((s) => s.settings.keys)
+  const padActive = useGame((s) => s.padActive)
   const character = useGame((s) => s.character)
   const briefer = character === 'ines' ? 'kenji' : 'ines'
   const touch = isTouch()
@@ -208,7 +222,7 @@ export function Hud() {
               <div className={`reticle ${label ? 'on' : ''}`} />
               {label && (
                 <div className="prompt">
-                  <span className="key">{touch ? fr.hud.act : keyName(keys.act[0])}</span>
+                  <span className={`key ${padActive ? 'pad-a' : ''}`}>{padActive ? 'A' : touch ? fr.hud.act : keyName(keys.act[0])}</span>
                   {label}
                 </div>
               )}

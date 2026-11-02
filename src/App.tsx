@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { audio } from './game/audio/audio'
 import { useGame } from './game/state'
 import { isTouch } from './player/Player'
+import { startGamepadLoop } from './player/gamepad'
 import { Hud } from './ui/Hud'
 import { MobileControls } from './ui/Mobile'
 import { CharSelect, End, Leaderboard, NoteReader, Pause, Prologue, PuzzleHost, RotatePhone, SkipCine, Title } from './ui/Screens/Screens'
@@ -52,6 +53,16 @@ export default function App() {
     window.addEventListener('pointerdown', unlock, { once: true })
     window.addEventListener('keydown', unlock, { once: true })
     audio.playMusic('title')
+    const stopPad = startGamepadLoop()
+    const padOn = () => {
+      audio.init()
+      document.body.classList.add('pad')
+    }
+    window.addEventListener('gamepadconnected', padOn)
+    return () => {
+      stopPad()
+      window.removeEventListener('gamepadconnected', padOn)
+    }
   }, [])
   const touch = isTouch()
   const playing = screen === 'playing'

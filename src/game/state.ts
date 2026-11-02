@@ -1,13 +1,15 @@
 import { create } from 'zustand'
 import { FLAGS, type Flags, type ItemId, type PuzzleId, type ZoneId } from './types'
 import { DEFAULT_KEYS, type KeyMap } from '../player/input'
+import { DIFFICULTY, type Difficulty } from './difficulty'
 
 export type Screen = 'login' | 'title' | 'charSelect' | 'prologue' | 'playing' | 'end' | 'leaderboard'
 export type Quality = 'low' | 'medium' | 'high' | 'ultra'
 export type CineKind = 'briefing' | 'faint' | 'zoneCard' | 'tour' | 'launch' | 'heli' | 'fail' | null
 
-/** limite de temps de la partie (s) : au-delà, échec */
-export const TIME_LIMIT = 30 * 60
+/** limite de temps de la partie (s) selon la difficulté : au-delà, échec */
+export const timeLimit = () => DIFFICULTY[useGame.getState().difficulty ?? 'astronaut'].time
+export const diff = () => DIFFICULTY[useGame.getState().difficulty ?? 'astronaut']
 export const AUTOSAVE_EVERY = 30
 
 export interface Settings {
@@ -21,6 +23,8 @@ export interface Settings {
   colorblind: boolean
   keys: KeyMap
   showFps: boolean
+  /** afficher la réplique fantôme du record */
+  ghost: boolean
   /** regarder en glissant à deux doigts sur le pavé tactile (ou molette) */
   trackpadLook: boolean
 }
@@ -55,6 +59,14 @@ export const live = {
   /** cases explorées (brouillard de la mini-carte) : « zone:x,z » */
   explored: new Set<string>(),
   banner: null as null | { title: string; sub: string; t: number },
+  /** dernière entrée utilisée (pour afficher les bonnes touches) */
+  device: 'kb' as 'kb' | 'pad',
+  /** emplacement de la barre choisi à la manette */
+  padSlot: 0,
+  /** pas d'imprévus (tests automatiques) */
+  noEvents: false,
+  /** réplique fantôme chargée : [t, zone, x×10, z×10, …] */
+  ghost: null as null | { pseudo: string; timeMs: number; track: number[] },
 }
 
 function initialValves() {
@@ -116,9 +128,15 @@ export interface GameData {
   ending: 'rescue' | 'fail' | null
   /** copie sérialisée de live.explored */
   explored: string[]
+  difficulty: Difficulty
+  /** trajectoire pour la réplique fantôme : [t, zone, x×10, z×10, …] */
+  track: number[]
+  /** imprévu en cours */
+  event: { kind: 'blackout' | 'leak'; until: number } | null
+  nextEventAt: number
 }
 
-export const newGameData = (character = 'nova'): GameData => ({
+export const newGameData = (character = 'nova', difficulty: Difficulty = 'astronaut'): GameData => ({
   zone: 1,
   character,
   flags: emptyFlags(),
@@ -145,6 +163,10 @@ export const newGameData = (character = 'nova'): GameData => ({
   toured: [],
   ending: null,
   explored: [],
+  difficulty,
+  track: [],
+  event: null,
+  nextEventAt: DIFFICULTY[difficulty].events * 0.7,
 })
 
 export interface GameState extends GameData {
@@ -166,6 +188,9 @@ export interface GameState extends GameData {
   subtitle: string | null
   shake: number
   aimLabel: string | null
+  /** une manette est utilisée */
+  padActive: boolean
+  padSlotTick: number
   resume: { pos: [number, number, number]; yaw: number } | null
   user: { id: number; email: string; pseudo: string } | null
   offline: boolean
@@ -211,6 +236,7 @@ function loadSettings(): Settings {
     colorblind: false,
     keys: DEFAULT_KEYS,
     showFps: false,
+    ghost: true,
     trackpadLook: true,
   }
   try {
@@ -252,6 +278,8 @@ export const useGame = create<GameState>((set) => ({
   subtitle: null,
   shake: 0,
   aimLabel: null,
+  padActive: false,
+  padSlotTick: 0,
   resume: null,
   user: null,
   offline: false,

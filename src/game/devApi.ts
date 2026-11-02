@@ -1,6 +1,6 @@
-import { act, allEnts, doorUnlocked, enterZone, entById, tick } from './logic'
+import { act, allEnts, doorUnlocked, enterZone, entById, startEvent, tick, useItem } from './logic'
 import { WALL_DIR, entWorld, spawnOf } from './maps'
-import { G, addItem, live, newGameData, useGame } from './state'
+import { G, addItem, live, newGameData, timeLimit, useGame } from './state'
 import type { ItemId, ZoneId } from './types'
 
 // API de test (équivalent de window.__c3 dans le prototype) : window.__game en mode dev.
@@ -28,6 +28,9 @@ export function installDevApi() {
         choice: s.choice,
         planDone: s.planDone,
         ending: s.ending,
+        difficulty: s.difficulty,
+        event: s.event,
+        trackLen: s.track.length,
         pos: [...live.pos],
         aimed: live.aimed,
       }
@@ -63,13 +66,17 @@ export function installDevApi() {
     },
     goto: (z: ZoneId) => enterZone(z),
     doorOpen: (id: string) => doorUnlocked(id),
-    start(character = 'nova', skipIntro = true) {
+    start(character = 'nova', skipIntro = true, difficulty: 'explorer' | 'astronaut' | 'survival' = 'astronaut', events = false) {
       live.explored.clear()
-      useGame.setState({ ...newGameData(character), screen: 'playing', briefed: skipIntro, cine: null, paused: false })
+      live.noEvents = !events
+      useGame.setState({ ...newGameData(character, difficulty), screen: 'playing', briefed: skipIntro, cine: null, paused: false })
       const sp = spawnOf(1)
       useGame.setState({ tp: { pos: sp.pos, yaw: sp.yaw, n: Date.now() } })
     },
     set: (p: Record<string, unknown>) => useGame.setState(p as any),
+    startEvent: (k: 'blackout' | 'leak') => startEvent(k),
+    useItem: (it: ItemId) => useItem(it),
+    timeLimit: () => timeLimit(),
     live,
   }
   ;(window as any).__game = api

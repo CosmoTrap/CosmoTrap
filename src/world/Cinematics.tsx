@@ -63,7 +63,7 @@ export function CineDirector() {
       if (i < lines.length) {
         once(`l${i}`, () => {
           useGame.setState({ subtitle: lines[i] })
-          audio.speak(lines[i], { radio: true, rate: 1.08 })
+          audio.speak(lines[i], { radio: true, rate: 1.08, id: `briefing_${i}` })
         })
       } else
         once('end', () => {
@@ -101,7 +101,7 @@ export function CineDirector() {
       const i = Math.min(lines.length - 1, Math.floor((t / D) * lines.length))
       once(`t${i}`, () => {
         useGame.setState({ subtitle: lines[i] })
-        audio.speak(lines[i], { rate: 1.05 })
+        audio.speak(lines[i], { rate: 1.05, id: `tour_${s.zone}_${i}` })
       })
       if (t > D) once('end', endTour)
     } else if (cine === 'fail') {

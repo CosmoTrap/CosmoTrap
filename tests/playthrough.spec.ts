@@ -214,3 +214,70 @@ test('ressources à zéro, pénalités, indices et limite de temps', async ({ pa
   await expect(page.getByTestId('end')).toBeVisible({ timeout: 20000 })
   await expect(page.getByText('Mission échouée')).toBeVisible()
 })
+
+test('difficulté, imprévus, succès, fantôme et manette', async ({ page, request }) => {
+  // manette simulée : on pilote navigator.getGamepads depuis le test
+  await page.addInitScript(() => {
+    const pad = { id: 'Manette de test', index: 0, connected: true, mapping: 'standard', timestamp: 0, axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 })) }
+    ;(window as any).__pad = pad
+    navigator.getGamepads = () => [pad as any]
+  })
+  await signedInPage(page, request)
+  // difficulté Survie : 22 minutes
+  await g(page, 'start', 'maya', true, 'survival')
+  await g(page, 'set', { toured: [1, 2, 3, 4] })
+  await waitIdle(page, 1)
+  expect(await g(page, 'timeLimit')).toBe(22 * 60)
+  expect((await st(page)).difficulty).toBe('survival')
+  // pénalité ×1,5 en Survie
+  await act(page, 'locker')
+  for (const k of ['9', '9', '9', '9', 'OK']) await page.getByTestId(`key-${k}`).click()
+  await expect.poll(async () => (await st(page)).penalty).toBe(45)
+  await page.keyboard.press('Escape')
+
+  // manette : stick gauche → le joueur avance, bouton A → ramasse la lampe
+  await g(page, 'teleport', 'lamp', 1.2)
+  await page.waitForTimeout(600)
+  await page.evaluate(() => ((window as any).__game.live.pitch = -0.35))
+  await page.waitForTimeout(500)
+  expect((await st(page)).aimed).toBe('lamp')
+  await page.evaluate(() => ((window as any).__pad.buttons[0].pressed = true))
+  await page.waitForTimeout(400)
+  await page.evaluate(() => ((window as any).__pad.buttons[0].pressed = false))
+  await expect.poll(async () => (await st(page)).inv.lamp).toBe(1)
+  const z0 = (await st(page)).pos[2]
+  await page.evaluate(() => ((window as any).__pad.axes[1] = 1))
+  await page.waitForTimeout(1500)
+  await page.evaluate(() => ((window as any).__pad.axes[1] = 0))
+  expect((await st(page)).pos[2]).toBeGreaterThan(z0 + 0.5)
+  // bouton X → lampe
+  await page.evaluate(() => ((window as any).__pad.buttons[2].pressed = true))
+  await page.waitForTimeout(400)
+  await page.evaluate(() => ((window as any).__pad.buttons[2].pressed = false))
+  await expect.poll(async () => (await st(page)).lampOn).toBe(true)
+
+  // imprévu : micro-fuite colmatée au ruban adhésif → succès « Bricoleur »
+  await g(page, 'startEvent', 'leak')
+  expect((await st(page)).event?.kind).toBe('leak')
+  await expect(page.getByTestId('event')).toBeVisible()
+  await g(page, 'give', 'tape')
+  await g(page, 'useItem', 'tape')
+  expect((await st(page)).event).toBeNull()
+  await expect(page.getByTestId('banner')).toBeVisible()
+  // coupure de courant : se termine seule
+  await g(page, 'startEvent', 'blackout')
+  expect((await st(page)).event?.kind).toBe('blackout')
+  await g(page, 'drain', 25)
+  expect((await st(page)).event).toBeNull()
+
+  // trajectoire enregistrée pour la réplique fantôme
+  expect((await st(page)).trackLen).toBeGreaterThan(8)
+  // un fantôme existe après la partie complète du 1er test (difficulté Astronaute)
+  const ghost = await (await request.get('http://localhost:5180/api/leaderboard.php?ghost=1&difficulty=astronaut')).json()
+  expect(ghost.ghost?.track?.length ?? 0).toBeGreaterThan(8)
+
+  // menu des succès
+  await page.evaluate(() => (window as any).__game.set({ screen: 'title' }))
+  await page.getByTestId('open-ach').click()
+  await expect(page.getByTestId('achievements')).toContainText('Bricoleur')
+})

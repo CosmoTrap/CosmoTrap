@@ -1,17 +1,29 @@
 <?php
-// Classement : les parties terminées les plus rapides (meilleur temps par joueur).
+// Classement par difficulté (meilleur temps de chaque joueur) + réplique fantôme du record.
 declare(strict_types=1);
 require __DIR__ . '/db.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
+$diffs = ['explorer', 'astronaut', 'survival'];
+$diff = in_array($_GET['difficulty'] ?? '', $diffs, true) ? $_GET['difficulty'] : 'astronaut';
+
+if ($method === 'GET' && isset($_GET['ghost'])) {
+  // trajectoire du meilleur temps de cette difficulté
+  $st = db()->prepare('SELECT u.pseudo, s.time_ms, s.ghost FROM scores s JOIN users u ON u.id = s.user_id WHERE s.difficulty = ? AND s.ghost IS NOT NULL ORDER BY s.time_ms ASC LIMIT 1');
+  $st->execute([$diff]);
+  $r = $st->fetch();
+  out(['ghost' => $r ? ['pseudo' => $r['pseudo'], 'timeMs' => (int)$r['time_ms'], 'track' => json_decode($r['ghost'], true)] : null]);
+}
 
 if ($method === 'GET') {
-  $rows = db()->query('SELECT s.user_id, u.pseudo, s.time_ms, s.hints, s.errors, s.score, s.character_id, s.ending, s.created_at
+  $st = db()->prepare('SELECT s.user_id, u.pseudo, s.time_ms, s.hints, s.errors, s.score, s.character_id, s.ending, s.created_at
     FROM scores s JOIN users u ON u.id = s.user_id
-    WHERE s.id = (SELECT s2.id FROM scores s2 WHERE s2.user_id = s.user_id ORDER BY s2.time_ms ASC, s2.id ASC LIMIT 1)
-    ORDER BY s.time_ms ASC LIMIT 50')->fetchAll();
+    WHERE s.difficulty = ? AND s.id = (SELECT s2.id FROM scores s2 WHERE s2.user_id = s.user_id AND s2.difficulty = s.difficulty ORDER BY s2.time_ms ASC, s2.id ASC LIMIT 1)
+    ORDER BY s.time_ms ASC LIMIT 50');
+  $st->execute([$diff]);
+  $rows = $st->fetchAll();
   $me = current_user();
-  out(['rows' => array_map(fn($r) => [
+  out(['difficulty' => $diff, 'rows' => array_map(fn($r) => [
     'pseudo' => $r['pseudo'],
     'timeMs' => (int)$r['time_ms'],
     'hints' => (int)$r['hints'],
@@ -35,10 +47,15 @@ if ($method === 'POST') {
   $score = max(0, min(99999, (int)($b['score'] ?? 0)));
   $char = preg_replace('/[^a-z]/', '', (string)($b['character'] ?? 'nova')) ?: 'nova';
   $ending = preg_replace('/[^a-z_]/', '', (string)($b['ending'] ?? 'rescue')) ?: 'rescue';
-  db()->prepare('INSERT INTO scores (user_id, time_ms, hints, errors, score, character_id, ending, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-    ->execute([$u['id'], $t, $hints, $errors, $score, $char, $ending, time()]);
-  $st = db()->prepare('SELECT COUNT(DISTINCT user_id) AS r FROM scores WHERE time_ms < ?');
-  $st->execute([$t]);
+  $d = in_array($b['difficulty'] ?? '', $diffs, true) ? $b['difficulty'] : 'astronaut';
+  $ghost = null;
+  if (isset($b['ghost']) && is_array($b['ghost']) && count($b['ghost']) <= 40000) {
+    $ghost = json_encode(array_map(fn($v) => is_numeric($v) ? $v + 0 : 0, $b['ghost']));
+  }
+  db()->prepare('INSERT INTO scores (user_id, time_ms, hints, errors, score, character_id, ending, created_at, difficulty, ghost) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    ->execute([$u['id'], $t, $hints, $errors, $score, $char, $ending, time(), $d, $ghost]);
+  $st = db()->prepare('SELECT COUNT(DISTINCT user_id) AS r FROM scores WHERE difficulty = ? AND time_ms < ?');
+  $st->execute([$d, $t]);
   out(['ok' => true, 'rank' => (int)$st->fetch()['r'] + 1]);
 }
 

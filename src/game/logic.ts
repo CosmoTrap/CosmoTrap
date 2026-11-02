@@ -17,9 +17,11 @@ import {
   setFlag,
   toast,
   useGame,
-  TIME_LIMIT,
+  diff,
+  timeLimit,
 } from './state'
 import { SURVIVAL_ITEMS } from './items'
+import { checkCartographer, checkCollector, unlock } from './achievements'
 import type { Ent, Flag, ItemId, ZoneId } from './types'
 
 const L = fr.labels
@@ -160,6 +162,7 @@ function pickup(e: Ent) {
   else if (kind === 'survival') audio.sfx('pickup_bonus')
   else audio.sfx('pickup_key')
   toast(M.picked(fr.items[item].name), 'item')
+  if (kind === 'survival') checkCollector()
   if (item === 'lamp') {
     const k = G().settings.keys.lamp[0]
     toast(`Touche ${k?.replace('Key', '')} : allumer la lampe`, 'info', 4500)
@@ -391,6 +394,7 @@ export function act(id: string) {
 /** erreur : conséquence visible (pénalité de temps) */
 export function penalize(sec: number, countError = true) {
   const s = G()
+  sec = Math.round(sec * diff().penalty)
   useGame.setState({ penalty: s.penalty + sec, errors: s.errors + (countError ? 1 : 0) })
   live.flash = 0
   live.penaltyFlash = 1
@@ -406,7 +410,7 @@ export function computeScore() {
   const s = G()
   const surv = SURVIVAL_ITEMS.filter((k) => (s.inv[k] ?? 0) > 0).length
   const t = timeUsed()
-  return Math.max(0, Math.round(6000 + (TIME_LIMIT - t) * 3 - s.hintsUsed * 150 - s.errors * 100 + surv * 60 + (s.choice === 'keep' ? 300 : 0)))
+  return Math.max(0, Math.round((6000 + (timeLimit() - t) * 3 - s.hintsUsed * 150 - s.errors * 100 + surv * 60 + (s.choice === 'keep' ? 300 : 0)) * diff().score))
 }
 
 function openPuzzle(p: 'keypad' | 'valves' | 'power' | 'sequence' | 'radio' | 'algo' | 'plan' | 'dilemma') {
@@ -504,7 +508,7 @@ export function emitRadio(freq: number) {
     setFlag('beacon')
     celebrate('p_radio')
     audio.sfx('success')
-    audio.speak('Signal reçu sur 121,5. Hélicoptère en route.', { radio: true })
+    audio.speak('Signal reçu sur 121,5. Hélicoptère en route.', { radio: true, id: 'radio' })
     useGame.setState({ subtitle: fr.puzzles.radio.voice })
     setTimeout(() => useGame.setState({ subtitle: null }), 5000)
     toast(M.beaconOk, 'good', 5000)
@@ -655,6 +659,7 @@ export function useItem(item: ItemId) {
   if (item === 'battery') return useBattery()
   if (item === 'water') return drinkPouch()
   if (item === 'lamp') return toggleLamp()
+  if (item === 'tape') return sealLeak()
   const s = G()
   useGame.setState({ held: s.held === item ? null : item })
   audio.sfx('click')
@@ -666,6 +671,73 @@ let alarmT = 0
 let lowO2On = false
 let lastTick = -1
 let urgentWarned = false
+
+// ——— imprévus : coupure de courant, micro-fuite ———
+function updateEvents(dt: number): 'blackout' | 'leak' | null {
+  const s = G()
+  const D = diff()
+  if (s.event && s.playTime >= s.event.until) endEvent()
+  if (!s.event && D.events && s.zone < 4 && !live.noEvents && !s.puzzle && s.playTime >= s.nextEventAt && s.briefed) startEvent(Math.random() < 0.5 ? 'blackout' : 'leak')
+  void dt
+  return G().event?.kind ?? null
+}
+
+export function startEvent(kind: 'blackout' | 'leak') {
+  const s = G()
+  const dur = kind === 'blackout' ? 22 : 28
+  useGame.setState({ event: { kind, until: s.playTime + dur } })
+  audio.sting('danger')
+  if (kind === 'blackout') {
+    audio.sfx('lamp_off', { vol: 1 })
+    audio.sfx('power_up', { vol: 0.3 })
+    toast(fr.events.blackout, 'bad', 5000)
+  } else {
+    audio.loop('leak', 'steam', { vol: 0.45 })
+    toast(has('tape') ? fr.events.leakTape : fr.events.leak, 'bad', 6000)
+  }
+}
+
+export function endEvent(sealed = false) {
+  const s = G()
+  const k = s.event?.kind
+  const D = diff()
+  useGame.setState({ event: null, nextEventAt: s.playTime + D.events * (0.7 + Math.random() * 0.6) })
+  if (k === 'leak') {
+    audio.stopLoop('leak')
+    toast(sealed ? fr.events.sealed : fr.events.leakEnd, 'good', 3000)
+  }
+  if (k === 'blackout') {
+    audio.sfx('power_up', { vol: 0.6 })
+    toast(fr.events.powerBack, 'good', 2500)
+  }
+}
+
+/** colmater une micro-fuite avec le ruban adhésif (objet de survie) */
+export function sealLeak() {
+  const s = G()
+  if (s.event?.kind !== 'leak') {
+    toast(fr.events.noLeak)
+    return false
+  }
+  if (!has('tape')) return false
+  removeItem('tape')
+  audio.sfx('rope')
+  endEvent(true)
+  unlock('sealed')
+  return true
+}
+
+// ——— trajectoire pour la réplique fantôme ———
+let lastSample = -1
+function recordTrack() {
+  const s = G()
+  const t = Math.floor(s.playTime * 2) / 2
+  if (t === lastSample) return
+  lastSample = t
+  const tr = s.track
+  if (tr.length > 4 * 6000) return
+  tr.push(Math.round(t * 10) / 10, s.zone, Math.round(live.pos[0] * 10), Math.round(live.pos[2] * 10))
+}
 
 /** bannière animée + motif musical quand une énigme est résolue */
 export function celebrate(id: string) {
@@ -679,9 +751,13 @@ export function tick(dt: number) {
   if (s.screen !== 'playing' || s.paused || s.cine) return
   const f = s.flags
   const res = { ...s.res }
+  const D = diff()
+  const ev = updateEvents(dt)
+  recordTrack()
   // oxygène (zones 1 à 3)
   if (s.zone < 4) {
-    let rate = 0.42
+    let rate = 0.42 * D.drain
+    if (ev === 'leak') rate *= 2.2
     if (s.zone === 2 && !f.steamFixed) rate *= 1.5
     if (s.zone === 2 && f.power && f.pw_o2) rate = 0
     res.o2 = Math.max(0, res.o2 - rate * dt)
@@ -689,7 +765,7 @@ export function tick(dt: number) {
   // lampe
   let lampOn = s.lampOn
   if (lampOn) {
-    res.lamp = Math.max(0, res.lamp - 0.75 * dt)
+    res.lamp = Math.max(0, res.lamp - 0.75 * D.drain * dt)
     if (res.lamp <= 0) {
       if (has('battery')) {
         removeItem('battery')
@@ -704,9 +780,9 @@ export function tick(dt: number) {
     }
   }
   // eau
-  res.water = Math.max(0, res.water - 0.11 * dt)
+  res.water = Math.max(0, res.water - 0.11 * D.drain * dt)
   useGame.setState({ res, lampOn, playTime: s.playTime + dt })
-  if (s.playTime + dt + s.penalty >= TIME_LIMIT) {
+  if (s.playTime + dt + s.penalty >= timeLimit()) {
     useGame.setState({ cine: 'fail', cineT0: performance.now(), tabletOpen: false, puzzle: null, readNote: null })
     return
   }
@@ -733,7 +809,7 @@ export function tick(dt: number) {
     lowO2On = false
   }
   // musique : accélère quand l'oxygène baisse ou que le temps presse
-  const left = TIME_LIMIT - (s.playTime + s.penalty)
+  const left = timeLimit() - (s.playTime + s.penalty)
   const urgency = left < 180 ? 1 - left / 180 : 0
   const o2t = s.zone < 4 ? (res.o2 < 25 ? 0.6 + 0.4 * (1 - res.o2 / 25) : res.o2 < 40 ? 0.35 : 0) : 0
   audio.setTension(o2t, urgency)
@@ -772,6 +848,7 @@ export function transitionTo(z: ZoneId) {
 }
 
 export function enterZone(z: ZoneId) {
+  if (z === 3) checkCartographer([1, 2].map((zone) => ({ zone, grid: GRID_MAPS[zone as 1 | 2].grid })))
   pendingZone = null
   urgentWarned = false
   const sp = spawnOf(z)

@@ -11,6 +11,7 @@ import { hitboxes } from '../world/props/EntModels'
 import { lampCookie } from '../world/textures'
 import { input, isDown, matches } from './input'
 import { reveal } from '../game/explore'
+import { markKeyboard, pad } from './gamepad'
 
 const EYE = 0.77 // au-dessus du centre de la capsule → yeux à 1,62 m
 const REACH = 2.7
@@ -29,6 +30,7 @@ export function useInputListeners() {
       const s = G()
       if (s.screen !== 'playing') return
       if ((window as any).__rebinding) return
+      markKeyboard()
       const k = s.settings.keys
       if (e.code === 'Tab' || e.code === 'Space') e.preventDefault()
       input.down.add(e.code)
@@ -70,6 +72,7 @@ export function useInputListeners() {
       }
     }
     const pdown = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') markKeyboard()
       if (e.pointerType === 'mouse' && (e.target as HTMLElement)?.tagName === 'CANVAS' && !document.pointerLockElement) dragging = true
     }
     const pup = () => (dragging = false)
@@ -225,15 +228,15 @@ export function Player() {
       if (isDown(keys, 'back')) iz += 1
       if (isDown(keys, 'left')) ix -= 1
       if (isDown(keys, 'right')) ix += 1
-      ix += input.joy.x
-      iz += input.joy.y
+      ix += input.joy.x + pad.x
+      iz += input.joy.y + pad.y
     }
     const len = Math.hypot(ix, iz)
     if (len > 1) {
       ix /= len
       iz /= len
     }
-    const running = !frozen && (isDown(keys, 'run') || input.touchRun || Math.hypot(input.joy.x, input.joy.y) > 0.95)
+    const running = !frozen && (isDown(keys, 'run') || input.touchRun || pad.run || Math.hypot(input.joy.x, input.joy.y) > 0.95)
     let speed = running ? 4.4 : 2.5
     if (s.res.water <= 0) speed *= 0.55
     if (s.zone < 4 && s.res.o2 < 10) speed *= 0.8

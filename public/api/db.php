@@ -73,6 +73,16 @@ function db(): PDO {
     ending $text NOT NULL,
     created_at INTEGER NOT NULL
   )");
+  $pdo->exec("CREATE TABLE IF NOT EXISTS achievements (
+    user_id INTEGER NOT NULL,
+    code $text NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (user_id, code)
+  )");
+  // migrations : colonnes ajoutées après la première version
+  foreach (["ALTER TABLE scores ADD COLUMN difficulty $text NOT NULL DEFAULT 'astronaut'", "ALTER TABLE scores ADD COLUMN ghost $long"] as $sql) {
+    try { $pdo->exec($sql); } catch (Throwable $e) { /* colonne déjà présente */ }
+  }
   return $pdo;
 }
 

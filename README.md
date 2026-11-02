@@ -45,7 +45,45 @@ Ouvrir ensuite `http://localhost:5180`. L'API PHP crée seule sa base SQLite dan
 | Pause | P ou Échap | Bouton « Pause » |
 | Passer une cinématique | Entrée ou bouton « Passer » | Bouton « Passer » |
 
+**Regard.** Il marche à la souris (clic pour la verrouiller), au glisser-cliquer, et au glisser à deux doigts sur le pavé tactile (réglage activé par défaut).
+
+**Manette Xbox / PlayStation** (branchée en USB ou Bluetooth) :
+
+| Action | Manette |
+|---|---|
+| Bouger / regarder | Stick gauche / stick droit |
+| Agir · retour | A (✕) · B (○) |
+| Lampe · tablette | X (□) · Y (△) |
+| Oxygène · piles · boire | LB · RB · RT |
+| Courir | LT ou clic du stick gauche |
+| Barre d'objets | Croix ← → pour choisir, ↑ pour utiliser |
+| Pause · passer une cinématique | Start · Select |
+| Menus et énigmes | Croix ou stick pour se déplacer, A pour valider |
+
 ## Règles du jeu
+
+### Difficulté (choisie au lancement)
+
+| | Explorateur | Astronaute | Survie |
+|---|---|---|---|
+| Chronomètre | 40 min | 30 min | 22 min |
+| Consommation O₂ / lampe / eau | ×0,6 | ×1 | ×1,35 |
+| Éclairage des pièces | ×1,35 | ×1 | ×0,55 |
+| Pénalités | ×0,5 | ×1 | ×1,5 |
+| Imprévus | rares | parfois | fréquents |
+| Score | ×0,8 | ×1 | ×1,4 |
+
+Le classement est séparé par difficulté.
+
+### Imprévus (zones 1 à 3)
+
+- **Coupure de courant** (22 s) : la station plonge dans le noir, il faut la lampe.
+- **Micro-fuite** (28 s) : l'O₂ baisse 2,2 fois plus vite. Le ruban adhésif (objet de survie, Tablette → Sac → Colmater) l'arrête tout de suite.
+
+### Succès et réplique fantôme
+
+- **Succès.** Il y en a 10 : partie terminée, sans indice, sans faute, moins de 10 min, 11 objets de survie, sans évanouissement, échantillons gardés, Survie terminée, fuite colmatée, station explorée en entier. Ils sont gardés dans le compte et visibles depuis le menu **Succès**.
+- **Réplique fantôme.** Le parcours du meilleur temps de ta difficulté est rejoué en hologramme orange, en même temps que toi. Il se désactive dans Réglages.
 
 - **Chronomètre.** La partie dure au plus 30 minutes, avec le temps restant affiché en haut. À zéro, c'est l'échec : la station est perdue.
 - **Erreurs.** Une mauvaise réponse a une conséquence visible : flash rouge et pénalité de temps.
@@ -144,11 +182,20 @@ Une partie parfaite, sans erreur ni indice et en passant les cinématiques, dure
   - herbe instanciée animée par le vent, rivière en shader.
 - **Post-traitement.** ACES, N8AO, bloom, étalonnage « clair-obscur », aberration chromatique et SMAA.
 - **Qualité.** 4 niveaux : Basse, Moyenne, Haute, Ultra. Le niveau est détecté automatiquement selon la carte graphique, et la résolution baisse seule si les images par seconde chutent.
-- **Audio.** Tout est synthétisé en Web Audio : bruitages, musique adaptative calme ou tension, voix en synthèse vocale. Les fichiers Suno et ElevenLabs déposés dans `public/audio` (listés dans `manifest.json`) remplacent automatiquement la synthèse.
+- **Audio.** Tout est synthétisé en Web Audio : bruitages et musique adaptative. Le tempo et le cœur accélèrent quand l'O₂ baisse et quand le chrono s'épuise. Les voix utilisent la meilleure voix française du navigateur.
+
+  Pour de vraies voix et de vrais bruitages, lancer le script ci-dessous. Il génère tous les bruitages et toutes les répliques avec ElevenLabs dans `public/audio` et met à jour `manifest.json`. Le jeu les utilise alors automatiquement à la place de la synthèse.
+
+  ```bash
+  ELEVENLABS_API_KEY=ta_cle npm run audio
+  ```
+
+  Option : `-- --voice <id>` pour choisir la voix. La musique Suno (prompts ci-dessus) se dépose à la main sous la forme `music_orion_calm.mp3`, etc., puis il faut relancer le script pour mettre à jour le manifeste.
 - **Back.** API PHP (`public/api`), en PDO SQLite en local et MySQL en production.
   - `auth.php` : inscription, connexion, Google.
   - `save.php` : sauvegarde.
-  - `leaderboard.php` : classement.
+  - `leaderboard.php` : classement par difficulté et trajectoire du record (réplique fantôme).
+  - `achievements.php` : succès.
 
   Les mots de passe sont hachés avec `password_hash`, la session passe par un jeton porteur.
 

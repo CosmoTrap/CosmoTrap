@@ -96,7 +96,10 @@ class AudioManager {
     this.applyVolumes()
     try {
       const m = await fetch('/audio/manifest.json').then((r) => r.json())
-      for (const f of m.files ?? []) this.files.add(f)
+      for (const f of m.files ?? []) {
+        this.files.add(f)
+        if (f.endsWith('.mp3')) this.files.add(f.slice(0, -4))
+      }
     } catch {
       /* pas de manifeste : tout en synthèse */
     }
@@ -123,11 +126,16 @@ class AudioManager {
     for (const h of this.howls.values()) h.volume(this.vols.sfx)
   }
 
+  /** les fichiers du manifeste peuvent être en .mp3 (ElevenLabs), .ogg ou .m4a */
+  private srcs(name: string) {
+    return this.files.has(`${name}.mp3`) ? [`/audio/${name}.mp3`] : [`/audio/${name}.ogg`, `/audio/${name}.m4a`]
+  }
+
   private howl(name: string, loop = false) {
     if (!this.files.has(name)) return null
     let h = this.howls.get(name)
     if (!h) {
-      h = new Howl({ src: [`/audio/${name}.ogg`, `/audio/${name}.m4a`], loop, volume: this.vols.sfx })
+      h = new Howl({ src: this.srcs(name), loop, volume: this.vols.sfx })
       this.howls.set(name, h)
     }
     return h
@@ -290,7 +298,7 @@ class AudioManager {
     const [calm, tension] = MUSIC_FILES[theme]
     if (this.files.has(calm)) {
       this.music.play(null)
-      const mk = (n: string) => new Howl({ src: [`/audio/${n}.ogg`, `/audio/${n}.m4a`], loop: true, volume: 0 })
+      const mk = (n: string) => new Howl({ src: this.srcs(n), loop: true, volume: 0 })
       this.musicHowls.calm = mk(calm)
       this.musicHowls.calm.play()
       this.musicHowls.calm.fade(0, this.vols.music, 2500)
@@ -329,22 +337,41 @@ class AudioManager {
     if (!this.ctx || !this.ready) return
     const f = kind === 'launch' ? 'music_launch' : 'music_victoire'
     this.playMusic(null)
-    if (this.files.has(f)) new Howl({ src: [`/audio/${f}.ogg`, `/audio/${f}.m4a`], volume: this.vols.music }).play()
+    if (this.files.has(f)) new Howl({ src: this.srcs(f), volume: this.vols.music }).play()
     else this.music.oneShot(kind)
   }
 
-  /** voix : fichier si fourni, sinon synthèse vocale du navigateur */
-  speak(text: string, opts: { radio?: boolean; rate?: number } = {}) {
-    if (!('speechSynthesis' in window) || this.vols.voice <= 0.01) return
+  private voiceHowl: Howl | null = null
+
+  /** meilleure voix française disponible (voix « naturelles » en priorité) */
+  private pickVoice() {
+    const vs = speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith('fr'))
+    const score = (v: SpeechSynthesisVoice) =>
+      (/natural|neural|online/i.test(v.name) ? 10 : 0) + (/google/i.test(v.name) ? 6 : 0) + (/premium|enhanced|amélie|amelie|thomas|audrey|aurélie/i.test(v.name) ? 5 : 0) + (v.lang === 'fr-FR' ? 2 : 0) + (v.localService ? 0 : 1)
+    return vs.sort((a, b) => score(b) - score(a))[0]
+  }
+
+  /** voix : fichier ElevenLabs (voice_<id>.mp3) si fourni, sinon synthèse vocale du navigateur */
+  speak(text: string, opts: { radio?: boolean; rate?: number; id?: string } = {}) {
+    if (this.vols.voice <= 0.01) return
+    this.stopSpeech()
+    const file = opts.id ? `voice_${opts.id}` : null
+    if (file && this.files.has(file)) {
+      this.voiceHowl = new Howl({ src: this.srcs(file), volume: this.vols.voice })
+      this.voiceHowl.play()
+      this.duck(4)
+      if (opts.radio) this.sfx('radio_tune', { vol: 0.5 })
+      return
+    }
+    if (!('speechSynthesis' in window)) return
     try {
       const u = new SpeechSynthesisUtterance(text)
       u.lang = 'fr-FR'
       u.rate = opts.rate ?? (opts.radio ? 1.05 : 0.98)
       u.pitch = opts.radio ? 0.9 : 1
       u.volume = this.vols.voice
-      const v = speechSynthesis.getVoices().find((x) => x.lang.startsWith('fr'))
+      const v = this.pickVoice()
       if (v) u.voice = v
-      speechSynthesis.cancel()
       speechSynthesis.speak(u)
       if (opts.radio) this.sfx('radio_tune', { vol: 0.6 })
     } catch {
@@ -353,6 +380,8 @@ class AudioManager {
   }
 
   stopSpeech() {
+    this.voiceHowl?.stop()
+    this.voiceHowl = null
     try {
       speechSynthesis.cancel()
     } catch {

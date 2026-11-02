@@ -7,6 +7,8 @@ import { skipCine } from '../../world/Cinematics'
 import { IMPACT_T, prologue } from '../../world/TitleScene'
 import { computeScore, transitionTo } from '../../game/logic'
 import { loadExplored } from '../../game/explore'
+import { DIFFICULTY, DIFF_ORDER, type Difficulty } from '../../game/difficulty'
+import { ACHIEVEMENTS, allAchievements, checkEndAchievements, localAchievements } from '../../game/achievements'
 import { fr } from '../../i18n/fr'
 import { requestLock } from '../../player/Player'
 import { Keypad } from '../../game/puzzles/Keypad'
@@ -55,6 +57,7 @@ export function Title() {
   const [save, setSave] = useState<SaveFile | null>(null)
   const [settings, setSettings] = useState(false)
   const [credits, setCredits] = useState(false)
+  const [ach, setAch] = useState(false)
   const user = useGame((st) => st.user)
   const offline = useGame((st) => st.offline)
   useEffect(() => {
@@ -110,6 +113,9 @@ export function Title() {
         <button className="btn" data-testid="open-settings" onClick={() => setSettings(true)}>
           {M.settings} & touches
         </button>
+        <button className="btn" data-testid="open-ach" onClick={() => setAch(true)}>
+          Succès
+        </button>
         <button className="btn" onClick={() => setCredits(true)}>
           {M.credits}
         </button>
@@ -117,6 +123,38 @@ export function Title() {
       <div className="hint-line">{fr.controls.desktop} · 1 à 9 : objets</div>
       {settings && <Settings onClose={() => setSettings(false)} />}
       {credits && <Credits onClose={() => setCredits(false)} />}
+      {ach && <AchievementsPanel onClose={() => setAch(false)} />}
+    </div>
+  )
+}
+
+function AchievementsPanel({ onClose }: { onClose: () => void }) {
+  const [have, setHave] = useState<string[]>(localAchievements())
+  useEffect(() => {
+    allAchievements().then(setHave)
+  }, [])
+  return (
+    <div className="modal-bg" style={{ zIndex: 40 }} onClick={onClose}>
+      <div className="panel" style={{ width: 'min(640px, 94vw)' }} onClick={(e) => e.stopPropagation()} data-testid="achievements">
+        <button className="close-x" onClick={onClose}>
+          ×
+        </button>
+        <h2>Succès</h2>
+        <p className="sub">
+          {have.length} / {ACHIEVEMENTS.length} débloqués
+        </p>
+        <div className="ach-grid">
+          {ACHIEVEMENTS.map((a) => (
+            <div key={a.code} className={`ach ${have.includes(a.code) ? 'on' : ''}`}>
+              <span className="ach-icon">{have.includes(a.code) ? a.icon : '🔒'}</span>
+              <div>
+                <b>{a.name}</b>
+                <small>{a.desc}</small>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
@@ -124,11 +162,13 @@ export function Title() {
 export function Leaderboard() {
   const [rows, setRows] = useState<Row[] | null>(null)
   const [err, setErr] = useState(false)
+  const [d, setD] = useState<Difficulty>(G().difficulty ?? 'astronaut')
   useEffect(() => {
-    leaderboard()
+    setRows(null)
+    leaderboard(d)
       .then((r) => setRows(r.rows))
       .catch(() => setErr(true))
-  }, [])
+  }, [d])
   return (
     <div className="modal-bg" style={{ zIndex: 35 }} data-testid="leaderboard">
       <div className="panel board">
@@ -137,6 +177,13 @@ export function Leaderboard() {
         </button>
         <h2>{fr.board.title}</h2>
         <p className="sub">{fr.board.sub}</p>
+        <div className="set-tabs">
+          {DIFF_ORDER.map((x) => (
+            <button key={x} className={`btn ${d === x ? 'primary' : ''}`} onClick={() => setD(x)}>
+              {DIFFICULTY[x].name}
+            </button>
+          ))}
+        </div>
         {err && <p>{fr.board.offline}</p>}
         {rows && !rows.length && <p>{fr.board.empty}</p>}
         {rows && rows.length > 0 && (
@@ -184,12 +231,13 @@ function live_reset() {
 
 export function CharSelect() {
   const [sel, setSel] = useState('nova')
+  const [diffSel, setDiffSel] = useState<Difficulty>('astronaut')
   const start = async () => {
     await audio.init()
     clearSave()
     deleteCloudSave()
     loadExplored([])
-    useGame.setState({ ...newGameData(sel), screen: 'prologue', paused: false, tp: null, resume: null, tabletOpen: false, puzzle: null, readNote: null, lastResult: null })
+    useGame.setState({ ...newGameData(sel, diffSel), screen: 'prologue', paused: false, tp: null, resume: null, tabletOpen: false, puzzle: null, readNote: null, lastResult: null })
   }
   return (
     <div className="screen-full" data-testid="charselect">
@@ -199,11 +247,20 @@ export function CharSelect() {
       </p>
       <div className="chars">
         {Object.entries(fr.characters).map(([id, c]) => (
-          <div key={id} data-testid={`char-${id}`} className={`char ${sel === id ? 'on' : ''}`} onClick={() => setSel(id)}>
+          <div key={id} data-testid={`char-${id}`} className={`char ${sel === id ? 'on' : ''}`} tabIndex={0} onClick={() => setSel(id)}>
             <AstroSilhouette color={c.color} accent={c.accent} />
             <b>{c.name}</b>
             <small>{c.role}</small>
           </div>
+        ))}
+      </div>
+      <h3 className="diff-title">Difficulté</h3>
+      <div className="diffs">
+        {DIFF_ORDER.map((d) => (
+          <button key={d} data-testid={`diff-${d}`} className={`diff ${diffSel === d ? 'on' : ''} diff-${d}`} onClick={() => setDiffSel(d)}>
+            <b>{DIFFICULTY[d].name}</b>
+            <small>{DIFFICULTY[d].desc}</small>
+          </button>
         ))}
       </div>
       <div className="menu" style={{ flexDirection: 'row', width: 'auto' }}>
@@ -281,9 +338,11 @@ export function End() {
   const total = Math.round((s.playTime + s.penalty) * 1000)
   const score = fail ? 0 : computeScore()
   const [rank, setRank] = useState<number | null>(null)
+  const [unlocked, setUnlocked] = useState<string[]>([])
   useEffect(() => {
     if (fail) return
-    submitScore({ timeMs: total, hints: s.hintsUsed, errors: s.errors, score, character: s.character, ending: s.choice === 'keep' ? 'rescue_keep' : 'rescue' }).then(setRank)
+    setUnlocked(checkEndAchievements())
+    submitScore({ timeMs: total, hints: s.hintsUsed, errors: s.errors, score, character: s.character, ending: s.choice === 'keep' ? 'rescue_keep' : 'rescue', difficulty: s.difficulty, ghost: s.track }).then(setRank)
   }, [])
   const ep = fr.story.epilogue
   return (
@@ -317,8 +376,20 @@ export function End() {
             <small>{fr.end.score}</small>
           </div>
         </div>
+        {unlocked.length > 0 && (
+          <div className="ach-row">
+            {unlocked.map((c) => {
+              const a = ACHIEVEMENTS.find((x) => x.code === c)!
+              return (
+                <span key={c} className="ach-chip" title={a.desc}>
+                  {a.icon} {a.name}
+                </span>
+              )
+            })}
+          </div>
+        )}
         <p style={{ color: 'var(--muted)', fontSize: 13 }}>
-          {fr.end.stats.survival} : {surv} / 11 · {fr.end.stats.faints} : {s.faints}
+          {DIFFICULTY[s.difficulty]?.name} · {fr.end.stats.survival} : {surv} / 11 · {fr.end.stats.faints} : {s.faints}
           {rank ? ` · ${fr.end.rank(rank)}` : ''}
         </p>
         <div className="radio-btns" style={{ marginTop: 18 }}>
@@ -414,7 +485,7 @@ export function Prologue() {
     const timers = L.map((l, i) =>
       setTimeout(() => {
         setLine(l)
-        audio.speak(l, { rate: 1.0 })
+        audio.speak(l, { rate: 1.0, id: `prologue_${i}` })
       }, 600 + i * 3500),
     )
     timers.push(

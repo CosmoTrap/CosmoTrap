@@ -16,6 +16,7 @@ import { Level } from './Level'
 import { QUALITY } from './quality'
 import { TitleScene } from './TitleScene'
 import { Zone4 } from './zone4/Zone4'
+import { Ghost, useLoadGhost } from './Ghost'
 
 /** soleil pour les intérieurs : n'entre que par les hublots (ombres) */
 function InteriorSun({ map }: { map: GridMap }) {
@@ -105,6 +106,7 @@ function PhysicsWorld() {
         </>
       )}
       <Player key={zone} />
+      <Ghost />
     </Physics>
   )
 }
@@ -142,6 +144,7 @@ function AdaptiveDpr() {
 export function Scene() {
   const screen = useGame((s) => s.screen)
   useInputListeners()
+  useLoadGhost()
   return (
     <>
       <AdaptiveDpr />

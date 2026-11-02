@@ -161,6 +161,21 @@ export function Settings({ onClose }: { onClose: () => void }) {
               </div>
             </div>
             <div className="set-row">
+              <span>
+                Réplique fantôme du record
+                <br />
+                <small style={{ color: 'var(--muted)' }}>Un hologramme orange refait le parcours du meilleur temps de ta difficulté.</small>
+              </span>
+              <div className="seg">
+                <button className={!s.ghost ? 'on' : ''} onClick={() => update({ ghost: false })}>
+                  {T.off}
+                </button>
+                <button className={s.ghost ? 'on' : ''} onClick={() => update({ ghost: true })}>
+                  {T.on}
+                </button>
+              </div>
+            </div>
+            <div className="set-row">
               <span>Afficher les images/seconde</span>
               <div className="seg">
                 <button className={!s.showFps ? 'on' : ''} onClick={() => update({ showFps: false })}>
@@ -198,6 +213,22 @@ export function Settings({ onClose }: { onClose: () => void }) {
                 Touches par défaut
               </button>
             </div>
+            <h3 className="diff-title" style={{ marginTop: 22 }}>Manette (Xbox / PlayStation)</h3>
+            {[
+              ['Bouger / regarder', 'Stick gauche / stick droit'],
+              ['Agir · Retour', 'A (✕) · B (○)'],
+              ['Lampe · Tablette', 'X (□) · Y (△)'],
+              ['Oxygène · Piles · Boire', 'LB · RB · RT'],
+              ['Courir', 'LT ou clic stick gauche'],
+              ['Objets de la barre', 'Croix ← → pour choisir, ↑ pour utiliser'],
+              ['Pause · Passer une cinématique', 'Start · Select'],
+              ['Menus et énigmes', 'Croix ou stick pour se déplacer, A pour valider'],
+            ].map(([a, b]) => (
+              <div key={a} className="set-row">
+                <span>{a}</span>
+                <span style={{ fontFamily: 'JetBrains Mono', fontSize: 13 }}>{b}</span>
+              </div>
+            ))}
           </>
         )}
       </div>
