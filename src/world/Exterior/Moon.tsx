@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import { NOISE } from './glsl'
-import { tex } from '../assets'
 
 // Lune procédurale : cratères multi-échelles (relief analytique), mers sombres,
 // photométrie lunaire (Lommel-Seeliger) → terminateur jour/nuit marqué.
@@ -21,7 +20,6 @@ uniform vec3 uSun;
 uniform float uDetail;
 uniform float uIntensity;
 uniform mat3 uRot;
-uniform sampler2D uAlbedo;
 varying vec3 vObjN;
 varying vec3 vWorldPos;
 ${NOISE}
@@ -50,34 +48,28 @@ vec4 craters(vec3 p, float density){
   }
   return vec4(h, g);
 }
-vec2 equi(vec3 n){ return vec2(0.5 + atan(n.z, n.x) / 6.2831853, 0.5 + asin(clamp(n.y, -1.0, 1.0)) / 3.1415926); }
-float lum(vec3 n){ return dot(texture2D(uAlbedo, equi(n)).rgb, vec3(0.333)); }
 void main(){
   vec3 n = normalize(vObjN);
-  // relief de la vraie carte lunaire (LRO, NASA) : gradient de la luminance
-  vec3 t1 = normalize(cross(abs(n.y) < 0.99 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0), n));
-  vec3 t2 = cross(n, t1);
-  float e = 0.0012;
-  float l0 = lum(n);
-  vec3 G = (t1 * (lum(normalize(n + t1 * e)) - l0) + t2 * (lum(normalize(n + t2 * e)) - l0)) / e * 0.0045;
-  vec4 c2 = craters(n * 9.0 + 7.3, 0.12);
-  G += c2.yzw * 0.25;
-  float h = c2.x / 9.0;
+  vec4 c1 = craters(n * 3.0, 0.22);
+  vec4 c2 = craters(n * 9.0 + 7.3, 0.38);
+  vec3 G = c1.yzw * 0.9 + c2.yzw * 0.7;
+  float h = c1.x / 3.0 + c2.x / 9.0;
   if (uDetail > 1.5) { vec4 c3 = craters(n * 27.0 + 3.1, 0.5); G += c3.yzw * 0.55; h += c3.x / 27.0; }
   if (uDetail > 2.5) { vec4 c4 = craters(n * 81.0 + 1.7, 0.6); G += c4.yzw * 0.4; }
   // régolithe fin
-  float e2 = 0.02;
+  float e = 0.02;
   float r0 = fbm3(n * 160.0);
-  vec3 Gr = vec3(fbm3(n*160.0 + vec3(e2*160.0,0,0)) - r0, fbm3(n*160.0 + vec3(0,e2*160.0,0)) - r0, fbm3(n*160.0 + vec3(0,0,e2*160.0)) - r0) / e2 * 0.004;
+  vec3 Gr = vec3(fbm3(n*160.0 + vec3(e*160.0,0,0)) - r0, fbm3(n*160.0 + vec3(0,e*160.0,0)) - r0, fbm3(n*160.0 + vec3(0,0,e*160.0)) - r0) / e * 0.004;
   G += Gr;
   vec3 Np = normalize(n - (G - dot(G, n) * n) * 0.45);
   vec3 N = normalize(uRot * Np);
   vec3 L = normalize(uSun);
   vec3 V = normalize(cameraPosition - vWorldPos);
   // albédo : hautes terres claires, mers sombres, éjectas frais
-  float alb = l0 * 0.26;
-  alb *= 0.9 + 0.2 * fbm(n * 60.0);
-  alb += max(0.0, -h) * 0.0;
+  float maria = smoothstep(0.52, 0.62, fbm(n * 1.3 + 4.0));
+  float alb = mix(0.12, 0.055, maria);
+  alb *= 0.85 + 0.3 * fbm(n * 22.0);
+  alb += max(0.0, -h) * 0.0 + max(0.0, c2.x) * 0.25;
   float mu0 = max(dot(N, L), 0.0);
   float mu = max(dot(N, V), 0.02);
   float ls = mu0 / (mu0 + mu);
@@ -103,7 +95,6 @@ export function Moon({ radius, position, sun, detail = 3, intensity = 4.2 }: { r
           uDetail: { value: detail },
           uIntensity: { value: intensity },
           uRot: { value: new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(0.3, 0.8, 0))) },
-          uAlbedo: { value: tex('/assets/planets/moon.jpg') },
         },
       }),
     [sun, detail, intensity],

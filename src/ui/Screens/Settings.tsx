@@ -11,6 +11,7 @@ export const ACTION_LABEL: Record<Action, string> = {
   left: 'Gauche',
   right: 'Droite',
   run: 'Courir',
+  jump: 'Sauter',
   act: 'Agir',
   lamp: 'Lampe',
   o2: 'Brancher l’O₂',

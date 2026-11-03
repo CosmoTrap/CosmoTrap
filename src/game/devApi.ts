@@ -12,6 +12,7 @@ export function installDevApi() {
       return {
         screen: s.screen,
         zone: s.zone,
+        playerZone: live.playerZone,
         flags: { ...s.flags },
         inv: { ...s.inv },
         res: { ...s.res },
@@ -33,6 +34,7 @@ export function installDevApi() {
         trackLen: s.track.length,
         pos: [...live.pos],
         aimed: live.aimed,
+        propPositions: { ...s.propPositions },
         character: s.character,
         settings: { character: s.settings.character, lang: s.settings.lang, help: s.settings.help },
       }

@@ -1,5 +1,6 @@
 # Dépendances et builds
 node_modules
+.tools/
 dist
 .vite
 

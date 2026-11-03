@@ -13,8 +13,8 @@ import { Astronaut } from '../Astronaut'
 import { RoomCtx, useMats } from '../materials'
 import { textTexture } from '../textures'
 import { Box, Cyl, DockHatch, Screen } from './models'
-import { RealModel } from './RealModel'
 import { ZONE4_ENT_MODELS } from '../zone4/Zone4Ents'
+import { SolidProp } from './SolidProps'
 
 // Objets interactifs + zones de détection invisibles (raycast).
 
@@ -626,14 +626,14 @@ export const ENT_MODELS: Record<string, (e: Ent) => ReactNode> = {
   water: () => <WaterPouch />,
   lamp: () => <Headlamp />,
   fuse: () => <Fuse />,
-  wrench: () => <RealModel id="adjustable_wrench" p={[0, 0, 0.15]} r={0.4} />,
+  wrench: () => <Wrench />,
   cell: () => <Cell />,
   ration: () => <SmallItem color="#c0c4c8" shape="foil" />,
   medkit: () => <Medkit />,
   blanket: () => <SmallItem color="#d4a63a" shape="foil" />,
   multitool: () => <SmallItem color="#c5302a" shape="box" />,
   purifier: () => <SmallItem color="#2a7fd0" shape="cyl" />,
-  tape: () => <RealModel id="medical_tape" p={[0, 0, 0.14]} height={0.05} />,
+  tape: () => <SmallItem color="#8d9196" shape="torus" />,
   compass: () => <SmallItem color="#3a3d42" shape="cyl" />,
   whistle: () => <SmallItem color="#ff6b35" shape="box" />,
   mirror: () => <SmallItem color="#e8ecf0" shape="flat" />,
@@ -673,6 +673,7 @@ function EntNode({ e, zone }: { e: Ent; zone: ZoneId }) {
     <RoomCtx.Provider value={{ id: room?.id ?? '', dark: !!room?.dark }}>
       <group position={p} rotation={[0, r, 0]}>
         {model ? model(e) : null}
+        {!e.item && <SolidProp model={e.model} />}
         {e.item && e.wall && (e.y ?? 0) > 0.3 && WALL_BRACKET.has(e.model) && <Bracket />}
         {e.item && <Glint resource={ITEM_KIND[e.item] === 'resource'} />}
         {active && <Hitbox e={e} />}

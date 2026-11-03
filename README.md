@@ -29,7 +29,18 @@ Ouvrir l'URL publique : `https://royalblue-wolverine-280146.hostingersite.com`. 
 
 ### En local (moins de 2 minutes)
 
-Prérequis : Node 20 ou plus, et PHP 8 avec `pdo_sqlite` (installé par défaut sur macOS avec Homebrew et sur la plupart des Linux).
+Prérequis : Node 20 ou plus, et PHP 8 avec `pdo_sqlite` et `mbstring`.
+
+Sous **Windows / PowerShell**, si PHP n'est pas installé :
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/setup-php.ps1
+```
+
+Ce script télécharge PHP 8.4 portable depuis le site officiel, vérifie son SHA256,
+et active `pdo_sqlite` et `mbstring` dans `.tools/php/` (ignoré par Git).
+`npm run local` le détecte automatiquement, sans modifier le PATH de Windows.
+Un PHP déjà installé peut aussi être choisi avec la variable `PHP_BINARY`.
 
 ```bash
 npm install
@@ -43,7 +54,30 @@ Cette commande lance l'API PHP et le jeu, puis affiche deux adresses :
 - `http://localhost:5180` sur ton ordinateur ;
 - `http://<ton-ip>:5180` pour les collègues connectés au **même Wi-Fi**.
 
-L'API crée seule sa base SQLite dans `../cosmotrap-data/`, hors du dossier web. Sur l'adresse réseau en `http://`, la manette et le verrouillage de la souris peuvent être bloqués par le navigateur (contexte non sécurisé). Tout marche en `https` une fois le site en ligne.
+Sous PowerShell, `./scripts/start-local.ps1` lance également les deux serveurs
+depuis le bon dossier. Garder cette fenêtre ouverte ; **Ctrl+C** les arrête.
+
+L'API crée seule sa base SQLite dans `cosmotrap-data/` à la racine du projet, hors du dossier web. Sur l'adresse réseau en `http://`, la manette et le verrouillage de la souris peuvent être bloqués par le navigateur (contexte non sécurisé). Tout marche en `https` une fois le site en ligne.
+
+### Vérifier une modification
+
+```powershell
+npm run build
+npm run test:e2e
+```
+
+Playwright lance les serveurs s'ils ne tournent pas déjà. Installer son navigateur
+avec `npx playwright install chromium`, ou utiliser Chrome installé :
+`$env:PLAYWRIGHT_CHANNEL = 'chrome'` avant la commande de test.
+Les tests couvrent le parcours complet, les ressources, les cinématiques passées
+et les collisions du mobilier. Les textures PBR sont incluses dans `public/textures/` ;
+leurs sources et licences sont dans `LICENCES.md`.
+
+La qualité initiale tient compte du GPU : les Intel UHD démarrent en **Basse**.
+Les textures de surface restent présentes dans tous les modes. Les modes
+**Haute / Ultra** ajoutent notamment les ombres fines et l'occlusion ambiante,
+et demandent une carte graphique plus puissante. Garder la résolution sur
+**Automatique** permet d'adapter aussi les effets à la charge de rendu.
 
 ## Commandes
 
@@ -52,7 +86,8 @@ L'API crée seule sa base SQLite dans `../cosmotrap-data/`, hors du dossier web.
 | Se déplacer | ZQSD / WASD ou flèches (position physique : AZERTY et QWERTY marchent) | Joystick à gauche |
 | Regarder | Souris | Glisser à droite |
 | Courir | Maj | Pousser le joystick à fond |
-| Agir | E ou Espace | Bouton « Agir » |
+| Sauter | Espace | — |
+| Agir | E | Bouton « Agir » |
 | Lampe | F | Bouton « Lampe » |
 | Oxygène, piles, boire | O, R, B | Tablette → Sac |
 | Barre d'inventaire | 1 à 9 : un consommable est utilisé, un objet clé est mis en main | Touche sur l'emplacement |
@@ -61,6 +96,9 @@ L'API crée seule sa base SQLite dans `../cosmotrap-data/`, hors du dossier web.
 | Passer une cinématique | Entrée ou bouton « Passer » | Bouton « Passer » |
 
 **Regard.** Il marche à la souris (clic pour la verrouiller), au glisser-cliquer, et au glisser à deux doigts sur le pavé tactile (réglage activé par défaut).
+
+**Chariot de la serre (zone 2).** Avancer contre l'étagère à légumes sur roulettes
+pour la pousser et dégager l'entrée. Sa position est conservée dans la sauvegarde.
 
 **Manette Xbox / PlayStation** (branchée en USB ou Bluetooth) :
 
@@ -189,13 +227,16 @@ Une partie parfaite, sans erreur ni indice et en passant les cinématiques, dure
 ## Technique
 
 - **Front.** Vite, React 18, TypeScript, React Three Fiber, drei, postprocessing et Rapier (collisions, contrôleur de personnage), zustand et howler.
-- **Rendu.**
-  - panneaux de la station générés sur canvas, avec de vraies textures PBR Poly Haven en détail (usure, micro-relief, rugosité) ;
-  - modèles 3D réels Poly Haven (caisses, étagères, extincteurs, instruments, arbres, rochers, fougères…), compressés en meshopt + WebP ;
-  - zone 4 éclairée par un vrai ciel HDRI, terrain à mélange de textures, herbe dense qui suit le joueur, arbres lointains en imposteurs ;
-  - Lune, Terre (jour, nuit, nuages), Saturne et Voie lactée avec les cartes Solar System Scope ;
-  - fond 3D de la base lunaire Selene-7 derrière la connexion, le menu et les paramètres ;
-  - rayons de soleil volumétriques à travers les hublots, rivière en shader.
+- **Rendu.** Décors procéduraux et matériaux photographiques :
+  - textures PBR générées sur canvas (panneaux, tôle striée, rivets, salissures, normal maps) ;
+  - textures CC0 locales pour métal, tissu, bois, roche, écorce et terrain ;
+  - mobilier à arêtes adoucies, couvertures plissées et volumes de collision ;
+  - arbres instanciés avec branches et feuillage découpé, sans couronnes en cônes ;
+  - Lune en shader (cratères multi-échelles, photométrie Lommel-Seeliger) ;
+  - Terre avec atmosphère, nuages et villes la nuit ;
+  - rayons de soleil volumétriques à travers les hublots ;
+  - herbe instanciée animée par le vent, rivière en shader.
+  - fond 3D de la base lunaire Selene-7 derrière la connexion, le menu et les paramètres.
 
   Pour régénérer les ressources : `npm run assets` (télécharge dans `asset-src/`, ignoré par git, puis écrit dans `public/assets/`).
 - **Cinématiques.** Chaque zone s'ouvre sur une scène découpée en plans (réveil au sol, travellings, plans serrés, plan large sur le personnage) : bandes cinémascope 2,39:1, grain de pellicule, bords d'objectif adoucis. Sur Terre, la capsule Hermès traverse le ciel en feu et s'écrase dans la clairière (traînée, souffle, colonne de fumée), puis le personnage se relève.

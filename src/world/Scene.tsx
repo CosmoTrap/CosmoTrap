@@ -94,7 +94,7 @@ function PhysicsWorld() {
     <Physics key={zone} gravity={[0, -9.81, 0]} timeStep="vary">
       {map ? (
         <>
-          <fogExp2 attach="fog" args={['#05070a', 0.034]} />
+          <fogExp2 attach="fog" args={['#10151b', 0.018]} />
           <InteriorEnv zone={zone} />
           <InteriorSun map={map} />
           <Level map={map} shadows={shadows} />
@@ -121,14 +121,14 @@ function AdaptiveDpr() {
   const quality = useGame((s) => s.settings.quality)
   const resolution = useGame((s) => s.settings.resolution)
   const acc = useRef({ t: 0, n: 0, dpr: 0 })
-  useFrame(({ gl, size }, dt) => {
+  useFrame(({ gl, size, setDpr }, dt) => {
     const a = acc.current
     a.t += dt
     a.n++
     if (resolution !== 'auto') {
       // hauteur de rendu choisie (720p, 1080p, 4K…) quelle que soit la taille de la fenêtre
       const want = THREE.MathUtils.clamp(resolution / Math.max(1, size.height), 0.25, 3)
-      if (Math.abs(gl.getPixelRatio() - want) > 0.01) gl.setPixelRatio(want)
+      if (Math.abs(gl.getPixelRatio() - want) > 0.01) setDpr(want)
       if (a.t > 2) {
         live.fps = a.n / a.t
         a.t = 0
@@ -140,14 +140,14 @@ function AdaptiveDpr() {
     const target = Math.min(window.devicePixelRatio || 1, hi)
     if (!a.dpr) {
       a.dpr = target
-      gl.setPixelRatio(a.dpr)
+      setDpr(a.dpr)
     }
     if (a.t > 2) {
       const fps = a.n / a.t
       live.fps = fps
       if (fps < 42 && a.dpr > lo + 0.01) a.dpr = Math.max(lo, a.dpr - 0.15)
       else if (fps > 58 && a.dpr < target - 0.01) a.dpr = Math.min(target, a.dpr + 0.1)
-      gl.setPixelRatio(a.dpr)
+      if (Math.abs(gl.getPixelRatio() - a.dpr) > 0.01) setDpr(a.dpr)
       a.t = 0
       a.n = 0
     }

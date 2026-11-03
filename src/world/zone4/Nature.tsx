@@ -1,13 +1,13 @@
 import { useFrame } from '@react-three/fiber'
-import { useMemo, useRef } from 'react'
+import { useLayoutEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+
 import { BRIDGE_X, RIVER_HALF, WATER_Y, riverCenter, terrainHeight } from '../../game/maps/zone4'
 import { live } from '../../game/state'
 import { NOISE } from '../Exterior/glsl'
 import { rockGeometry } from '../Exterior/Asteroids'
-import { rockSet } from '../textures'
-import { splatMaterial, splatWeights } from './RealNature'
+import { photoSurface } from '../photomaterials'
+import { makeTreeGeometry, foliageMaterial } from './foliage'
 
 export const SUN4 = new THREE.Vector3(-0.55, 0.13, -0.82).normalize()
 export const SUN4_COLOR = new THREE.Color('#ffbd7a')
@@ -28,8 +28,36 @@ export function buildTerrain(size: number, seg: number, cx: number, cz: number) 
 export function Terrain() {
   const { geo, mat } = useMemo(() => {
     const geo = buildTerrain(260, 220, 0, -26)
-    splatWeights(geo)
-    return { geo, mat: splatMaterial() }
+    const p = geo.attributes.position as THREE.BufferAttribute
+    const n = geo.attributes.normal as THREE.BufferAttribute
+    const col = new Float32Array(p.count * 3)
+    const c = new THREE.Color()
+    const grass = new THREE.Color('#c2c4a6')
+    const dry = new THREE.Color('#eee0c3')
+    const dirt = new THREE.Color('#b7a18a')
+    const rock = new THREE.Color('#d5d4ce')
+    const mud = new THREE.Color('#726b5f')
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i)
+      const z = p.getZ(i)
+      const y = p.getY(i)
+      const slope = 1 - n.getY(i)
+      const dr = Math.abs(z - riverCenter(x))
+      const k = (Math.sin(x * 0.11) * Math.cos(z * 0.09) + 1) * 0.5
+      c.copy(grass).lerp(dry, k * 0.6)
+      // sentier vers le pont puis l'hélisurface
+      const path = Math.min(Math.abs(x - (BRIDGE_X - 4 + Math.sin(z * 0.08) * 3)), 99)
+      if (path < 1.1 && z > -64) c.lerp(dirt, 0.8 * (1 - path / 1.1))
+      if (dr < RIVER_HALF + 1.2) c.lerp(mud, THREE.MathUtils.smoothstep(RIVER_HALF + 1.2 - dr, 0, 1.5))
+      c.lerp(rock, THREE.MathUtils.smoothstep(slope, 0.25, 0.5))
+      if (y > 6) c.lerp(rock, 0.5)
+      col.set([c.r, c.g, c.b], i * 3)
+    }
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3))
+    const s = photoSurface('ground', 85)
+    const mat = new THREE.MeshStandardMaterial({ ...s, vertexColors: true, roughness: 1, metalness: 0, normalScale: new THREE.Vector2(0.85, 0.85), envMapIntensity: 0.5 })
+    mat.color.set('#ffffff')
+    return { geo, mat }
   }, [])
   return <mesh geometry={geo} material={mat} receiveShadow />
 }
@@ -68,36 +96,25 @@ export function Mountains() {
 
 // ——— herbe instanciée, ondulant au vent ———
 const grassVert = /* glsl */ `
-attribute vec3 aOffset; // x, z dans le tapis [0, P), y inutilisé
+attribute vec3 aOffset;
 attribute vec2 aScale; // hauteur, angle
 uniform float uTime;
-uniform vec2 uCenter;
-uniform float uPatch;
-uniform sampler2D uHeight; // r = hauteur du terrain, g = herbe autorisée
-uniform vec4 uArea; // xMin, zMin, taille, -
 varying float vH;
 varying vec3 vW;
 varying float vRnd;
 #include <fog_pars_vertex>
 void main(){
   vec3 p = position;
-  // le tapis se répète autour du joueur : chaque brin reste fixe dans le monde
-  vec2 base = uCenter - uPatch * 0.5;
-  vec2 xz = base + mod(aOffset.xz - base, uPatch);
-  vec2 uv = (xz - uArea.xy) / uArea.z;
-  vec4 hm = texture2D(uHeight, uv);
-  float edge = 1.0 - smoothstep(uPatch * 0.32, uPatch * 0.5, length(xz - uCenter));
-  float h = aScale.x * hm.g * edge * (0.75 + 0.5 * fract(sin(dot(floor(xz * 0.35), vec2(12.9898, 78.233))) * 43758.5453));
-  vec3 aOff = vec3(xz.x, hm.r - 0.03, xz.y);
+  float h = aScale.x;
   float t = p.y; // 0..1
   vH = t;
   vRnd = fract(aOffset.x * 13.7 + aOffset.z * 7.1);
   float c = cos(aScale.y), s = sin(aScale.y);
   p.xz = mat2(c, -s, s, c) * p.xz;
   p.y *= h;
-  vec3 w = aOff + p;
-  float wind = sin(uTime * 1.6 + aOff.x * 0.35 + aOff.z * 0.22) * 0.5 + sin(uTime * 2.7 + aOff.x * 1.3) * 0.2;
-  float gust = smoothstep(0.3, 1.0, sin(uTime * 0.35 + aOff.x * 0.05 - aOff.z * 0.03));
+  vec3 w = aOffset + p;
+  float wind = sin(uTime * 1.6 + aOffset.x * 0.35 + aOffset.z * 0.22) * 0.5 + sin(uTime * 2.7 + aOffset.x * 1.3) * 0.2;
+  float gust = smoothstep(0.3, 1.0, sin(uTime * 0.35 + aOffset.x * 0.05 - aOffset.z * 0.03));
   float bend = (wind * (0.25 + gust * 0.45) + 0.12) * t * t * h;
   w.x += bend * 0.8;
   w.z += bend * 0.5;
@@ -116,17 +133,13 @@ varying vec3 vW;
 varying float vRnd;
 #include <fog_pars_fragment>
 void main(){
-  // variations par taches : herbe verte, herbe sèche, trèfle sombre
-  float patchN = fract(sin(dot(floor(vW.xz * 0.18), vec2(41.3, 289.1))) * 43758.5453);
-  vec3 green = mix(vec3(0.12, 0.22, 0.06), vec3(0.2, 0.3, 0.08), vRnd);
-  vec3 dry = mix(vec3(0.36, 0.34, 0.16), vec3(0.42, 0.38, 0.2), vRnd);
-  vec3 base = mix(vec3(0.03, 0.05, 0.02), vec3(0.07, 0.09, 0.04), vRnd);
-  vec3 tip = mix(green, dry, smoothstep(0.55, 0.95, patchN) * 0.8);
+  vec3 base = mix(vec3(0.025, 0.045, 0.012), vec3(0.055, 0.075, 0.025), vRnd);
+  vec3 tip = mix(vec3(0.12, 0.2, 0.055), vec3(0.23, 0.25, 0.1), vRnd);
   vec3 alb = mix(base, tip, smoothstep(0.0, 1.0, vH));
   vec3 V = normalize(cameraPosition - vW);
   float back = pow(max(dot(-V, normalize(uSun)), 0.0), 4.0);
   vec3 col = alb * (uSunCol * (0.55 + 0.35 * vH) + uSky * 0.35) * (0.35 + 0.65 * vH);
-  col += uSunCol * alb * back * 0.7 * vH;
+  col += uSunCol * alb * back * 0.5 * vH;
   gl_FragColor = vec4(col, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -141,50 +154,44 @@ function grassOK(x: number, z: number) {
   return true
 }
 
-/** carte de hauteur du terrain (et des zones où l'herbe pousse) pour le shader d'herbe */
-const AREA = { x0: -120, z0: -146, size: 260 }
-let heightTex: THREE.DataTexture | null = null
-function heightMap() {
-  if (heightTex) return heightTex
-  const N = 512
-  const data = new Float32Array(N * N * 4)
-  for (let j = 0; j < N; j++)
-    for (let i = 0; i < N; i++) {
-      const x = AREA.x0 + ((i + 0.5) / N) * AREA.size
-      const z = AREA.z0 + ((j + 0.5) / N) * AREA.size
-      const k = (j * N + i) * 4
-      data[k] = terrainHeight(x, z)
-      data[k + 1] = grassOK(x, z) ? 1 : 0
-    }
-  heightTex = new THREE.DataTexture(data, N, N, THREE.RGBAFormat, THREE.FloatType)
-  heightTex.magFilter = THREE.LinearFilter
-  heightTex.minFilter = THREE.LinearFilter
-  heightTex.needsUpdate = true
-  return heightTex
-}
-
-/** herbe dense qui suit le joueur (la texture du terrain prend le relais au loin) */
 export function Grass({ count }: { count: number }) {
-  const P = count > 400000 ? 46 : count > 200000 ? 40 : 32
   const { geo, mat } = useMemo(() => {
     const blade = new THREE.BufferGeometry()
-    const w = 0.016
-    // lame à 5 sommets (3 triangles), légèrement courbée
-    const v = [-w, 0, 0, w, 0, 0, -w * 0.7, 0.45, 0.02, w * 0.7, 0.45, 0.02, 0, 1, 0.07]
+    const w = 0.022
+    // Six curved blades per tuft, instead of isolated luminous sticks.
+    const v: number[] = [], indices: number[] = []
+    for (let i = 0; i < 6; i++) {
+      const angle = i * 2.399, h = 0.65 + (i % 3) * 0.16
+      const c = Math.cos(angle), s = Math.sin(angle), offset = i * 5
+      for (const [x, y, z] of [[-w, 0, 0], [w, 0, 0], [-w * 0.65, h * 0.45, 0.06], [w * 0.65, h * 0.45, 0.06], [0, h, 0.17]]) {
+        v.push(x * c + z * s + c * 0.07, y, -x * s + z * c + s * 0.07)
+      }
+      indices.push(...[0, 1, 2, 2, 1, 3, 2, 3, 4].map((index) => offset + index))
+    }
     blade.setAttribute('position', new THREE.Float32BufferAttribute(v, 3))
-    blade.setIndex([0, 1, 2, 2, 1, 3, 2, 3, 4])
+    blade.setIndex(indices)
     const g = new THREE.InstancedBufferGeometry()
     g.index = blade.index
     g.attributes.position = blade.attributes.position
     const off = new Float32Array(count * 3)
     const sc = new Float32Array(count * 2)
-    for (let n = 0; n < count; n++) {
-      off.set([Math.random() * P, 0, Math.random() * P], n * 3)
-      sc.set([0.22 + Math.random() * 0.38, Math.random() * Math.PI * 2], n * 2)
+    let n = 0
+    let tries = 0
+    while (n < count && tries < count * 3) {
+      tries++
+      // plus dense près du joueur : distribution concentrée sur la zone jouable
+      const x = (Math.random() * 2 - 1) * 46
+      const z = 24 - Math.random() * 104
+      if (!grassOK(x, z)) continue
+      const clump = Math.sin(x * 0.3) * Math.cos(z * 0.27)
+      if (clump < -0.6 && Math.random() < 0.7) continue
+      off.set([x, terrainHeight(x, z) - 0.02, z], n * 3)
+      sc.set([0.25 + Math.random() * 0.55 + Math.max(0, clump) * 0.35, Math.random() * Math.PI * 2], n * 2)
+      n++
     }
     g.setAttribute('aOffset', new THREE.InstancedBufferAttribute(off, 3))
     g.setAttribute('aScale', new THREE.InstancedBufferAttribute(sc, 2))
-    g.instanceCount = count
+    g.instanceCount = n
     const mat = new THREE.ShaderMaterial({
       vertexShader: grassVert,
       fragmentShader: grassFrag,
@@ -192,71 +199,16 @@ export function Grass({ count }: { count: number }) {
       fog: true,
       uniforms: THREE.UniformsUtils.merge([
         THREE.UniformsLib.fog,
-        {
-          uTime: { value: 0 },
-          uSun: { value: SUN4.clone() },
-          uSunCol: { value: SUN4_COLOR.clone().multiplyScalar(2.2) },
-          uSky: { value: SKY4.clone() },
-          uCenter: { value: new THREE.Vector2() },
-          uPatch: { value: P },
-          uArea: { value: new THREE.Vector4(AREA.x0, AREA.z0, AREA.size, 0) },
-        },
+        { uTime: { value: 0 }, uSun: { value: SUN4.clone() }, uSunCol: { value: SUN4_COLOR.clone().multiplyScalar(2.2) }, uSky: { value: SKY4.clone() } },
       ]),
     })
-    mat.uniforms.uHeight = { value: heightMap() }
     return { geo: g, mat }
-  }, [count, P])
-  useFrame(({ clock, camera }) => {
-    mat.uniforms.uTime.value = clock.elapsedTime
-    mat.uniforms.uCenter.value.set(camera.position.x, camera.position.z)
-  })
+  }, [count])
+  useFrame(({ clock }) => (mat.uniforms.uTime.value = clock.elapsedTime))
   return <mesh geometry={geo} material={mat} frustumCulled={false} />
 }
 
 // ——— arbres ———
-function treeGeometry(kind: 'pine' | 'oak') {
-  const parts: THREE.BufferGeometry[] = []
-  const colorize = (g: THREE.BufferGeometry, c: THREE.Color, jitter = 0.08) => {
-    const n = g.attributes.position.count
-    const col = new Float32Array(n * 3)
-    for (let i = 0; i < n; i++) {
-      const k = 1 + (Math.random() - 0.5) * jitter * 2
-      col.set([c.r * k, c.g * k, c.b * k], i * 3)
-    }
-    g.setAttribute('color', new THREE.BufferAttribute(col, 3))
-    return g
-  }
-  const trunkH = kind === 'pine' ? 3 : 2.4
-  const trunk = new THREE.CylinderGeometry(0.12, 0.22, trunkH, 7)
-  trunk.translate(0, trunkH / 2, 0)
-  parts.push(colorize(trunk.toNonIndexed(), new THREE.Color('#4a3524')))
-  if (kind === 'pine') {
-    for (let i = 0; i < 5; i++) {
-      const r = 1.6 - i * 0.28
-      const c = new THREE.ConeGeometry(r, 1.9, 9, 2)
-      const p = c.attributes.position as THREE.BufferAttribute
-      for (let k = 0; k < p.count; k++) p.setXYZ(k, p.getX(k) * (0.85 + Math.random() * 0.3), p.getY(k), p.getZ(k) * (0.85 + Math.random() * 0.3))
-      c.translate(0, 2.2 + i * 1.05, 0)
-      parts.push(colorize(c.toNonIndexed(), new THREE.Color(i % 2 ? '#1f3a22' : '#26452a')))
-    }
-  } else {
-    for (let i = 0; i < 7; i++) {
-      const s = new THREE.IcosahedronGeometry(1.1 + Math.random() * 0.6, 1)
-      const p = s.attributes.position as THREE.BufferAttribute
-      for (let k = 0; k < p.count; k++) {
-        const f = 0.85 + Math.random() * 0.3
-        p.setXYZ(k, p.getX(k) * f, p.getY(k) * f * 0.85, p.getZ(k) * f)
-      }
-      const a = (i / 7) * Math.PI * 2
-      s.translate(i === 0 ? 0 : Math.cos(a) * 1.1, 3.0 + (i === 0 ? 1.0 : Math.random() * 0.8), i === 0 ? 0 : Math.sin(a) * 1.1)
-      parts.push(colorize(s.toNonIndexed(), new THREE.Color(['#3d5a24', '#4a6a2a', '#56722e'][i % 3]), 0.15))
-    }
-  }
-  const g = mergeGeometries(parts)!
-  g.computeVertexNormals()
-  return g
-}
-
 function windMaterial(base: THREE.MeshStandardMaterial) {
   base.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = { value: 0 }
@@ -308,14 +260,16 @@ export function placeTrees(count: number): TreeInst[] {
 export function Trees({ trees }: { trees: TreeInst[] }) {
   const pineRef = useRef<THREE.InstancedMesh>(null)
   const oakRef = useRef<THREE.InstancedMesh>(null)
-  const { pine, oak, mat } = useMemo(() => {
-    const mat = windMaterial(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0, envMapIntensity: 0.5 }))
-    return { pine: treeGeometry('pine'), oak: treeGeometry('oak'), mat }
+  const pineTrunk = useRef<THREE.InstancedMesh>(null)
+  const oakTrunk = useRef<THREE.InstancedMesh>(null)
+  const { pine, oak, pineMat, oakMat, bark } = useMemo(() => {
+    const bark = new THREE.MeshStandardMaterial({ ...photoSurface('bark', 2), roughness: 1, normalScale: new THREE.Vector2(0.7, 0.7) })
+    return { pine: makeTreeGeometry('pine'), oak: makeTreeGeometry('oak'),
+      pineMat: windMaterial(foliageMaterial('pine')), oakMat: windMaterial(foliageMaterial('oak')), bark }
   }, [])
   const pines = trees.filter((t) => t.kind === 'pine')
   const oaks = trees.filter((t) => t.kind === 'oak')
-  useMemo(() => {
-    requestAnimationFrame(() => {
+  useLayoutEffect(() => {
       const m = new THREE.Matrix4()
       const q = new THREE.Quaternion()
       const fill = (im: THREE.InstancedMesh | null, list: TreeInst[]) => {
@@ -330,16 +284,21 @@ export function Trees({ trees }: { trees: TreeInst[] }) {
       }
       fill(pineRef.current, pines)
       fill(oakRef.current, oaks)
-    })
+      fill(pineTrunk.current, pines)
+      fill(oakTrunk.current, oaks)
   }, [trees])
   useFrame(({ clock }) => {
-    const sh = mat.userData.shader
-    if (sh) sh.uniforms.uTime.value = clock.elapsedTime
+    for (const mat of [pineMat, oakMat]) {
+      const sh = mat.userData.shader
+      if (sh) sh.uniforms.uTime.value = clock.elapsedTime
+    }
   })
   return (
     <group>
-      <instancedMesh ref={pineRef} args={[pine, mat, pines.length]} castShadow receiveShadow frustumCulled={false} />
-      <instancedMesh ref={oakRef} args={[oak, mat, oaks.length]} castShadow receiveShadow frustumCulled={false} />
+      <instancedMesh ref={pineTrunk} args={[pine.wood, bark, pines.length]} castShadow receiveShadow />
+      <instancedMesh ref={oakTrunk} args={[oak.wood, bark, oaks.length]} castShadow receiveShadow />
+      <instancedMesh ref={pineRef} args={[pine.leaves, pineMat, pines.length]} castShadow receiveShadow />
+      <instancedMesh ref={oakRef} args={[oak.leaves, oakMat, oaks.length]} castShadow receiveShadow />
     </group>
   )
 }
@@ -347,7 +306,7 @@ export function Trees({ trees }: { trees: TreeInst[] }) {
 // ——— rochers ———
 export function Rocks() {
   const { geos, mat, list } = useMemo(() => {
-    const s = rockSet(512, '#857d72')
+    const s = photoSurface('rock')
     const mat = new THREE.MeshStandardMaterial({ ...s, roughness: 1, metalness: 0 })
     const geos = [1, 2, 3].map((i) => rockGeometry(i + 10, 3, 0.3))
     const list: { x: number; z: number; s: number; k: number; r: number }[] = []

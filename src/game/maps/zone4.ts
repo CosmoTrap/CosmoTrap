@@ -54,7 +54,10 @@ export function terrainHeight(x: number, z: number) {
   const ex = Math.max(0, Math.abs(x) - 34)
   const ez = Math.max(0, z - 16, -68 - z)
   const e = Math.hypot(ex, ez)
-  h += e * e * 0.012 + e * 0.25 * fbm(x * 0.06, z * 0.06)
+  const rise = e * e * 0.05 + e * 0.4 * fbm(x * 0.08, z * 0.08)
+  // Keep distant hills finite: the former quadratic created 500 m walls
+  // around the valley and completely concealed the sky and mountain skyline.
+  h += 32 * (1 - Math.exp(-rise / 32))
   return h
 }
 

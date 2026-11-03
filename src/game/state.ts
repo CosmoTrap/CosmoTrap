@@ -75,6 +75,8 @@ export const live = {
   inDarkRoom: false,
   roomId: '' as string,
   fps: 60,
+  /** Zone whose physical player has rendered a frame (loading/test readiness). */
+  playerZone: null as ZoneId | null,
   /** décor extérieur pendant les cinématiques (décollage, rentrée) */
   ext: { y: 0, plasma: 0 },
   /** contrôle caméra par une cinématique */
@@ -164,6 +166,8 @@ export interface GameData {
   /** imprévu en cours */
   event: { kind: 'blackout' | 'leak'; until: number } | null
   nextEventAt: number
+  /** positions monde du mobilier déplacé par le joueur */
+  propPositions: Record<string, [number, number, number]>
   /** temps de jeu (pénalités comprises) à la résolution de chaque énigme, par id */
   splits: Record<string, number>
 }
@@ -199,6 +203,7 @@ export const newGameData = (character = 'nova', difficulty: Difficulty = 'astron
   track: [],
   event: null,
   nextEventAt: DIFFICULTY[difficulty].events * 0.7,
+  propPositions: {},
   splits: {},
 })
 
@@ -255,7 +260,9 @@ export function detectQuality(): Quality {
     if (/swiftshader|llvmpipe|software|basic render/.test(r)) return 'low'
     if (/rtx|radeon rx [67]|rx 7|apple m[2-9] (pro|max|ultra)|apple m[3-9]/.test(r)) return 'ultra'
     if (/apple m|apple gpu|geforce gtx 1[0-9]|rx 5|arc a/.test(r)) return 'high'
-    if (/intel|uhd|iris|mali|adreno/.test(r)) return cores >= 8 ? 'medium' : 'low'
+    // CPU thread count is not a measure of integrated graphics performance.
+    if (/uhd|intel.*hd graphics|mali|adreno/.test(r)) return 'low'
+    if (/intel|iris/.test(r)) return 'medium'
     return cores >= 8 ? 'high' : 'medium'
   } catch {
     return 'medium'
@@ -291,6 +298,11 @@ function loadSettings(): Settings {
     const q = new URLSearchParams(location.search).get('quality') as Quality | null
     const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null')
     const out = { ...def, ...(s || {}), keys: { ...DEFAULT_KEYS, ...(s?.keys || {}) } }
+    // Before jumping existed, Space was a second interaction key.
+    if (s?.keys && !('jump' in s.keys)) {
+      out.keys.act = out.keys.act.filter((code: string) => code !== 'Space')
+      if (!out.keys.act.length) out.keys.act = [...DEFAULT_KEYS.act]
+    }
     if (q) out.quality = q
     return out
   } catch {

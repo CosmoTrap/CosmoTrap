@@ -15,6 +15,7 @@ import { markKeyboard, pad } from './gamepad'
 
 const EYE = 0.77 // au-dessus du centre de la capsule → yeux à 1,62 m
 const REACH = 2.7
+const JUMP_SPEED = 4.5 // ~1 m de hauteur, avec la gravité du contrôleur
 
 export const aim = { id: null as string | null, label: null as string | null }
 
@@ -51,6 +52,11 @@ export function useInputListeners() {
       if (matches(k, 'tablet', e.code)) {
         if (s.tabletOpen) closeTablet()
         else if (!s.puzzle && !s.paused) openTablet()
+        return
+      }
+      if (matches(k, 'jump', e.code)) {
+        e.preventDefault()
+        if (!s.cine && !overlayOpen()) input.jumpRequested = true
         return
       }
       if (s.paused || s.puzzle) return
@@ -91,7 +97,7 @@ export function useInputListeners() {
       input.look.dx += e.deltaX * k * 0.9
       input.look.dy += e.deltaY * k * 0.9
     }
-    const blur = () => input.down.clear()
+    const blur = () => { input.down.clear(); input.jumpRequested = false }
     let lockedAt = 0
     const plc = () => {
       const locked = !!document.pointerLockElement
@@ -135,7 +141,7 @@ export function closeTablet() {
   requestLock()
 }
 export function requestLock() {
-  if (isTouch()) return
+  if (isTouch() || G().screen !== 'playing' || G().cine || overlayOpen()) return
   const c = document.querySelector('canvas')
   try {
     ;(c as any)?.requestPointerLock?.()?.catch?.(() => {})
@@ -152,10 +158,12 @@ export function Player() {
   const tp = useGame((s) => s.tp)
   const quality = useGame((s) => s.settings.quality)
   const q = QUALITY[quality]
-  const st = useRef({ vy: 0, phase: 0, lastStep: 0, roll: 0, lampYaw: 0, lampPitch: 0, flick: 1, breath: 0, prevAim: '' })
+  const st = useRef({ vy: 0, grounded: false, phase: 0, lastStep: 0, roll: 0, lampYaw: 0, lampPitch: 0, flick: 1, breath: 0, prevAim: '' })
   const controller = useMemo(() => {
     const c = world.createCharacterController(0.02)
-    c.enableAutostep(0.35, 0.25, true)
+    c.enableAutostep(0.35, 0.25, false)
+    c.setApplyImpulsesToDynamicBodies(true)
+    c.setCharacterMass(80)
     c.enableSnapToGround(0.45)
     c.setMaxSlopeClimbAngle((52 * Math.PI) / 180)
     c.setMinSlopeSlideAngle((60 * Math.PI) / 180)
@@ -163,6 +171,7 @@ export function Player() {
     return c
   }, [world])
   useEffect(() => () => world.removeCharacterController(controller), [world, controller])
+  useEffect(() => () => { live.playerZone = null; input.jumpRequested = false }, [])
 
   // lampe frontale
   const lamp = useMemo(() => {
@@ -199,6 +208,8 @@ export function Player() {
     live.yaw = tp.yaw
     live.pitch = 0
     st.current.vy = 0
+    st.current.grounded = false
+    input.jumpRequested = false
   }, [tp])
 
   const fwd = useMemo(() => new THREE.Vector3(), [])
@@ -211,9 +222,10 @@ export function Player() {
     const s = G()
     const b = body.current
     if (!b) return
+    live.playerZone = zone
     const S = st.current
     const keys = s.settings.keys
-    const frozen = s.screen !== 'playing' || s.paused || !!s.cine || s.tabletOpen || !!s.puzzle || !!s.readNote
+    const frozen = s.screen !== 'playing' || s.paused || !!s.cine || s.tabletOpen || !!s.puzzle || !!s.readNote || s.settingsOpen
 
     // regard
     const sens = 0.0022 * s.settings.sensitivity
@@ -248,12 +260,17 @@ export function Player() {
     fwd.set(-Math.sin(live.yaw), 0, -Math.cos(live.yaw))
     right.set(Math.cos(live.yaw), 0, -Math.sin(live.yaw))
     mv.set(0, 0, 0).addScaledVector(fwd, -iz * speed * dt).addScaledVector(right, ix * speed * dt)
+    if (input.jumpRequested && !frozen && S.grounded) S.vy = JUMP_SPEED
+    // Consume each press once, including presses in midair or behind an overlay.
+    input.jumpRequested = false
     S.vy = Math.max(S.vy - 9.81 * dt, -20)
     mv.y = S.vy * dt
     const col = b.collider(0)
     controller.computeColliderMovement(col, mv)
     const m = controller.computedMovement()
-    if (controller.computedGrounded()) S.vy = -0.5
+    S.grounded = controller.computedGrounded()
+    if (S.grounded) S.vy = -0.5
+    else if (S.vy > 0 && m.y < mv.y - 0.001) S.vy = 0 // tête contre un plafond
     const t = b.translation()
     let nx = t.x + m.x
     let ny = t.y + m.y
@@ -263,6 +280,8 @@ export function Player() {
       nx = sp.pos[0]
       ny = sp.pos[1] + 1
       nz = sp.pos[2]
+      S.vy = 0
+      S.grounded = false
     }
     b.setNextKinematicTranslation({ x: nx, y: ny, z: nz })
     const horiz = Math.hypot(m.x, m.z) / Math.max(dt, 1e-4)
@@ -270,7 +289,7 @@ export function Player() {
     live.speed = horiz
 
     // tête : balancement, inclinaison en courant, respiration
-    const moving = horiz > 0.4
+    const moving = horiz > 0.4 && S.grounded
     if (moving) S.phase += dt * (running ? 11 : 7.6)
     const k = moving ? Math.min(1, horiz / 2.5) : 0
     const bobY = Math.sin(S.phase * 2) * 0.032 * k
@@ -289,7 +308,7 @@ export function Player() {
     const sx = shake ? (Math.random() - 0.5) * shake * 0.05 : 0
     const sy = shake ? (Math.random() - 0.5) * shake * 0.05 : 0
 
-    if (live.camOverride) {
+    if (s.cine && live.camOverride) {
       camera.position.set(...live.camOverride.pos)
       camera.lookAt(...live.camOverride.look)
     } else {
@@ -297,7 +316,7 @@ export function Player() {
       camera.rotation.set(live.pitch + sy * 0.5, live.yaw + sx * 0.3, S.roll, 'YXZ')
     }
     const pc = camera as THREE.PerspectiveCamera
-    const fov = live.camOverride?.fov ?? s.settings.fov + (running && moving ? 4 : 0) + lowO2 * 3
+    const fov = (s.cine ? live.camOverride?.fov : undefined) ?? s.settings.fov + (running && moving ? 4 : 0) + lowO2 * 3
     if (Math.abs(pc.fov - fov) > 0.05) {
       pc.fov = THREE.MathUtils.damp(pc.fov, fov, 5, dt)
       pc.updateProjectionMatrix()

@@ -91,7 +91,9 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
   await g(page, 'teleportXZ', 35, 11, -Math.PI / 2)
   await page.waitForTimeout(600)
   await holdKey(page, 'w', 2500)
-  expect((await st(page)).pos[0]).toBeLessThan(39.6)
+  // Steam starts at x=40; capsule radius 0.30 + controller skin 0.02.
+  expect((await st(page)).pos[0]).toBeLessThan(39.75)
+  expect((await st(page)).pos[0]).toBeGreaterThan(35.3)
   await act(page, 'fuse')
   await act(page, 'wrench')
   await act(page, 'steamValve')
@@ -289,6 +291,9 @@ test('menu principal, nouvelle partie, paramètres et langue', async ({ page, re
   await page.getByTestId('open-settings').click()
   await page.getByRole('button', { name: /Léo/ }).click()
   await expect.poll(async () => (await st(page)).settings.character).toBe('leo')
+  // K12's new jump action also appears in main's redesigned settings page.
+  await page.getByTestId('stab-2').click()
+  await expect(page.getByTestId('bind-jump-0')).toContainText('Espace')
   // onglet Jeu : passage en anglais puis retour
   await page.getByTestId('stab-1').click()
   await page.getByRole('button', { name: 'English' }).click()
@@ -304,4 +309,5 @@ test('menu principal, nouvelle partie, paramètres et langue', async ({ page, re
   await page.getByTestId('start').click()
   await page.waitForFunction(() => window.__game.state().screen === 'prologue')
   expect((await st(page)).difficulty).toBe('explorer')
+  expect((await st(page)).character).toBe('leo')
 })

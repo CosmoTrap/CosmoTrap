@@ -1,7 +1,7 @@
-import { Environment } from '@react-three/drei'
+import { Environment, Sky } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { BallCollider, CuboidCollider, CylinderCollider, RigidBody, TrimeshCollider } from '@react-three/rapier'
-import { Suspense, useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { audio } from '../../game/audio/audio'
 import { BOUNDS, BRIDGE_X, RIVER_HALF, riverCenter, terrainHeight, zone4Props } from '../../game/maps/zone4'
@@ -9,15 +9,13 @@ import { G, live, useGame } from '../../game/state'
 import { QUALITY } from '../quality'
 import { EntModels } from '../props/EntModels'
 import { Box, Cyl } from '../props/models'
-import { RealModel } from '../props/RealModel'
 import { RoomCtx, useMats } from '../materials'
-import { drawTexture } from '../textures'
-import { pbr, pbrMaterial } from '../assets'
+import { concreteSet, drawTexture } from '../textures'
 import { rockGeometry } from '../Exterior/Asteroids'
-import { CloudLayer, FOG4, Grass, Mountains, River, SUN4, SunLight, Terrain, buildTerrain, placeTrees } from './Nature'
-import { Impostors, Instanced, SUN_FOR_IMPOSTOR, scatter, splitTrees, useHdri } from './RealNature'
+import { CloudLayer, FOG4, Grass, Mountains, River, Rocks, SUN4, SunLight, Terrain, Trees, buildTerrain, placeTrees } from './Nature'
 import { woodMat } from './Zone4Ents'
 import { capsulePos, crash } from '../FilmScenes'
+import { photoSurface } from '../photomaterials'
 
 // Zone 4 — Terre, vallée de l'atterrissage, fin d'après-midi.
 
@@ -152,7 +150,7 @@ function Parachute() {
 
 function Cabin() {
   const m = useMats()
-  const wood = useMemo(() => pbrMaterial('brown_planks_05', { repeat: [2, 2], metal: 0, color: '#c9b8a0' }), [])
+  const wood = woodMat()
   const roof = m.painted('#5a3a2a', 0.8, 0.1)
   return (
     <group>
@@ -177,11 +175,9 @@ function Cabin() {
 
 function Helipad() {
   const { mat, edge } = useMemo(() => {
-    const real = pbr('concrete_floor_02', [3, 3])
-    const deco = drawTexture(1024, 1024, (c) => {
-      c.fillStyle = '#8d8a84'
-      c.fillRect(0, 0, 1024, 1024)
-      c.scale(2, 2)
+    const s = concreteSet(512)
+    const deco = drawTexture(512, 512, (c) => {
+      c.drawImage(s.map.image as HTMLCanvasElement, 0, 0, 512, 512)
       c.strokeStyle = '#e8c12a'
       c.lineWidth = 18
       c.beginPath()
@@ -193,17 +189,7 @@ function Helipad() {
       c.fillRect(176, 236, 160, 40)
     })
     return {
-      mat: (() => {
-        // marquage H sur béton réel : la peinture module la texture photo
-        const m = new THREE.MeshStandardMaterial({ map: real.map, normalMap: real.normalMap, roughnessMap: real.arm, roughness: 1 })
-        m.onBeforeCompile = (sh) => {
-          sh.uniforms.tPaint = { value: deco }
-          sh.fragmentShader = sh.fragmentShader
-            .replace('#include <common>', '#include <common>\nuniform sampler2D tPaint;')
-            .replace('#include <map_fragment>', '#include <map_fragment>\nvec3 paint = texture2D(tPaint, vMapUv / 3.0).rgb;\nfloat pm = smoothstep(0.08, 0.2, distance(paint, vec3(0.553, 0.541, 0.518)));\ndiffuseColor.rgb = mix(diffuseColor.rgb, paint * 0.9, pm * 0.85);')
-        }
-        return m
-      })(),
+      mat: new THREE.MeshStandardMaterial({ map: deco, normalMap: s.normalMap, roughnessMap: s.roughnessMap, roughness: 1 }),
       edge: new THREE.MeshStandardMaterial({ color: '#77746e', roughness: 1 }),
     }
   }, [])
@@ -242,14 +228,14 @@ function Helipad() {
 }
 
 function BigRock({ scale = 1 }: { scale?: number }) {
-  const { geo, mat } = useMemo(() => ({ geo: rockGeometry(Math.floor(scale * 10), 4, 0.35), mat: new THREE.MeshStandardMaterial({ color: '#7d766c', roughness: 1 }) }), [scale])
+  const { geo, mat } = useMemo(() => ({ geo: rockGeometry(Math.floor(scale * 10), 4, 0.35), mat: new THREE.MeshStandardMaterial({ ...photoSurface('rock'), roughness: 1 }) }), [scale])
   return <mesh geometry={geo} material={mat} scale={[scale * 1.3, scale, scale * 1.1]} castShadow receiveShadow />
 }
 
 /** pont de cordes : cassé ou réparé */
 function Bridge() {
   const fixed = useGame((s) => s.flags.bridge)
-  const wood = useMemo(() => pbrMaterial('brown_planks_05', { repeat: [0.6, 0.3], metal: 0, color: '#d8c8b0' }), [])
+  const wood = woodMat()
   const zs = riverCenter(BRIDGE_X) + RIVER_HALF + 1.6
   const zn = riverCenter(BRIDGE_X) - RIVER_HALF - 1.6
   const ys = terrainHeight(BRIDGE_X, zs) + 0.15
@@ -391,11 +377,13 @@ function Colliders() {
       <CylinderCollider position={[0, terrainHeight(0, 2.2) + 1.5, 2.2]} args={[1.5, 1.8]} />
       {/* refuge (murs, porte au sud) */}
       <group position={[-15, terrainHeight(-15, -44), -44]} rotation={[0, 0.2, 0]}>
+        <CuboidCollider position={[0, 0.12, 0]} args={[2.2, 0.125, 1.7]} />
         <CuboidCollider position={[0, 1.4, -1.6]} args={[2.1, 1.4, 0.1]} />
         <CuboidCollider position={[-2.05, 1.4, 0]} args={[0.1, 1.4, 1.6]} />
         <CuboidCollider position={[2.05, 1.4, 0]} args={[0.1, 1.4, 1.6]} />
         <CuboidCollider position={[-1.4, 1.4, 1.6]} args={[0.7, 1.4, 0.1]} />
         <CuboidCollider position={[1.4, 1.4, 1.6]} args={[0.7, 1.4, 0.1]} />
+        <CuboidCollider position={[-0.5, 0.6, -0.9]} args={[0.7, 0.38, 0.4]} />
       </group>
       {zone4Props
         .filter((p) => p.model === 'bigRock')
@@ -434,91 +422,34 @@ function Ambience() {
   return null
 }
 
-const REAL_TREES = { low: 3, medium: 6, high: 10, ultra: 16 } as const
-
-function RealVegetation({ near, q }: { near: ReturnType<typeof placeTrees>; q: (typeof QUALITY)['high'] }) {
-  const pines = near.filter((t, i) => t.kind === 'pine' && i % 2 === 0)
-  const firs = near.filter((t, i) => t.kind === 'pine' && i % 2 === 1)
-  const oaks = near.filter((t) => t.kind === 'oak')
-  // rien sur le chemin du joueur ni autour des lieux clés
-  const spots: [number, number, number][] = [[0, -2, 7], [-7, 9, 7], [6, -60, 8], [15, -35, 4], [-14, -43, 5], [-17, -5, 3], [4, -15, 2.5], [BRIDGE_X, riverCenter(BRIDGE_X), 5]]
-  const keyOk = (x: number, z: number) =>
-    Math.abs(z - riverCenter(x)) > RIVER_HALF + 0.6 && Math.abs(x - BRIDGE_X + 4 - Math.sin(z * 0.08) * 3) > 2 && spots.every(([sx, sz, r]) => Math.hypot(x - sx, z - sz) > r)
-  const area = { x0: -34, x1: 34, z0: -68, z1: 16 }
-  const few = q.grass < 30000
-  const shrubs = useMemo(() => scatter(11, few ? 12 : 28, area, keyOk, [0.7, 1.3]), [few])
-  const shrubs2 = useMemo(() => scatter(12, few ? 8 : 20, area, keyOk, [0.7, 1.2]), [few])
-  const ferns = useMemo(() => scatter(13, few ? 14 : 36, area, (x, z) => keyOk(x, z) && Math.abs(z - riverCenter(x)) < RIVER_HALF + 9, [0.8, 1.4]), [few])
-  const clumps = useMemo(() => scatter(14, few ? 16 : 40, area, keyOk, [0.8, 1.5]), [few])
-  const rocks = useMemo(() => scatter(15, few ? 10 : 22, area, keyOk, [0.4, 1.2]), [few])
-  const boulders = useMemo(() => scatter(16, few ? 4 : 9, { x0: -36, x1: 36, z0: -70, z1: 18 }, keyOk, [0.6, 1.1]), [few])
-  return (
-    <>
-      <Instanced id="pine_tree_01" items={pines.map((t) => ({ ...t, s: t.s }))} height={13} wind={0.012} />
-      <Instanced id="fir_tree_01" items={firs.map((t) => ({ ...t, s: t.s }))} height={11} wind={0.012} />
-      <Instanced id="island_tree_02" items={oaks.map((t) => ({ ...t, s: t.s }))} height={8} wind={0.018} />
-      <Instanced id="shrub_01" items={shrubs} height={1.2} wind={0.05} />
-      <Instanced id="shrub_02" items={shrubs2} height={1.0} wind={0.05} />
-      <Instanced id="fern_02" items={ferns} height={0.7} wind={0.08} shadows={false} />
-      <Instanced id="grass_medium_01" items={clumps} height={0.55} wind={0.12} shadows={false} />
-      <Instanced id="rock_moss_set_01" items={rocks} height={0.7} />
-      <Instanced id="namaqualand_boulder_02" items={boulders} height={1.6} />
-    </>
-  )
-}
-
-/** arbres lointains : versions allégées des mêmes arbres photoscannés */
-function FarTrees({ far }: { far: ReturnType<typeof placeTrees> }) {
-  const pines = far.filter((t, i) => t.kind === 'pine' && i % 2 === 0)
-  const firs = far.filter((t, i) => t.kind === 'pine' && i % 2 === 1)
-  const oaks = far.filter((t) => t.kind === 'oak')
-  return (
-    <>
-      <Impostors id="pine_tree_01" items={pines} height={13} />
-      <Impostors id="fir_tree_01" items={firs} height={11} />
-      <Impostors id="island_tree_02" items={oaks} height={8} />
-    </>
-  )
-}
-
 export function Zone4() {
   const q = QUALITY[G().settings.quality]
-  const hdri = useHdri()
-  // le soleil, le brouillard et les ombres suivent le vrai ciel photographié
-  useMemo(() => {
-    SUN4.copy(hdri.sun)
-    SUN_FOR_IMPOSTOR.copy(hdri.sun)
-    FOG4.copy(hdri.horizon).lerp(new THREE.Color('#9fb0c4'), 0.45)
-  }, [hdri])
   const trees = useMemo(() => placeTrees(q.trees), [q.trees])
-  const { near, far } = useMemo(() => splitTrees(trees, REAL_TREES[G().settings.quality]), [trees])
+  const sunPos = useMemo(() => SUN4.clone().multiplyScalar(1000), [])
   return (
-    <group>
-      <fogExp2 attach="fog" args={[FOG4, 0.0026]} />
-      <Environment map={hdri.texture} background environmentIntensity={0.9} backgroundIntensity={1} />
-      <hemisphereLight args={['#a9c2e6', '#5a4a30', 0.25]} />
+    <>
+      <fogExp2 attach="fog" args={[FOG4, 0.0055]} />
+      <Sky distance={4500} sunPosition={sunPos} turbidity={7} rayleigh={2.4} mieCoefficient={0.007} mieDirectionalG={0.86} />
+      <Environment frames={1} resolution={128}>
+        <Sky sunPosition={sunPos} turbidity={7} rayleigh={2.4} mieCoefficient={0.007} mieDirectionalG={0.86} />
+      </Environment>
+      <hemisphereLight args={['#a9c2e6', '#5a4a30', 0.5]} />
       <SunLight size={q.sunShadow} />
       <Terrain />
       <Mountains />
       {q.clouds && <CloudLayer />}
       <River />
       <Grass count={q.grass} />
-      <Suspense fallback={null}>
-        <RealVegetation near={near} q={q} />
-        <FarTrees far={far} />
-      </Suspense>
+      <Trees trees={trees} />
+      <Rocks />
       <RoomCtx.Provider value={{ id: 'out', dark: false }}>
         {zone4Props.map((p, i) => (
           <group key={i} position={p.pos} rotation={[0, p.rot ?? 0, 0]}>
-            {p.model === 'capsule' && (
-              <Falling>
-                <Capsule />
-              </Falling>
-            )}
+            {p.model === 'capsule' && <Falling><Capsule /></Falling>}
             {p.model === 'parachute' && <Parachute />}
             {p.model === 'cabin' && <Cabin />}
             {p.model === 'helipad' && <Helipad />}
-            {p.model === 'bigRock' && <RealModel id={i % 2 ? 'boulder_01' : 'namaqualand_boulder_02'} height={(p.scale ?? 1) * 1.7} p={[0, -0.25, 0]} />}
+            {p.model === 'bigRock' && <BigRock scale={p.scale} />}
           </group>
         ))}
         <Bridge />
@@ -528,6 +459,6 @@ export function Zone4() {
       <Colliders />
       <TreeColliders trees={trees} />
       <Ambience />
-    </group>
+    </>
   )
 }

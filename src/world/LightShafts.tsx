@@ -52,7 +52,7 @@ export function LightShafts({ windows, sun }: { windows: WindowDef[]; sun: [numb
     const mat = new THREE.ShaderMaterial({
       vertexShader: shaftVert,
       fragmentShader: shaftFrag,
-      uniforms: { uColor: { value: new THREE.Color('#ffe2b8') }, uTime: { value: 0 }, uIntensity: { value: 0.55 } },
+      uniforms: { uColor: { value: new THREE.Color('#ffe9cb') }, uTime: { value: 0 }, uIntensity: { value: 0.2 } },
       transparent: true,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
@@ -79,7 +79,7 @@ export function LightShafts({ windows, sun }: { windows: WindowDef[]; sun: [numb
     }
     const dg = new THREE.BufferGeometry()
     dg.setAttribute('position', new THREE.Float32BufferAttribute(dustPts, 3))
-    const dm = new THREE.PointsMaterial({ color: '#ffe9c9', size: 0.018, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true })
+    const dm = new THREE.PointsMaterial({ color: '#ffe9c9', size: 0.009, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true })
     const dust = new THREE.Points(dg, dm)
     return { shafts, mat, dust }
   }, [windows, sun])

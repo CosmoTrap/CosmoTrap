@@ -68,19 +68,20 @@ function noiseCanvas(S: number, scale = 6, oct = 5, sd = 7) {
 }
 
 function heightToNormal(h: HTMLCanvasElement, strength: number) {
-  const S = h.width
-  const src = h.getContext('2d')!.getImageData(0, 0, S, S).data
+  const W = h.width, Hh = h.height
+  const src = h.getContext('2d')!.getImageData(0, 0, W, Hh).data
   const out = document.createElement('canvas')
-  out.width = out.height = S
+  out.width = W
+  out.height = Hh
   const ctx = out.getContext('2d')!
-  const img = ctx.createImageData(S, S)
-  const H = (x: number, y: number) => src[((((y + S) % S) * S + ((x + S) % S)) * 4)] / 255
-  for (let y = 0; y < S; y++)
-    for (let x = 0; x < S; x++) {
+  const img = ctx.createImageData(W, Hh)
+  const H = (x: number, y: number) => src[((((y + Hh) % Hh) * W + ((x + W) % W)) * 4)] / 255
+  for (let y = 0; y < Hh; y++)
+    for (let x = 0; x < W; x++) {
       const dx = (H(x + 1, y) - H(x - 1, y)) * strength
       const dy = (H(x, y + 1) - H(x, y - 1)) * strength
       const l = Math.hypot(dx, dy, 1)
-      const i = (y * S + x) * 4
+      const i = (y * W + x) * 4
       img.data[i] = ((-dx / l) * 0.5 + 0.5) * 255
       img.data[i + 1] = ((dy / l) * 0.5 + 0.5) * 255
       img.data[i + 2] = ((1 / l) * 0.5 + 0.5) * 255

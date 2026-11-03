@@ -4,8 +4,8 @@ import { useGame } from '../../game/state'
 import type { Ent } from '../../game/types'
 import { useMats } from '../materials'
 import { Box, Cyl } from '../props/models'
-import { RealModel } from '../props/RealModel'
-import { textTexture, woodSet } from '../textures'
+import { textTexture } from '../textures'
+import { photoSurface } from '../photomaterials'
 
 // Objets interactifs de la zone 4 (Terre).
 
@@ -67,7 +67,8 @@ function RadioBeacon() {
   const on = useGame((s) => s.flags.beacon)
   return (
     <group>
-      <RealModel id="vintage_radio_transceiver" height={0.42} />
+      <Box s={[0.5, 0.35, 0.35]} p={[0, 0.175, 0]} m={m.painted('#d8a020', 0.5, 0.3)} />
+      <Box s={[0.36, 0.2, 0.01]} p={[0, 0.2, 0.18]} m={m.plastic('#1b1d20', 0.3)} />
       <mesh position={[0.15, 0.36, 0]} material={m.glow(on ? '#38ff7a' : '#ff2a1a', on ? 6 : 2)}>
         <sphereGeometry args={[0.025, 10, 8]} />
       </mesh>
@@ -82,7 +83,8 @@ function FlareCrate() {
   const taken = useGame((s) => s.taken.includes('4:flareGun'))
   return (
     <group>
-      <RealModel id="wooden_military_crate" height={0.45} />
+      <Box s={[0.8, 0.45, 0.5]} p={[0, 0.225, 0]} m={m.painted('#c5302a', 0.55, 0.2)} />
+      <Box s={[0.82, 0.04, 0.52]} p={[0, 0.46, -0.24]} r={[-1.2, 0, 0]} m={m.painted('#c5302a', 0.55, 0.2)} />
       {!taken && (
         <group position={[0, 0.48, 0]} rotation={[0, 0.4, 0]}>
           <Box s={[0.22, 0.06, 0.05]} m={m.plastic('#ff6b1a', 0.4)} />
@@ -123,8 +125,8 @@ export const ZONE4_ENT_MODELS: Record<string, (e: Ent) => ReactNode> = {
 let woodCache: THREE.MeshStandardMaterial | null = null
 export function woodMat() {
   if (!woodCache) {
-    const s = woodSet(512)
-    woodCache = new THREE.MeshStandardMaterial({ ...s, roughness: 1, metalness: 0 })
+    const s = photoSurface('wood')
+    woodCache = new THREE.MeshStandardMaterial({ ...s, color: '#e3d4bc', roughness: 0.95, metalness: 0, normalScale: new THREE.Vector2(0.65, 0.65) })
   }
   return woodCache
 }

@@ -17,8 +17,8 @@ export interface QualityCfg {
 }
 
 export const QUALITY: Record<Quality, QualityCfg> = {
-  low: { dpr: [0.6, 0.85], tex: 512, sunShadow: 0, lampShadow: false, ao: false, bloom: true, smaa: false, grass: 60000, trees: 60, godrays: true, particles: 120, moonDetail: 1, clouds: false },
-  medium: { dpr: [0.8, 1], tex: 512, sunShadow: 1024, lampShadow: false, ao: 'half', bloom: true, smaa: true, grass: 150000, trees: 110, godrays: true, particles: 300, moonDetail: 2, clouds: true },
-  high: { dpr: [1, 1.5], tex: 1024, sunShadow: 2048, lampShadow: true, ao: 'half', bloom: true, smaa: true, grass: 280000, trees: 160, godrays: true, particles: 500, moonDetail: 3, clouds: true },
-  ultra: { dpr: [1.2, 2], tex: 1024, sunShadow: 4096, lampShadow: true, ao: 'full', bloom: true, smaa: true, grass: 450000, trees: 220, godrays: true, particles: 900, moonDetail: 3, clouds: true },
+  low: { dpr: [0.6, 0.85], tex: 512, sunShadow: 0, lampShadow: false, ao: false, bloom: true, smaa: false, grass: 4000, trees: 60, godrays: true, particles: 120, moonDetail: 1, clouds: false },
+  medium: { dpr: [0.7, 1], tex: 512, sunShadow: 1024, lampShadow: false, ao: false, bloom: true, smaa: true, grass: 10000, trees: 110, godrays: true, particles: 300, moonDetail: 2, clouds: true },
+  high: { dpr: [1, 1.5], tex: 1024, sunShadow: 2048, lampShadow: true, ao: 'half', bloom: true, smaa: true, grass: 18000, trees: 150, godrays: true, particles: 500, moonDetail: 3, clouds: true },
+  ultra: { dpr: [1.2, 2], tex: 1024, sunShadow: 4096, lampShadow: true, ao: 'full', bloom: true, smaa: true, grass: 30000, trees: 200, godrays: true, particles: 900, moonDetail: 3, clouds: true },
 }

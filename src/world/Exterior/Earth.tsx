@@ -2,7 +2,6 @@ import { useFrame } from '@react-three/fiber'
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import { NOISE } from './glsl'
-import { tex } from '../assets'
 
 // Terre procédurale : continents, océans spéculaires, calottes, nuages animés,
 // lumières des villes côté nuit, atmosphère diffusante (bleu au limbe, orangé au terminateur).
@@ -23,21 +22,26 @@ const frag = /* glsl */ `
 uniform vec3 uSun;
 uniform float uTime;
 uniform float uIntensity;
-uniform sampler2D uDay;
-uniform sampler2D uNight;
-uniform sampler2D uClouds;
 varying vec3 vObjN;
 varying vec3 vWorldN;
 varying vec3 vWorldPos;
 ${NOISE}
-vec2 equi(vec3 n){ return vec2(0.5 + atan(n.z, -n.x) / 6.2831853, 0.5 + asin(clamp(n.y, -1.0, 1.0)) / 3.1415926); }
 void main(){
   vec3 n = normalize(vObjN);
-  vec2 uv = equi(n);
-  vec3 alb = texture2D(uDay, uv).rgb;
-  alb = pow(alb, vec3(1.15));
-  // océan : bleu dominant et sombre
-  float land = 1.0 - smoothstep(0.02, 0.12, (alb.b - max(alb.r, alb.g)) * 2.0 + (0.25 - dot(alb, vec3(0.33))) * 0.6);
+  float cont = fbm(n * 1.8 + vec3(2.0, 0.0, 5.0)) + 0.12 * fbm(n * 6.0);
+  float land = smoothstep(0.54, 0.56, cont);
+  float coast = smoothstep(0.5, 0.54, cont) * (1.0 - land);
+  float lat = abs(n.y);
+  float desert = smoothstep(0.45, 0.6, fbm(n * 3.0 + 11.0)) * (1.0 - smoothstep(0.2, 0.45, abs(lat - 0.3)));
+  vec3 forest = mix(vec3(0.05, 0.12, 0.04), vec3(0.12, 0.16, 0.06), fbm(n * 9.0));
+  vec3 sand = vec3(0.45, 0.36, 0.22);
+  vec3 landC = mix(forest, sand, desert);
+  landC = mix(landC, vec3(0.3, 0.27, 0.24), ridged(n * 8.0) * 0.4);
+  vec3 ocean = mix(vec3(0.005, 0.02, 0.07), vec3(0.01, 0.06, 0.14), coast + 0.3 * fbm(n * 5.0));
+  vec3 alb = mix(ocean, landC, land);
+  float ice = smoothstep(0.78, 0.86, lat + 0.06 * fbm(n * 8.0));
+  alb = mix(alb, vec3(0.85, 0.9, 0.95), ice);
+
   vec3 N = normalize(vWorldN);
   vec3 L = normalize(uSun);
   vec3 V = normalize(cameraPosition - vWorldPos);
@@ -47,7 +51,7 @@ void main(){
   // nuages (rotation lente)
   float ca = uTime * 0.004;
   vec3 cn = vec3(n.x * cos(ca) - n.z * sin(ca), n.y, n.x * sin(ca) + n.z * cos(ca));
-  float cl = smoothstep(0.15, 0.9, texture2D(uClouds, equi(cn)).r);
+  float cl = smoothstep(0.5, 0.75, fbm(cn * 3.2 + vec3(0.0, uTime * 0.002, 0.0)) + 0.15 * fbm(cn * 12.0));
   vec3 col = alb * max(ndl, 0.0) * 1.4;
   // reflet du soleil sur l'océan
   vec3 H = normalize(L + V);
@@ -55,8 +59,8 @@ void main(){
   col += vec3(1.0, 0.9, 0.75) * spec * 2.5;
   col = mix(col, vec3(1.0) * max(ndl, 0.0) * 1.25, cl * 0.92);
   // villes la nuit
-  vec3 city = texture2D(uNight, uv).rgb;
-  col += city * vec3(1.0, 0.75, 0.45) * (1.0 - day) * (1.0 - cl) * 1.6;
+  float city = smoothstep(0.78, 0.9, vnoise(n * 140.0)) * smoothstep(0.55, 0.75, fbm(n * 10.0 + 3.0)) * land * (1.0 - ice);
+  col += vec3(1.0, 0.62, 0.25) * city * (1.0 - day) * (1.0 - cl) * 0.9;
   // atmosphère : limbe bleu, terminateur chaud
   float fres = pow(1.0 - max(dot(N, V), 0.0), 3.0);
   vec3 atm = mix(vec3(0.95, 0.45, 0.2), vec3(0.3, 0.55, 1.0), smoothstep(-0.1, 0.35, ndl));
@@ -86,14 +90,7 @@ void main(){
 
 export function Earth({ radius, position, sun, intensity = 3.2 }: { radius: number; position: [number, number, number]; sun: THREE.Vector3; intensity?: number }) {
   const { mat, atmo } = useMemo(() => {
-    const u = {
-      uSun: { value: sun.clone() },
-      uTime: { value: 0 },
-      uIntensity: { value: intensity },
-      uDay: { value: tex('/assets/planets/earth_day.jpg') },
-      uNight: { value: tex('/assets/planets/earth_night.jpg') },
-      uClouds: { value: tex('/assets/planets/earth_clouds.jpg', false) },
-    }
+    const u = { uSun: { value: sun.clone() }, uTime: { value: 0 }, uIntensity: { value: intensity } }
     return {
       mat: new THREE.ShaderMaterial({ vertexShader: vert, fragmentShader: frag, uniforms: u }),
       atmo: new THREE.ShaderMaterial({

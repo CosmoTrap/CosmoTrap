@@ -1,4 +1,6 @@
+/// <reference types="node" />
 import { defineConfig, devices } from '@playwright/test'
+import process from 'node:process'
 
 // Test de bout en bout : API PHP (port 8787) + jeu Vite (port 5180).
 export default defineConfig({
@@ -11,11 +13,13 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:5180',
     viewport: { width: 1280, height: 720 },
-    launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] },
+    launchOptions: { ...(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {}),
+      args: process.env.PLAYWRIGHT_SOFTWARE === '1' ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] : [] },
+    screenshot: 'only-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 720 } } }],
   webServer: [
-    { command: 'php -S 127.0.0.1:8787 -t public', port: 8787, reuseExistingServer: true },
+    { command: 'node scripts/local.mjs --api-only', port: 8787, reuseExistingServer: true },
     { command: 'npm run dev', port: 5180, reuseExistingServer: true },
   ],
 })

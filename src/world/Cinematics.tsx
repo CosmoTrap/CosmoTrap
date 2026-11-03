@@ -10,6 +10,7 @@ import { fr } from '../i18n/fr'
 import { Astronaut, type AstronautHandle } from './Astronaut'
 import { endScene, runScene } from './FilmScenes'
 import { heli } from './zone4/Zone4'
+import { input } from '../player/input'
 
 // Metteur en scène : briefing holographique, évanouissement, transitions de zone,
 // décollage + rentrée atmosphérique, arrivée de l'hélicoptère et fin.
@@ -38,14 +39,20 @@ export function CineDirector() {
     if (cine === 'briefing') {
       audio.sfx('holo')
     }
-    if (cine === 'launch') {
+    // Pointer lock routes every click to the canvas, including clicks visually
+    // over "Passer". Release it for every cinematic, not just the launch.
+    if (cine && G().cine === cine && document.pointerLockElement) {
       document.exitPointerLock?.()
     }
   }, [cine, t0])
+  useEffect(() => () => resetCineView(), [])
 
   useFrame(() => {
     const s = G()
-    const t = (performance.now() - t0) / 1000
+    // Read the store, not the previous render: a click can finish the cinematic
+    // between two frames. A stale tour frame must never take the camera back.
+    const cine = s.cine
+    const t = (performance.now() - s.cineT0) / 1000
     const once = (k: string, fn: () => void) => {
       if (!flags.current[k]) {
         flags.current[k] = true
@@ -68,7 +75,7 @@ export function CineDirector() {
         })
       } else
         once('end', () => {
-          useGame.setState({ cine: null, subtitle: null, briefed: true })
+          resumePlaying(true)
         })
     } else if (cine === 'faint') {
       live.fade = Math.min(1, t / 1.8)
@@ -191,10 +198,9 @@ export function CineDirector() {
 
 function afterTour() {
   const s = G()
-  live.camOverride = null
-  live.fade = 0
-  useGame.setState({ cine: null, subtitle: null })
-  if (s.zone === 1 && !s.briefed) useGame.setState({ cine: 'briefing', cineT0: performance.now() })
+  resetCineView()
+  const briefing = s.zone === 1 && !s.briefed
+  useGame.setState({ cine: briefing ? 'briefing' : null, cineT0: performance.now(), subtitle: null, paused: false, shake: 0 })
 }
 
 function endTour() {
@@ -205,17 +211,49 @@ function endTour() {
   afterTour()
 }
 
-/** passer la cinématique en cours */
+/** Release everything owned by a cinematic, including overlays outside the canvas. */
+function resetCineView() {
+  endScene()
+  live.camOverride = null
+  live.fade = 0
+  live.flash = 0
+  live.card = null
+  live.countdown = null
+  live.ext.y = 0
+  live.ext.plasma = 0
+  input.down.clear()
+  input.jumpRequested = false
+  input.look.dx = input.look.dy = 0
+  input.joy.x = input.joy.y = 0
+  input.touchRun = false
+}
+
+function resumePlaying(briefed = G().briefed) {
+  audio.stopSpeech()
+  audio.stopLoop('reentry')
+  resetCineView()
+  const s = G()
+  useGame.setState({ cine: null, subtitle: null, briefed, paused: false, shake: 0,
+    tabletOpen: false, puzzle: null, readNote: null, settingsOpen: false,
+    toured: s.toured.includes(s.zone) ? s.toured : [...s.toured, s.zone] })
+}
+
+/** Skip is a complete transition, never a timer adjustment waiting on WebGL. */
 export function skipCine() {
   const s = G()
-  const now = performance.now()
-  if (s.cine === 'tour') endTour()
-  else if (s.cine === 'briefing') {
-    audio.stopSpeech()
-    useGame.setState({ cine: null, subtitle: null, briefed: true })
-  } else if (s.cine === 'zoneCard') useGame.setState({ cineT0: Math.min(s.cineT0, now - 4900) })
-  else if (s.cine === 'launch') useGame.setState({ cineT0: now - 18000 })
-  else if (s.cine === 'heli') useGame.setState({ cineT0: now - 21000 })
+  if (!s.cine || s.cine === 'faint' || s.cine === 'fail') return
+  if (s.cine === 'zoneCard' && pendingZone) enterZone(pendingZone)
+  if (s.cine === 'launch') enterZone(4)
+  if (s.cine === 'heli') {
+    audio.stopAllLoops()
+    heli.visible = false
+    clearSave()
+    resumePlaying()
+    audio.oneShotMusic('victory')
+    useGame.setState({ ended: true, ending: 'rescue', screen: 'end' })
+    return
+  }
+  resumePlaying(G().zone === 1 ? true : G().briefed)
 }
 
 /** le personnage vu à la 3e personne pendant la fin : il lève le bras */
