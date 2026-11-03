@@ -72,7 +72,7 @@ Le daily de 9 h 15 dure 15 min ; le responsable qualité le résume ici avant 9 
 | Leplat Simon | cadrage( réflexion du sujet) | Fiche énigme à compléter (docx sur drive) & dév tache manquante  | Porte buggée, tâche manquante, lumière trop sombre, hitbox à revoir, bug du pistolet |
 | Chaibrassou Hamza | cadrage( réflexion du sujet) | Dév avec Simon et Kilian sur tâche manquante | Porte buggée, tâche manquante, lumière trop sombre, hitbox à revoir, bug du pistolet |
 | Angot-Chabanol Ethan | cadrage( réflexion du sujet) | Finir maquette & compléter fiche IA | |
-| Loïc Chauvelot | cadrage( réflexion du sujet) | ournal de bord & L2 aussi | |
+| Loïc Chauvelot | cadrage( réflexion du sujet) | Journal de bord & L2 aussi | |
 | Orsal Kilian |  Dév avec Simon et Hamza sur tâche manquante | | Porte buggée, tâche manquante, lumière trop sombre, hitbox à revoir, bug du pistolet |
 
 ### Bilan
