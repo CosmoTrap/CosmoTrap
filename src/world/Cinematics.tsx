@@ -8,6 +8,7 @@ import { riverCenter, terrainHeight } from '../game/maps/zone4'
 import { AUTOSAVE_EVERY, G, clearSave, live, saveGame, useGame } from '../game/state'
 import { fr } from '../i18n/fr'
 import { Astronaut, type AstronautHandle } from './Astronaut'
+import { endScene, runScene } from './FilmScenes'
 import { heli } from './zone4/Zone4'
 
 // Metteur en scène : briefing holographique, évanouissement, transitions de zone,
@@ -89,21 +90,9 @@ export function CineDirector() {
         else afterTour()
       }
     } else if (cine === 'tour') {
-      const path = tourPath(s.zone)
-      const D = tourDur(s.zone)
-      const k = Math.min(1, t / D)
-      const e = k * k * (3 - 2 * k)
-      const p = path.getPointAt(e)
-      const ahead = path.getPointAt(Math.min(1, e + 0.04))
-      live.camOverride = { pos: [p.x, p.y, p.z], look: [ahead.x, ahead.y - 0.25, ahead.z] }
-      live.fade = t < 0.6 ? 1 - t / 0.6 : t > D - 0.8 ? Math.min(1, (t - (D - 0.8)) / 0.8) : 0
-      const lines = fr.story.tours[s.zone] ?? []
-      const i = Math.min(lines.length - 1, Math.floor((t / D) * lines.length))
-      once(`t${i}`, () => {
-        useGame.setState({ subtitle: lines[i] })
-        audio.speak(lines[i], { rate: 1.05, id: `tour_${s.zone}_${i}` })
-      })
-      if (t > D) once('end', endTour)
+      // scène « film » de la zone (plans découpés, acteur, crash sur Terre)
+      if (!runScene(s.zone, t, !flags.current.started)) once('end', endTour)
+      flags.current.started = true
     } else if (cine === 'fail') {
       live.fade = Math.min(1, t / 3)
       const lines = fr.story.fail
@@ -200,73 +189,6 @@ export function CineDirector() {
   return null
 }
 
-const tourCache = new Map<number, THREE.CatmullRomCurve3>()
-function tourDur(zone: number) {
-  return THREE.MathUtils.clamp(tourPath(zone).getLength() / 6, 12, 24)
-}
-
-/** trajet de caméra qui présente la map (salles dans l'ordre, en passant par les portes) */
-function tourPath(zone: number) {
-  const hit = tourCache.get(zone)
-  if (hit) return hit
-  const curve = buildTourPath(zone)
-  tourCache.set(zone, curve)
-  return curve
-}
-
-function buildTourPath(zone: number) {
-  const pts: THREE.Vector3[] = []
-  if (zone < 4) {
-    const map = GRID_MAPS[zone as 1 | 2 | 3]
-    const sp = spawnOf(zone as 1 | 2 | 3)
-    const targets = map.rooms.map((r) => [Math.floor((r.rect[0] + r.rect[2]) / 2), Math.floor((r.rect[1] + r.rect[3]) / 2)] as [number, number])
-    targets.push([Math.floor(sp.pos[0] / 2), Math.floor(sp.pos[2] / 2)])
-    const walk = (a: [number, number], b: [number, number]) => {
-      const key = (x: number, z: number) => `${x},${z}`
-      const prev = new Map<string, string | null>([[key(...a), null]])
-      const q: [number, number][] = [a]
-      while (q.length) {
-        const [x, z] = q.shift()!
-        if (x === b[0] && z === b[1]) break
-        for (const [dx, dz] of [
-          [1, 0],
-          [-1, 0],
-          [0, 1],
-          [0, -1],
-        ]) {
-          const nx = x + dx
-          const nz = z + dz
-          const c = map.grid[nz]?.[nx]
-          if (!c || (c !== '.' && c !== 'D') || prev.has(key(nx, nz))) continue
-          prev.set(key(nx, nz), key(x, z))
-          q.push([nx, nz])
-        }
-      }
-      const out: [number, number][] = []
-      let k: string | null | undefined = key(...b)
-      while (k) {
-        const [x, z] = k.split(',').map(Number)
-        out.unshift([x, z])
-        k = prev.get(k)
-      }
-      return out
-    }
-    let cur = targets[0]
-    const tiles: [number, number][] = [cur]
-    for (const t of targets.slice(1)) {
-      tiles.push(...walk(cur, t).slice(1))
-      cur = t
-    }
-    tiles.forEach(([x, z], i) => {
-      if (i % 2 === 0 || i === tiles.length - 1) pts.push(new THREE.Vector3(x * 2 + 1, 1.85, z * 2 + 1))
-    })
-  } else {
-    const h = (x: number, z: number, dy: number) => new THREE.Vector3(x, terrainHeight(x, z) + dy, z)
-    pts.push(h(-6, 14, 9), h(4, 0, 6), h(10, riverCenter(10) + 6, 4), h(12, -36, 6), h(4, -54, 9), h(-4, -30, 14), h(0, -8, 3))
-  }
-  return new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.3)
-}
-
 function afterTour() {
   const s = G()
   live.camOverride = null
@@ -278,6 +200,7 @@ function afterTour() {
 function endTour() {
   const s = G()
   audio.stopSpeech()
+  endScene()
   useGame.setState({ toured: [...s.toured, s.zone] })
   afterTour()
 }

@@ -8,6 +8,7 @@ import { SFX, heart, makeImpulse, makeNoise, startLoop, type LoopName, type SfxN
 const DUCKED: SfxName[] = ['door_open', 'pickup_key', 'power_up', 'success', 'launch', 'valve', 'breathe_o2', 'airlock', 'flare']
 
 const FILE_OF: Partial<Record<SfxName | LoopName, string>> = {
+  impact: 'sfx_impact',
   door_open: 'sfx_door_open',
   door_locked: 'sfx_door_locked',
   pickup_o2: 'sfx_pickup_o2',
@@ -355,10 +356,16 @@ class AudioManager {
   }
 
   /** voix : fichier ElevenLabs (voice_<id>.mp3) si fourni, sinon synthèse vocale du navigateur */
+  /** personnage féminin (choix de la voix intérieure) */
+  female = false
+
   speak(text: string, opts: { radio?: boolean; rate?: number; id?: string } = {}) {
     if (this.vols.voice <= 0.01) return
     this.stopSpeech()
-    const file = opts.id ? `voice_${this.lang === 'en' ? 'en_' : ''}${opts.id}` : null
+    const pre = `voice_${this.lang === 'en' ? 'en_' : ''}`
+    // voix intérieure féminine si le personnage est une femme
+    const fem = opts.id && this.female && opts.id.startsWith('tour_') ? `${pre}f_${opts.id}` : null
+    const file = fem && this.files.has(fem) ? fem : opts.id ? pre + opts.id : null
     if (file && this.files.has(file)) {
       this.voiceHowl = new Howl({ src: this.srcs(file), volume: this.vols.voice })
       this.voiceHowl.play()

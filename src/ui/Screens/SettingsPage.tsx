@@ -12,7 +12,7 @@ import { KeyRow, update } from './Settings'
 const S = fr.settings2
 const CHAR_ORDER = ['ines', 'kenji', 'leo', 'maya', 'nova', 'sam']
 
-function Toggle({ on, onChange, id }: { on: boolean; onChange: (v: boolean) => void; id?: string }) {
+export function Toggle({ on, onChange, id }: { on: boolean; onChange: (v: boolean) => void; id?: string }) {
   return <button type="button" data-testid={id} className={`sp-toggle ${on ? 'on' : ''}`} aria-pressed={on} onClick={() => onChange(!on)} />
 }
 
@@ -28,12 +28,12 @@ function Seg<T extends string | number>({ value, options, onChange }: { value: T
   )
 }
 
-function Range({ value, min, max, step, onChange }: { value: number; min: number; max: number; step: number; onChange: (v: number) => void }) {
+export function Range({ value, min, max, step, onChange }: { value: number; min: number; max: number; step: number; onChange: (v: number) => void }) {
   const pct = ((value - min) / (max - min)) * 100
   return <input className="sp-range" type="range" min={min} max={max} step={step} value={value} style={{ ['--p' as string]: `${pct}%` }} onChange={(e) => onChange(+e.target.value)} />
 }
 
-function Row({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
+export function Row({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
     <div className="sp-row">
       <div>
@@ -295,8 +295,8 @@ function Audio() {
       <header className="sp-panel-head">
         <h2>{S.audio}</h2>
       </header>
-      {(['music', 'sfx', 'voice'] as const).map((k) => (
-        <Row key={k} title={fr.settings[k]} desc={`${Math.round(s[k] * 100)} %`}>
+      {(['master', 'music', 'sfx', 'voice'] as const).map((k) => (
+        <Row key={k} title={k === 'master' ? fr.report.master : fr.settings[k]} desc={`${Math.round(s[k] * 100)} %`}>
           <Range value={s[k]} min={0} max={1} step={0.01} onChange={(v) => update({ [k]: v })} />
         </Row>
       ))}

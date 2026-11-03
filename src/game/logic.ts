@@ -747,6 +747,7 @@ function recordTrack() {
 export function celebrate(id: string) {
   const p = fr.puzzleList.find((x) => x.id === id)
   if (!p) return
+  useGame.setState((s) => (s.splits?.[id] ? {} : { splits: { ...s.splits, [id]: s.playTime + s.penalty } }))
   live.banner = { title: G().settings.lang === 'en' ? 'Puzzle solved' : 'Énigme résolue', sub: `${p.name} · ${p.domain}`, t: performance.now() }
   audio.sting('solved')
   if (G().settings.autosave) setTimeout(() => saveGame(), 400)

@@ -278,43 +278,6 @@ export function CharSelect() {
   )
 }
 
-export function Pause() {
-  const resume = () => {
-    useGame.setState({ paused: false })
-    requestLock()
-  }
-  return (
-    <div className="modal-bg" data-testid="pause">
-      <div className="panel" style={{ width: 'min(360px, 90vw)' }}>
-        <h2>{M.pause}</h2>
-        <p className="sub">{fr.zones[G().zone].name + ' · ' + fr.zones[G().zone].sub}</p>
-        <div className="menu" style={{ width: '100%' }}>
-          <button className="btn primary" onClick={resume}>
-            {M.resume}
-          </button>
-          <button className="btn" onClick={() => useGame.setState({ settingsOpen: true, settingsTab: 1 })}>
-            {M.settings}
-          </button>
-          <button className="btn" onClick={() => toggleFullscreen()}>
-            Plein écran
-          </button>
-          <button
-            className="btn"
-            onClick={() => {
-              audio.stopAllLoops()
-              audio.playMusic('title')
-              useGame.setState({ screen: 'title', paused: false, cine: null, subtitle: null })
-            }}
-          >
-            {M.quit}
-          </button>
-        </div>
-        <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 16 }}>{fr.msg.saved} automatiquement toutes les 30 s (et à chaque changement de zone).</p>
-      </div>
-    </div>
-  )
-}
-
 export function Credits({ onClose }: { onClose: () => void }) {
   return (
     <div className="modal-bg" style={{ zIndex: 40 }} onClick={onClose}>
@@ -329,84 +292,6 @@ export function Credits({ onClose }: { onClose: () => void }) {
             <span>{b}</span>
           </div>
         ))}
-      </div>
-    </div>
-  )
-}
-
-export function End() {
-  const s = useGame()
-  const c = fr.characters[s.character]
-  const fail = s.ending === 'fail'
-  const surv = SURVIVAL_ITEMS.filter((k) => (s.inv[k] ?? 0) > 0).length
-  const total = Math.round((s.playTime + s.penalty) * 1000)
-  const score = fail ? 0 : computeScore()
-  const [rank, setRank] = useState<number | null>(null)
-  const [unlocked, setUnlocked] = useState<string[]>([])
-  useEffect(() => {
-    if (fail) return
-    setUnlocked(checkEndAchievements())
-    submitScore({ timeMs: total, hints: s.hintsUsed, errors: s.errors, score, character: s.character, ending: s.choice === 'keep' ? 'rescue_keep' : 'rescue', difficulty: s.difficulty, ghost: s.track }).then(setRank)
-  }, [])
-  const ep = fr.story.epilogue
-  return (
-    <div className="end" data-testid="end">
-      <div style={{ padding: 24, maxWidth: 820 }}>
-        <div style={{ width: 110, margin: '0 auto 8px' }}>
-          <AstroSilhouette color={c.color} accent={c.accent} />
-        </div>
-        <h1 style={{ color: fail ? 'var(--bad)' : undefined }}>{fail ? fr.end.failTitle : fr.end.title}</h1>
-        <p style={{ color: 'var(--orange)', letterSpacing: '0.2em', textTransform: 'uppercase' }}>{fail ? fr.end.failSub : fr.end.sub(c.name)}</p>
-        {!fail && (
-          <p className="epilogue">
-            {s.choice === 'keep' ? ep.keep : ep.drop} {s.flags.pw_lights ? ep.light : ep.o2}
-          </p>
-        )}
-        <div className="stats">
-          <div className="stat">
-            <b data-testid="end-time">{fmtTime(total)}</b>
-            <small>{fr.end.stats.time}</small>
-          </div>
-          <div className="stat">
-            <b>{s.hintsUsed}</b>
-            <small>{fr.end.stats.hints}</small>
-          </div>
-          <div className="stat">
-            <b>{s.errors}</b>
-            <small>{fr.end.stats.errors}</small>
-          </div>
-          <div className="stat">
-            <b>{fail ? '—' : score}</b>
-            <small>{fr.end.score}</small>
-          </div>
-        </div>
-        {unlocked.length > 0 && (
-          <div className="ach-row">
-            {unlocked.map((c) => {
-              const a = ACHIEVEMENTS.find((x) => x.code === c)!
-              return (
-                <span key={c} className="ach-chip" title={a.desc}>
-                  {a.icon} {a.name}
-                </span>
-              )
-            })}
-          </div>
-        )}
-        <p style={{ color: 'var(--muted)', fontSize: 13 }}>
-          {DIFFICULTY[s.difficulty]?.name} · {fr.end.stats.survival} : {surv} / 11 · {fr.end.stats.faints} : {s.faints}
-          {rank ? ` · ${fr.end.rank(rank)}` : ''}
-        </p>
-        <div className="radio-btns" style={{ marginTop: 18 }}>
-          <button className="btn primary" onClick={() => useGame.setState({ screen: 'charSelect', ended: false })}>
-            {fr.end.again}
-          </button>
-          <button className="btn" onClick={() => useGame.setState({ screen: 'leaderboard', ended: false })}>
-            {fr.end.leaderboard}
-          </button>
-          <button className="btn ghost" onClick={() => useGame.setState({ screen: 'title', ended: false })}>
-            {M.quit}
-          </button>
-        </div>
       </div>
     </div>
   )
@@ -560,3 +445,5 @@ export function RotatePhone() {
 }
 
 export { update as updateSettings }
+
+export { End, Pause } from './Report'

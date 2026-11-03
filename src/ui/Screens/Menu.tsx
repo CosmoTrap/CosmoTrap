@@ -36,17 +36,20 @@ export function solvedCount(s: SaveFile) {
   return { done: list.filter(Boolean).length, total: list.length }
 }
 
+/** nouvelle partie : efface la sauvegarde et lance le prologue */
+export async function startNewGame(character: string, d: Difficulty) {
+  await audio.init()
+  clearSave()
+  deleteCloudSave()
+  loadExplored([])
+  useGame.setState({ ...newGameData(character, d), screen: 'prologue', paused: false, tp: null, resume: null, tabletOpen: false, puzzle: null, readNote: null, lastResult: null })
+}
+
 function NewGameModal({ onClose }: { onClose: () => void }) {
   const [d, setD] = useState<Difficulty>('astronaut')
   const character = useGame((s) => s.user?.character ?? s.settings.character)
   const c = fr.characters[character]
-  const start = async () => {
-    await audio.init()
-    clearSave()
-    deleteCloudSave()
-    loadExplored([])
-    useGame.setState({ ...newGameData(character, d), screen: 'prologue', paused: false, tp: null, resume: null, tabletOpen: false, puzzle: null, readNote: null, lastResult: null })
-  }
+  const start = () => startNewGame(character, d)
   return (
     <div className="modal-bg" style={{ zIndex: 60 }} onClick={onClose}>
       <div className="mm-panel mm-new" onClick={(e) => e.stopPropagation()} data-testid="new-game-modal">
