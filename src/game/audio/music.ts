@@ -13,10 +13,16 @@ interface Theme {
   arp?: boolean
   pluck?: boolean
   sub?: boolean
+  /** orgue à tuyaux additif (pads longs, réverbération de cathédrale) */
+  organ?: boolean
+  /** tic-tac d'horloge sur chaque temps */
+  tick?: boolean
+  /** ostinato minimaliste (croches répétées sur l'accord) */
+  ost?: number[]
   padCut: number
 }
 
-const THEMES: Record<ThemeId, Theme> = {
+const BASE: Record<ThemeId, Theme> = {
   // D dorien, 66 BPM
   orion: { bpm: 66, root: 146.83, scale: [0, 2, 3, 5, 7, 9, 10], chords: [[0, 7, 15, 21], [-2, 5, 14, 17], [3, 10, 15, 22], [-4, 3, 10, 14]], bars: 2, bells: 0.28, padCut: 1100 },
   title: { bpm: 60, root: 146.83, scale: [0, 2, 3, 5, 7, 9, 10], chords: [[0, 7, 14, 21], [-4, 3, 10, 17], [-2, 5, 12, 19], [-5, 2, 9, 14]], bars: 2, bells: 0.22, padCut: 1300 },
@@ -27,6 +33,27 @@ const THEMES: Record<ThemeId, Theme> = {
   // G majeur, 84 BPM
   terre: { bpm: 84, root: 196.0, scale: [0, 2, 4, 5, 7, 9, 11], chords: [[0, 7, 16], [-3, 4, 12], [-7, 0, 9], [-5, 2, 11]], bars: 2, bells: 0.0, pluck: true, padCut: 1800 },
 }
+
+// Variantes « orgue cosmique » (inspiration Interstellar : orgue, horloge, ostinato, grande réverbération).
+// Progressions originales : seule l'orchestration s'en inspire.
+const COSMIC: Record<ThemeId, Theme[]> = {
+  // A mineur, l'horloge bat au temps
+  orion: [
+    { bpm: 60, root: 110, scale: [0, 2, 3, 5, 7, 8, 10], chords: [[0, 7, 12, 15], [-4, 3, 8, 15], [-2, 5, 10, 14], [-7, 0, 5, 12]], bars: 2, bells: 0.04, organ: true, tick: true, padCut: 2400 },
+    { bpm: 76, root: 123.47, scale: [0, 2, 3, 5, 7, 9, 10], chords: [[0, 7, 12, 15], [3, 10, 15, 19], [-2, 5, 10, 14], [5, 12, 17, 20]], bars: 2, bells: 0, organ: true, ost: [12, 19, 15, 19], padCut: 2000 },
+  ],
+  title: [{ bpm: 56, root: 110, scale: [0, 2, 3, 5, 7, 8, 10], chords: [[0, 7, 12, 15, 19], [-4, 3, 8, 12, 15], [-7, 0, 5, 8, 12], [-5, 2, 7, 10, 14]], bars: 2, bells: 0.03, organ: true, tick: true, padCut: 2600 }],
+  // F mineur, tic-tac sec et basse sourde
+  machinerie: [{ bpm: 80, root: 87.31, scale: [0, 2, 3, 5, 7, 8, 10], chords: [[0, 7, 12, 15], [1, 8, 13, 17], [-4, 3, 8, 12], [-2, 5, 10, 13]], bars: 2, bells: 0, organ: true, tick: true, sub: true, ost: [12, 15, 19, 15], padCut: 1500 }],
+  // D lydien, ostinato lumineux pendant le vol
+  hermes: [{ bpm: 88, root: 146.83, scale: [0, 2, 4, 6, 7, 9, 11], chords: [[0, 7, 16, 19], [2, 9, 14, 18], [-5, 2, 11, 14], [-1, 6, 11, 16]], bars: 2, bells: 0.05, organ: true, ost: [12, 16, 19, 23, 19, 16], padCut: 2600 }],
+  // C majeur, orgue doux et harmoniques
+  terre: [{ bpm: 66, root: 130.81, scale: [0, 2, 4, 5, 7, 9, 11], chords: [[0, 7, 16, 19], [-3, 4, 12, 16], [-7, 0, 9, 12], [-5, 2, 11, 14]], bars: 2, bells: 0.06, organ: true, pluck: true, padCut: 2400 }],
+}
+const THEMES: Record<ThemeId, Theme[]> = Object.fromEntries((Object.keys(BASE) as ThemeId[]).map((k) => [k, [BASE[k], ...COSMIC[k]]])) as Record<ThemeId, Theme[]>
+/** durée d'un morceau avant de passer au suivant (s) */
+const ROTATE_MIN = 140
+const ROTATE_MAX = 210
 
 const st = (root: number, semi: number) => root * Math.pow(2, semi / 12)
 
@@ -46,6 +73,10 @@ export class GenerativeMusic {
   /** multiplicateur de tempo (accélère avec la tension) */
   rate = 1
   private targetRate = 1
+  private verb: ConvolverNode
+  private noise: AudioBuffer
+  private variant = 0
+  private rotateAt = 0
 
   constructor(ctx: AudioContext, dest: AudioNode) {
     this.ctx = ctx
@@ -67,6 +98,21 @@ export class GenerativeMusic {
     lp.frequency.value = 2400
     this.delay.connect(lp).connect(fb).connect(this.delay)
     lp.connect(this.calm)
+    // grande réverbération (réponse impulsionnelle générée : ~6 s, stéréo)
+    this.verb = ctx.createConvolver()
+    const len = Math.floor(ctx.sampleRate * 6)
+    const ir = ctx.createBuffer(2, len, ctx.sampleRate)
+    for (let c = 0; c < 2; c++) {
+      const d = ir.getChannelData(c)
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2)
+    }
+    this.verb.buffer = ir
+    const vg = ctx.createGain()
+    vg.gain.value = 0.55
+    this.verb.connect(vg).connect(this.calm)
+    this.noise = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.05), ctx.sampleRate)
+    const nd = this.noise.getChannelData(0)
+    for (let i = 0; i < nd.length; i++) nd[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / nd.length, 6)
   }
 
   play(id: ThemeId | null) {
@@ -74,7 +120,9 @@ export class GenerativeMusic {
     this.stop()
     this.themeId = id
     if (!id) return
-    this.theme = THEMES[id]
+    this.variant = Math.floor(Math.random() * THEMES[id].length)
+    this.theme = THEMES[id][this.variant]
+    this.rotateAt = this.ctx.currentTime + ROTATE_MIN + Math.random() * (ROTATE_MAX - ROTATE_MIN)
     this.beat = 0
     this.nextBeat = this.ctx.currentTime + 0.2
     this.drone = this.startDrone()
@@ -102,9 +150,34 @@ export class GenerativeMusic {
     this.tension.gain.setTargetAtTime(v, t, 0.8)
   }
 
+  /** change de morceau en fondu (même ambiance de zone, autre orchestration) */
+  private rotate() {
+    const list = this.themeId ? THEMES[this.themeId] : null
+    if (!list || list.length < 2) return
+    const t = this.ctx.currentTime
+    this.rotateAt = t + 6 + ROTATE_MIN + Math.random() * (ROTATE_MAX - ROTATE_MIN)
+    this.out.gain.cancelScheduledValues(t)
+    this.out.gain.setValueAtTime(this.out.gain.value, t)
+    this.out.gain.linearRampToValueAtTime(0.0001, t + 5)
+    window.setTimeout(() => {
+      if (!this.themeId || THEMES[this.themeId] !== list) return
+      this.variant = (this.variant + 1) % list.length
+      this.theme = list[this.variant]
+      this.beat = 0
+      this.nextBeat = this.ctx.currentTime + 0.1
+      this.drone?.stop()
+      this.drone = this.startDrone()
+      const t2 = this.ctx.currentTime
+      this.out.gain.cancelScheduledValues(t2)
+      this.out.gain.setValueAtTime(0.0001, t2)
+      this.out.gain.exponentialRampToValueAtTime(1, t2 + 6)
+    }, 5200)
+  }
+
   private schedule() {
     const th = this.theme
     if (!th) return
+    if (this.ctx.currentTime > this.rotateAt) this.rotate()
     this.rate += (this.targetRate - this.rate) * 0.08
     const spb = 60 / (th.bpm * this.rate)
     while (this.nextBeat < this.ctx.currentTime + 0.3) {
@@ -118,6 +191,8 @@ export class GenerativeMusic {
       if (th.arp) for (let k = 0; k < 4; k++) this.arp(t + (k * spb) / 4, k)
       if (th.pluck && this.beat % 2 === 0) this.pluck(t)
       if (th.sub && this.beat % 2 === 0) this.subPulse(t)
+      if (th.tick) this.tick(t, this.beat % 4 === 0)
+      if (th.ost) for (let k = 0; k < 2; k++) this.ostNote(t + (k * spb) / 2, th.ost[(this.beat * 2 + k) % th.ost.length])
       // couche tension : pulsation et chocs métalliques
       if (this.beat % 4 === 0) this.tensionHit(t)
       if (this.tensionLevel > 0.5) this.pulse(t, this.beat % 2 === 0)
@@ -128,6 +203,7 @@ export class GenerativeMusic {
 
   private pad(t: number, chord: number[], dur: number) {
     const th = this.theme!
+    if (th.organ) return this.organ(t, chord, dur)
     const lp = this.ctx.createBiquadFilter()
     lp.type = 'lowpass'
     lp.frequency.setValueAtTime(th.padCut * 0.6, t)
@@ -227,6 +303,95 @@ export class GenerativeMusic {
       o.connect(og).connect(g)
       o.start(t)
       o.stop(t + 2.3)
+    }
+  }
+
+  /** orgue à tuyaux : harmoniques 8', 4', 2⅔', 2', 1' — attaque lente, réverbération longue */
+  private organ(t: number, chord: number[], dur: number) {
+    const th = this.theme!
+    const g = this.ctx.createGain()
+    const peak = 0.026
+    g.gain.setValueAtTime(0.0001, t)
+    g.gain.exponentialRampToValueAtTime(peak, t + 1.6)
+    g.gain.setValueAtTime(peak, t + dur - 0.3)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 1.8)
+    const lp = this.ctx.createBiquadFilter()
+    lp.type = 'lowpass'
+    lp.frequency.value = th.padCut
+    lp.connect(g)
+    g.connect(this.calm)
+    g.connect(this.verb)
+    const partials: [number, number][] = [
+      [0.5, 0.55],
+      [1, 1],
+      [2, 0.5],
+      [3, 0.22],
+      [4, 0.18],
+      [8, 0.05],
+    ]
+    for (const semi of chord) {
+      const f = st(th.root, semi)
+      for (const [k, a] of partials) {
+        const o = this.ctx.createOscillator()
+        o.type = 'sine'
+        o.frequency.value = f * k
+        o.detune.value = (Math.random() - 0.5) * 6
+        const og = this.ctx.createGain()
+        og.gain.value = a / chord.length
+        o.connect(og).connect(lp)
+        o.start(t)
+        o.stop(t + dur + 2)
+      }
+    }
+    // tremblement léger de la soufflerie
+    const lfo = this.ctx.createOscillator()
+    lfo.frequency.value = 4.6
+    const lg = this.ctx.createGain()
+    lg.gain.value = peak * 0.08
+    lfo.connect(lg).connect(g.gain)
+    lfo.start(t)
+    lfo.stop(t + dur + 2)
+  }
+
+  /** tic-tac d'horloge (bruit court filtré) */
+  private tick(t: number, accent: boolean) {
+    const src = this.ctx.createBufferSource()
+    src.buffer = this.noise
+    const bp = this.ctx.createBiquadFilter()
+    bp.type = 'bandpass'
+    bp.frequency.value = accent ? 2600 : 3800
+    bp.Q.value = 6
+    const g = this.ctx.createGain()
+    g.gain.value = accent ? 0.22 : 0.13
+    src.connect(bp).connect(g).connect(this.calm)
+    g.connect(this.delay)
+    src.start(t)
+  }
+
+  /** note d'ostinato (orgue court, registre médium) */
+  private ostNote(t: number, semi: number) {
+    const th = this.theme!
+    const chord = th.chords[Math.floor(this.beat / (th.bars * 4)) % th.chords.length]
+    const f = st(th.root, semi + chord[0])
+    const g = this.ctx.createGain()
+    g.gain.setValueAtTime(0.0001, t)
+    g.gain.exponentialRampToValueAtTime(0.022, t + 0.03)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55)
+    g.connect(this.calm)
+    g.connect(this.verb)
+    for (const [k, a] of [
+      [1, 1],
+      [2, 0.4],
+      [4, 0.12],
+    ]) {
+      const o = this.ctx.createOscillator()
+      o.type = 'sine'
+      o.frequency.value = f * k
+      const og = this.ctx.createGain()
+      og.gain.value = a
+      o.connect(og).connect(g)
+      o.start(t)
+      o.stop(t + 0.6)
     }
   }
 

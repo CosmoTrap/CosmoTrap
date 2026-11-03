@@ -31,7 +31,7 @@ async function holdKey(page: Page, key: string, ms: number) {
 
 async function signedInPage(page: Page, request: any) {
   const email = `pw-${Date.now()}-${Math.floor(Math.random() * 1e6)}@cosmotrap.test`
-  const r = await request.post('http://localhost:5180/api/auth.php?action=register', { data: { email, pseudo: 'Robot', password: 'playwright-orion' } })
+  const r = await request.post('http://localhost:5180/api/auth.php?action=register', { data: { email, pseudo: `Robot${Math.floor(Math.random() * 1e6)}`, password: 'playwright-orion' } })
   expect(r.ok()).toBeTruthy()
   const { token } = await r.json()
   await page.addInitScript((t) => localStorage.setItem('cosmotrap.token', t), token)
@@ -165,7 +165,7 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
   await page.screenshot({ path: 'test-results/fin.png' })
   // le score est enregistré dans le classement
   const board = await (await request.get('http://localhost:5180/api/leaderboard.php')).json()
-  expect(board.rows.some((r: any) => r.pseudo === 'Robot')).toBe(true)
+  expect(board.rows.some((r: any) => r.pseudo.startsWith('Robot'))).toBe(true)
 })
 
 test('ressources à zéro, pénalités, indices et limite de temps', async ({ page, request }) => {
@@ -280,4 +280,28 @@ test('difficulté, imprévus, succès, fantôme et manette', async ({ page, requ
   await page.evaluate(() => (window as any).__game.set({ screen: 'title' }))
   await page.getByTestId('open-ach').click()
   await expect(page.getByTestId('achievements')).toContainText('Bricoleur')
+})
+
+test('menu principal, nouvelle partie, paramètres et langue', async ({ page, request }) => {
+  await signedInPage(page, request)
+  await expect(page.getByTestId('leaderboard')).toBeVisible()
+  // paramètres : profil → choix d'un personnage à capacité
+  await page.getByTestId('open-settings').click()
+  await page.getByRole('button', { name: /Léo/ }).click()
+  await expect.poll(async () => (await st(page)).settings.character).toBe('leo')
+  // onglet Jeu : passage en anglais puis retour
+  await page.getByTestId('stab-1').click()
+  await page.getByRole('button', { name: 'English' }).click()
+  await expect(page.getByText('Help level')).toBeVisible()
+  await page.getByRole('button', { name: 'Français' }).click()
+  await expect(page.getByText('Niveau d’aide')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Se déconnecter/ })).toBeVisible()
+  await page.evaluate(() => window.__game.set({ screen: 'title' }))
+  // nouvelle partie : fenêtre avec personnage + difficulté
+  await page.getByTestId('new-game').first().click()
+  await expect(page.getByTestId('new-game-modal')).toContainText('Léo')
+  await page.getByTestId('diff-explorer').click()
+  await page.getByTestId('start').click()
+  await page.waitForFunction(() => window.__game.state().screen === 'prologue')
+  expect((await st(page)).difficulty).toBe('explorer')
 })

@@ -4,17 +4,28 @@ import * as THREE from 'three'
 import { useGame } from '../../game/state'
 import { useMats } from '../materials'
 import { drawTexture, textTexture, texRnd, texSeed } from '../textures'
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
+import { RealModel } from './RealModel'
 
 // Accessoires de décor modélisés en code. Convention : les objets muraux ont le dos en z = 0
 // et s'étendent vers +z (l'intérieur de la pièce) ; les objets au sol sont centrés.
 
 type M = THREE.Material
+const roundCache = new Map<string, THREE.BufferGeometry>()
+/** boîte aux arêtes légèrement arrondies (fini les cubes « jouet ») */
+export function roundedBox(w: number, h: number, d: number) {
+  const key = `${w.toFixed(3)}|${h.toFixed(3)}|${d.toFixed(3)}`
+  let g = roundCache.get(key)
+  if (!g) {
+    const r = Math.min(0.025, Math.min(w, h, d) * 0.22)
+    g = r > 0.002 ? new RoundedBoxGeometry(w, h, d, 2, r) : new THREE.BoxGeometry(w, h, d)
+    roundCache.set(key, g)
+  }
+  return g
+}
+
 export function Box({ s, p = [0, 0, 0], r, m, cast = true }: { s: [number, number, number]; p?: [number, number, number]; r?: [number, number, number]; m: M; cast?: boolean }) {
-  return (
-    <mesh position={p} rotation={r} material={m} castShadow={cast} receiveShadow>
-      <boxGeometry args={s} />
-    </mesh>
-  )
+  return <mesh position={p} rotation={r} material={m} geometry={roundedBox(s[0], s[1], s[2])} castShadow={cast} receiveShadow />
 }
 export function Cyl({ a, p = [0, 0, 0], r, m, seg = 20 }: { a: [number, number, number]; p?: [number, number, number]; r?: [number, number, number]; m: M; seg?: number }) {
   return (
@@ -307,7 +318,7 @@ function Plant() {
 function WallScreen() {
   const m = useMats()
   const zone = useGame((s) => s.zone)
-  const lines = zone === 1 ? ['ORION · ÉTAT', 'COQUE : BRÈCHE S-4', 'O₂ CABINE : 14 %', 'ÉVACUATION EN COURS'] : zone === 2 ? ['LABO-2 · CULTURES', 'TEMP 21.4°C', 'CO₂ 0.9 %', '▲ ALERTE RÉSEAU'] : ['HERMÈS · NAV', 'ORBITE LUNAIRE', 'Δv dispo 3.1 km/s', 'CIBLE : TERRE']
+  const lines = zone === 1 ? ['SELENE-7 · ÉTAT', 'COQUE : BRÈCHE S-4', 'O₂ CABINE : 14 %', 'ÉVACUATION EN COURS'] : zone === 2 ? ['LABO-2 · CULTURES', 'TEMP 21.4°C', 'CO₂ 0.9 %', '▲ ALERTE RÉSEAU'] : ['HERMÈS · NAV', 'ORBITE LUNAIRE', 'Δv dispo 3.1 km/s', 'CIBLE : TERRE']
   return (
     <group>
       <Box s={[1.0, 0.6, 0.05]} p={[0, 0, 0.025]} m={m.plastic('#1b1d20', 0.3)} />
@@ -870,6 +881,15 @@ function EngineCore() {
 }
 
 export const PROP_MODELS: Record<string, (p: { color?: string; scale?: number }) => ReactNode> = {
+  toolChest: () => <RealModel id="metal_tool_chest" fit="wall" height={1.05} />,
+  toolCart: () => <RealModel id="tool_cart" height={0.95} />,
+  generator: () => <RealModel id="portable_generator" height={0.6} />,
+  camera: () => <RealModel id="security_camera_01" fit="wall" height={0.25} />,
+  utilityBox: () => <RealModel id="utility_box_01" fit="wall" height={0.55} />,
+  stool: () => <RealModel id="metal_stool_01" height={0.65} />,
+  clock: () => <RealModel id="alarm_clock_01" height={0.12} />,
+  seeding: () => <RealModel id="seeding_tray_01" height={0.1} />,
+  container: () => <RealModel id="industrial_pastic_container" height={1.0} />,
   bunk: () => <Bunk />,
   shelf: () => <Shelf />,
   photos: () => <Photos />,
@@ -881,32 +901,58 @@ export const PROP_MODELS: Record<string, (p: { color?: string; scale?: number })
   mugs: () => <Mugs />,
   counter: () => <Counter />,
   postits: () => <Postits />,
-  plant: () => <Plant />,
+  plant: () => <RealModel id="potted_plant_02" height={1.1} />,
   screen: () => <WallScreen />,
   pipes: (p) => <Pipes scale={p.scale} />,
   pipesBig: (p) => <PipesBig scale={p.scale} />,
   sign: (p) => <Sign color={p.color} />,
-  extinguisher: () => <Extinguisher />,
+  extinguisher: () => <RealModel id="korean_fire_extinguisher_01" fit="wall" p={[0, 0, 0.04]} height={0.62} />,
   handrail: () => <Handrail />,
-  crates: () => <Crates />,
-  rack: () => <Rack />,
-  debris: () => <Debris />,
+  crates: () => (
+    <group>
+      <RealModel id="old_military_crate" p={[-0.1, 0, 0]} r={0.2} />
+      <RealModel id="plastic_crate_01" p={[0.55, 0, 0.25]} r={-0.4} />
+      <RealModel id="plastic_crate_01" p={[0.5, 0.33, 0.2]} r={0.3} />
+    </group>
+  ),
+  rack: () => <RealModel id="steel_frame_shelves_01" fit="wall" height={2} />,
+  debris: () => (
+    <group>
+      <Debris />
+      <RealModel id="propane_tank" p={[0.5, 0, -0.2]} r={1.2} height={0.7} />
+    </group>
+  ),
   medbed: () => <Medbed />,
-  cabinet: () => <Cabinet />,
+  cabinet: () => (
+    <group>
+      <Cabinet />
+      <RealModel id="medical_box" p={[0.35, 0.93, 0.3]} height={0.22} />
+    </group>
+  ),
   monitor: () => <Monitor />,
   suitRack: () => <SuitRack />,
   hazard: () => <Hazard />,
   beacon: () => <Beacon />,
   labBench: () => <LabBench />,
-  microscope: () => <Microscope />,
-  flasks: () => <Flasks />,
+  microscope: () => <RealModel id="industrial_microscope" p={[0, 0, 0.35]} height={0.42} />,
+  flasks: () => <RealModel id="chemistry_set" p={[0, 0, 0.35]} height={0.3} />,
   plantRack: () => <PlantRack />,
   ladder: () => <Ladder />,
   brokenPipe: () => <BrokenPipe />,
-  elecCabinet: () => <ElecCabinet />,
+  elecCabinet: () => (
+    <group>
+      <ElecCabinet />
+      <RealModel id="power_box_01" fit="wall" p={[0, 2.1, 0]} height={0.5} />
+    </group>
+  ),
   cables: () => <Cables />,
   reactor: () => <Reactor />,
-  console: () => <Console />,
+  console: () => (
+    <group>
+      <Console />
+      <RealModel id="vintage_spacecraft_instrument" p={[0.4, 1.02, 0.25]} height={0.32} />
+    </group>
+  ),
   grating: () => <Grating />,
   pilotSeat: () => <PilotSeat />,
   sideConsole: () => <SideConsole />,

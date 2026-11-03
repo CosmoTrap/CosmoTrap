@@ -3,12 +3,25 @@ import { FLAGS, type Flags, type ItemId, type PuzzleId, type ZoneId } from './ty
 import { DEFAULT_KEYS, type KeyMap } from '../player/input'
 import { DIFFICULTY, type Difficulty } from './difficulty'
 
-export type Screen = 'login' | 'title' | 'charSelect' | 'prologue' | 'playing' | 'end' | 'leaderboard'
+export type Screen = 'login' | 'title' | 'charSelect' | 'prologue' | 'playing' | 'end' | 'leaderboard' | 'settings'
 export type Quality = 'low' | 'medium' | 'high' | 'ultra'
 export type CineKind = 'briefing' | 'faint' | 'zoneCard' | 'tour' | 'launch' | 'heli' | 'fail' | null
 
 /** limite de temps de la partie (s) selon la difficulté : au-delà, échec */
-export const timeLimit = () => DIFFICULTY[useGame.getState().difficulty ?? 'astronaut'].time
+export const timeLimit = () => DIFFICULTY[useGame.getState().difficulty ?? 'astronaut'].time + (useGame.getState().character === 'ines' ? 180 : 0)
+
+/** capacités des personnages (multiplicateurs) */
+export const ability = () => {
+  const c = useGame.getState().character
+  return {
+    speed: c === 'leo' ? 1.2 : 1,
+    lamp: c === 'nova' ? 0.65 : 1,
+    errorPenalty: c === 'kenji' ? 0.5 : 1,
+    water: c === 'sam' ? 0.6 : 1,
+    faintO2: c === 'sam' ? 75 : 50,
+    o2: c === 'maya' ? 0.75 : 1,
+  }
+}
 export const diff = () => DIFFICULTY[useGame.getState().difficulty ?? 'astronaut']
 export const AUTOSAVE_EVERY = 30
 
@@ -27,6 +40,19 @@ export interface Settings {
   ghost: boolean
   /** hauteur de rendu en pixels, ou automatique */
   resolution: 'auto' | number
+  /** personnage choisi dans le profil (invités : local) */
+  character: string
+  /** niveau d'aide : fréquence et précision des indices */
+  help: 'recrue' | 'pilote' | 'commandant'
+  showChrono: boolean
+  subtitles: boolean
+  /** sauvegarde à chaque énigme résolue (en plus des 30 s) */
+  autosave: boolean
+  lang: 'fr' | 'en'
+  /** luminosité de l'image (0,6 à 1,6) */
+  brightness: number
+  /** voix de synthèse du navigateur quand aucun fichier de voix n'est fourni */
+  browserVoice: boolean
   /** regarder en glissant à deux doigts sur le pavé tactile (ou molette) */
   trackpadLook: boolean
 }
@@ -183,6 +209,10 @@ export interface GameState extends GameData {
   cineT0: number
   toasts: Toast[]
   settingsOpen: boolean
+  /** onglet de la page Paramètres (0 Profil, 1 Jeu, 2 Touches, 3 Audio) */
+  settingsTab: number
+  /** première connexion : on guide vers le choix du personnage */
+  firstRun: boolean
   creditsOpen: boolean
   tp: { pos: [number, number, number]; yaw: number; n: number } | null
   loading: number // 0..1, 1 = prêt
@@ -194,8 +224,9 @@ export interface GameState extends GameData {
   padActive: boolean
   padSlotTick: number
   resume: { pos: [number, number, number]; yaw: number } | null
-  user: { id: number; email: string; pseudo: string } | null
+  user: { id: number; email: string; pseudo: string; character?: string } | null
   offline: boolean
+  myRank: number | null
   lastResult: { timeMs: number; score: number; rank: number | null } | null
   set: (p: Partial<GameState>) => void
 }
@@ -240,6 +271,14 @@ function loadSettings(): Settings {
     showFps: false,
     ghost: true,
     resolution: 'auto',
+    character: 'nova',
+    help: 'pilote',
+    showChrono: true,
+    subtitles: true,
+    autosave: true,
+    lang: 'fr',
+    brightness: 1,
+    browserVoice: false,
     trackpadLook: true,
   }
   try {
@@ -274,6 +313,8 @@ export const useGame = create<GameState>((set) => ({
   cineT0: 0,
   toasts: [],
   settingsOpen: false,
+  settingsTab: 0,
+  firstRun: false,
   creditsOpen: false,
   tp: null,
   loading: 1,
@@ -286,6 +327,7 @@ export const useGame = create<GameState>((set) => ({
   resume: null,
   user: null,
   offline: false,
+  myRank: null,
   lastResult: null,
   set: (p) => set(p),
 }))

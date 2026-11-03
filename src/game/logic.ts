@@ -3,6 +3,7 @@ import { audio } from './audio/audio'
 import { ITEM_KIND } from './items'
 import { GRID_MAPS, entWorld, entsOf, roomAt, spawnOf } from './maps'
 import {
+  ability,
   G,
   addItem,
   addNote,
@@ -397,7 +398,7 @@ export function act(id: string) {
 /** erreur : conséquence visible (pénalité de temps) */
 export function penalize(sec: number, countError = true) {
   const s = G()
-  sec = Math.round(sec * diff().penalty)
+  sec = Math.round(sec * diff().penalty * (countError ? ability().errorPenalty : 1))
   useGame.setState({ penalty: s.penalty + sec, errors: s.errors + (countError ? 1 : 0) })
   live.flash = 0
   live.penaltyFlash = 1
@@ -746,8 +747,9 @@ function recordTrack() {
 export function celebrate(id: string) {
   const p = fr.puzzleList.find((x) => x.id === id)
   if (!p) return
-  live.banner = { title: 'Énigme résolue', sub: `${p.name} · ${p.domain}`, t: performance.now() }
+  live.banner = { title: G().settings.lang === 'en' ? 'Puzzle solved' : 'Énigme résolue', sub: `${p.name} · ${p.domain}`, t: performance.now() }
   audio.sting('solved')
+  if (G().settings.autosave) setTimeout(() => saveGame(), 400)
 }
 export function tick(dt: number) {
   const s = G()
@@ -759,7 +761,8 @@ export function tick(dt: number) {
   recordTrack()
   // oxygène (zones 1 à 3)
   if (s.zone < 4) {
-    let rate = 0.42 * D.drain
+    const AB = ability()
+    let rate = 0.42 * D.drain * AB.o2
     if (ev === 'leak') rate *= 2.2
     if (s.zone === 2 && !f.steamFixed) rate *= 1.5
     if (s.zone === 2 && f.power && f.pw_o2) rate = 0
@@ -768,7 +771,7 @@ export function tick(dt: number) {
   // lampe
   let lampOn = s.lampOn
   if (lampOn) {
-    res.lamp = Math.max(0, res.lamp - 0.75 * D.drain * dt)
+    res.lamp = Math.max(0, res.lamp - 0.75 * D.drain * ability().lamp * dt)
     if (res.lamp <= 0) {
       if (has('battery')) {
         removeItem('battery')
@@ -783,7 +786,7 @@ export function tick(dt: number) {
     }
   }
   // eau
-  res.water = Math.max(0, res.water - 0.11 * D.drain * dt)
+  res.water = Math.max(0, res.water - 0.11 * D.drain * ability().water * dt)
   useGame.setState({ res, lampOn, playTime: s.playTime + dt })
   if (s.playTime + dt + s.penalty >= timeLimit()) {
     useGame.setState({ cine: 'fail', cineT0: performance.now(), tabletOpen: false, puzzle: null, readNote: null })
@@ -838,7 +841,7 @@ export function faint() {
 export function respawnAfterFaint() {
   const s = G()
   const sp = spawnOf(s.zone)
-  useGame.setState({ res: { ...s.res, o2: 50 }, tp: { pos: sp.pos, yaw: sp.yaw, n: Date.now() } })
+  useGame.setState({ res: { ...s.res, o2: ability().faintO2 }, tp: { pos: sp.pos, yaw: sp.yaw, n: Date.now() } })
   audio.sfx('gasp')
 }
 
@@ -941,7 +944,9 @@ export function requestHint(level: 1 | 2 = 1) {
   if (!key) return null
   if (!s.hintsShown.includes(key)) {
     useGame.setState({ hintsShown: [...s.hintsShown, key], hintsUsed: s.hintsUsed + 1 })
-    penalize(level === 1 ? 30 : 60, false)
+    const help = s.settings.help
+    const cost = help === 'recrue' ? (level === 1 ? 0 : 30) : help === 'commandant' ? (level === 1 ? 60 : 120) : level === 1 ? 30 : 60
+    if (cost) penalize(cost, false)
   }
   return hintFor(level)
 }

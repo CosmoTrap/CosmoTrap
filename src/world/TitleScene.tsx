@@ -7,7 +7,7 @@ import { Moon } from './Exterior/Moon'
 import { MilkyWay, Stars, Sun } from './Exterior/Space'
 import { paintedMetal, drawTexture } from './textures'
 
-// Écran titre : la caméra tourne lentement autour de la station Orion, la Lune en fond.
+// Écran titre : la caméra tourne lentement autour de la station Selene-7, la Lune en fond.
 
 function SolarPanel({ p, r }: { p: [number, number, number]; r: number }) {
   const mat = useMemo(() => {

@@ -2,7 +2,7 @@
 
 Cosmo Team · Cercle de projets 2026 · Institut G4 Marseille
 
-Un astronaute se réveille seul sur la station Orion, en orbite basse autour de la Lune, après l'impact d'une micro-météorite. Il doit gérer son oxygène, sa lampe et son eau, résoudre les énigmes de 4 zones et rentrer sur Terre avant la fin du chronomètre (30 min).
+Un astronaute se réveille seul sur la base lunaire Selene-7, après l'impact d'une micro-météorite. Il doit gérer son oxygène, sa lampe et son eau, résoudre les énigmes de 4 zones et rentrer sur Terre avant la fin du chronomètre (30 min).
 
 Le jeu est en 3D à la première personne. Il se joue dans le navigateur, sans installation, sur ordinateur et sur mobile en mode paysage.
 
@@ -10,7 +10,22 @@ Le jeu est en 3D à la première personne. Il se joue dans le navigateur, sans i
 
 ### En ligne (jury)
 
-Ouvrir l'URL publique : `https://royalblue-wolverine-280146.hostingersite.com`. Créer un compte (pseudo, e-mail, mot de passe), puis cliquer sur **Nouvelle partie**.
+Ouvrir l'URL publique : `https://royalblue-wolverine-280146.hostingersite.com`. Créer un compte (pseudo, e-mail, mot de passe), choisir son personnage, puis cliquer sur **Lancer la mission**.
+
+**Parcours.** Connexion (e-mail ou pseudo, mot de passe oublié) → inscription en 3 étapes → menu principal « Poste de commande » (partie en cours, classement Global / Semaine) → Paramètres (Profil, Jeu, Touches, Audio).
+
+**Personnages et capacités** (Paramètres → Profil) :
+
+| Personnage | Capacité |
+|---|---|
+| Léo | Sprinteur : +20 % de vitesse |
+| Nova | Économe : la lampe consomme 35 % de piles en moins |
+| Kenji | Décodeur : pénalités d'erreur divisées par 2 |
+| Inès | Sang-froid : +3 min au chrono |
+| Sam | Endurant : −40 % d'eau, 75 % d'O₂ après un malaise |
+| Maya | Souffle long : −25 % d'O₂ |
+
+**Paramètres → Jeu.** Niveau d'aide (Recrue : 1er indice gratuit ; Pilote : 30 s / 60 s ; Commandant : 60 s / 120 s), chronomètre, sous-titres, sauvegarde à chaque énigme, langue FR / EN, qualité, luminosité, sensibilité, champ de vision (70–110°), plein écran et résolution.
 
 ### En local (moins de 2 minutes)
 
@@ -105,7 +120,7 @@ Le classement est séparé par difficulté.
 
 ## Scénario
 
-1. **Prologue** (passable) : 2041, station Orion. Le labo de Maya vient de trouver de l'eau sous le pôle Sud. Une micro-météorite frappe la station.
+1. **Prologue** (passable) : 2041, base lunaire Selene-7. Le labo de Maya vient de trouver de l'eau sous le pôle Sud. Une micro-météorite frappe la station.
 2. **Zone 1 · Quartiers d'équipage.** Visite cinématique de la zone. Briefing holographique de la commandante. Il faut sortir du dortoir et pressuriser le sas.
 3. **Zone 2 · Labo & machinerie.** Il faut couper la fuite de vapeur, réparer le disjoncteur, faire un choix d'énergie, puis décoder le programme de lancement.
 4. **Zone 3 · Fusée Hermès.** Il faut trouver la cellule, planifier le pré-vol, prendre une décision sur les échantillons et lancer la séquence. Suivent le décollage et la rentrée atmosphérique.
@@ -174,17 +189,20 @@ Une partie parfaite, sans erreur ni indice et en passant les cinématiques, dure
 ## Technique
 
 - **Front.** Vite, React 18, TypeScript, React Three Fiber, drei, postprocessing et Rapier (collisions, contrôleur de personnage), zustand et howler.
-- **Rendu.** Tout est procédural :
-  - textures PBR générées sur canvas (panneaux, tôle striée, rivets, salissures, normal maps) ;
-  - Lune en shader (cratères multi-échelles, photométrie Lommel-Seeliger) ;
-  - Terre avec atmosphère, nuages et villes la nuit ;
-  - rayons de soleil volumétriques à travers les hublots ;
-  - herbe instanciée animée par le vent, rivière en shader.
+- **Rendu.**
+  - panneaux de la station générés sur canvas, avec de vraies textures PBR Poly Haven en détail (usure, micro-relief, rugosité) ;
+  - modèles 3D réels Poly Haven (caisses, étagères, extincteurs, instruments, arbres, rochers, fougères…), compressés en meshopt + WebP ;
+  - zone 4 éclairée par un vrai ciel HDRI, terrain à mélange de textures, herbe dense qui suit le joueur, arbres lointains en imposteurs ;
+  - Lune, Terre (jour, nuit, nuages), Saturne et Voie lactée avec les cartes Solar System Scope ;
+  - fond 3D de la base lunaire Selene-7 derrière la connexion, le menu et les paramètres ;
+  - rayons de soleil volumétriques à travers les hublots, rivière en shader.
+
+  Pour régénérer les ressources : `npm run assets` (télécharge dans `asset-src/`, ignoré par git, puis écrit dans `public/assets/`).
 - **Post-traitement.** ACES, N8AO, bloom, étalonnage « clair-obscur », aberration chromatique et SMAA.
 - **Qualité.** 4 niveaux : Basse, Moyenne, Haute, Ultra. Le niveau est détecté automatiquement selon la carte graphique, et la résolution baisse seule si les images par seconde chutent.
-- **Audio.** Tout est synthétisé en Web Audio : bruitages et musique adaptative. Le tempo et le cœur accélèrent quand l'O₂ baisse et quand le chrono s'épuise. Les voix utilisent la meilleure voix française du navigateur.
+- **Audio.** Tout est synthétisé en Web Audio : bruitages et musique adaptative. Le tempo et le cœur accélèrent quand l'O₂ baisse et quand le chrono s'épuise. Chaque zone a plusieurs morceaux qui changent toutes les 2 à 3 min en fondu, dont des thèmes « orgue cosmique » originaux (orgue à tuyaux, tic-tac d'horloge, ostinato, grande réverbération). La voix de synthèse du navigateur est désactivée par défaut (Paramètres → Audio) : seules les voix enregistrées sont jouées, avec les sous-titres.
 
-  Pour de vraies voix et de vrais bruitages, lancer le script ci-dessous. Il génère tous les bruitages et toutes les répliques avec ElevenLabs dans `public/audio` et met à jour `manifest.json`. Le jeu les utilise alors automatiquement à la place de la synthèse.
+  Pour de vraies voix (non robotiques) : créer un compte gratuit sur elevenlabs.io (10 000 caractères par mois), copier la clé API dans Profil → API Keys, puis lancer le script ci-dessous. Pour de vraies voix et de vrais bruitages, lancer le script ci-dessous. Il génère tous les bruitages et toutes les répliques avec ElevenLabs dans `public/audio` et met à jour `manifest.json`. Le jeu les utilise alors automatiquement à la place de la synthèse.
 
   ```bash
   ELEVENLABS_API_KEY=ta_cle npm run audio
@@ -192,9 +210,9 @@ Une partie parfaite, sans erreur ni indice et en passant les cinématiques, dure
 
   Option : `-- --voice <id>` pour choisir la voix. La musique Suno (prompts ci-dessus) se dépose à la main sous la forme `music_orion_calm.mp3`, etc., puis il faut relancer le script pour mettre à jour le manifeste.
 - **Back.** API PHP (`public/api`), en PDO SQLite en local et MySQL en production.
-  - `auth.php` : inscription, connexion, Google.
+  - `auth.php` : inscription, connexion (e-mail ou pseudo), Google, profil (pseudo, e-mail, personnage), changement et réinitialisation du mot de passe. Le lien de réinitialisation part avec la fonction PHP `mail()` (active sur Hostinger) ; en local, il est écrit dans le journal PHP.
   - `save.php` : sauvegarde.
-  - `leaderboard.php` : classement par difficulté et trajectoire du record (réplique fantôme).
+  - `leaderboard.php` : classement global ou de la semaine, rang du joueur, trajectoire du record (réplique fantôme).
   - `achievements.php` : succès.
 
   Les mots de passe sont hachés avec `password_hash`, la session passe par un jeton porteur.

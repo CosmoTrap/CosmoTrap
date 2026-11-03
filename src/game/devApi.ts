@@ -33,6 +33,8 @@ export function installDevApi() {
         trackLen: s.track.length,
         pos: [...live.pos],
         aimed: live.aimed,
+        character: s.character,
+        settings: { character: s.settings.character, lang: s.settings.lang, help: s.settings.help },
       }
     },
     ents: () => allEnts(G().zone).map((e) => e.id),

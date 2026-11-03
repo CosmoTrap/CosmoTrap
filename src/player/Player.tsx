@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { audio } from '../game/audio/audio'
 import { act, drinkPouch, entById, labelOf, toggleLamp, useBattery, useO2, useSlot } from '../game/logic'
 import { GRID_MAPS, roomAt, spawnOf } from '../game/maps'
-import { G, live, toggleFullscreen, useGame } from '../game/state'
+import { G, ability, live, toggleFullscreen, useGame } from '../game/state'
 import { QUALITY } from '../world/quality'
 import { hitboxes } from '../world/props/EntModels'
 import { lampCookie } from '../world/textures'
@@ -242,7 +242,7 @@ export function Player() {
       iz /= len
     }
     const running = !frozen && (isDown(keys, 'run') || input.touchRun || pad.run || Math.hypot(input.joy.x, input.joy.y) > 0.95)
-    let speed = running ? 4.4 : 2.5
+    let speed = (running ? 4.4 : 2.5) * ability().speed
     if (s.res.water <= 0) speed *= 0.55
     if (s.zone < 4 && s.res.o2 < 10) speed *= 0.8
     fwd.set(-Math.sin(live.yaw), 0, -Math.cos(live.yaw))
