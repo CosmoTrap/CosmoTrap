@@ -69,7 +69,7 @@ export const zone1: GridMap = {
     { model: 'photos', tile: [2, 1], wall: 'N', y: 1.55 },
     { model: 'photos', tile: [1, 2], wall: 'W', y: 1.6, off: [0, 0.2] },
     { model: 'toy', tile: [3, 2], y: 1.55 },
-    { model: 'sockets', tile: [4, 3], wall: 'S', y: 0.4 },
+    { model: 'sockets', tile: [3, 3], wall: 'S', y: 0.4 },
     { model: 'personalLocker', tile: [6, 3], wall: 'E', off: [-0.95, 0] },
     { model: 'holoProjector', tile: [5, 2] },
     // réfectoire
@@ -98,12 +98,12 @@ export const zone1: GridMap = {
     { model: 'medbed', tile: [11, 8] },
     { model: 'medbed', tile: [14, 8] },
     { model: 'cabinet', tile: [9, 7], wall: 'N' },
-    { model: 'monitor', tile: [12, 7], wall: 'N', y: 1.4 },
+    { model: 'monitor', tile: [11, 7], wall: 'N', y: 1.4 },
     { model: 'photos', tile: [16, 7], wall: 'E', y: 1.6 },
     // sas
     { model: 'suitRack', tile: [22, 7], wall: 'E' },
     { model: 'suitRack', tile: [22, 9], wall: 'E' },
     { model: 'hazard', tile: [21, 8] },
-    { model: 'beacon', tile: [18, 7], wall: 'N', y: 2.4 },
+    { model: 'beacon', tile: [19, 7], wall: 'N', y: 2.4 },
   ],
 }

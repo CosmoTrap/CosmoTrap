@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { fr } from '../../i18n/fr'
 import { audio } from '../audio/audio'
 import { submitKeypad } from '../logic'
@@ -8,24 +8,31 @@ export function Keypad() {
   const T = fr.puzzles.keypad
   const [code, setCode] = useState('')
   const [state, setState] = useState<'' | 'err' | 'ok'>('')
+  const reset = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (reset.current) clearTimeout(reset.current) }, [])
   const press = (d: string) => {
+    if (state === 'ok') return
+    if (reset.current) clearTimeout(reset.current)
+    reset.current = null
     audio.sfx('keypad')
     setState('')
     if (d === 'C') return setCode('')
     if (d === 'OK') {
       const ok = submitKeypad(code)
       setState(ok ? 'ok' : 'err')
-      if (!ok) setTimeout(() => setCode(''), 400)
+      if (!ok) reset.current = setTimeout(() => setCode(''), 400)
       return
     }
-    setCode((c) => (c.length < 4 ? c + d : c))
+    setCode((c) => state === 'err' ? d : c.length < 4 ? c + d : c)
   }
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
+      if (e.repeat) return
       if (/^(Digit|Numpad)[0-9]$/.test(e.code)) press(e.code.slice(-1))
       else if (e.code === 'Enter' || e.code === 'NumpadEnter') press('OK')
       else if (e.code === 'Backspace') setCode((c) => c.slice(0, -1))
       else return
+      e.preventDefault()
       e.stopPropagation()
     }
     window.addEventListener('keydown', k, true)

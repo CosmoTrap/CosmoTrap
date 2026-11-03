@@ -7,6 +7,7 @@ export type Action =
   | 'left'
   | 'right'
   | 'run'
+  | 'jump'
   | 'act'
   | 'lamp'
   | 'o2'
@@ -24,7 +25,8 @@ export const DEFAULT_KEYS: KeyMap = {
   left: ['KeyA', 'ArrowLeft'],
   right: ['KeyD', 'ArrowRight'],
   run: ['ShiftLeft', 'ShiftRight'],
-  act: ['KeyE', 'Space'],
+  jump: ['Space'],
+  act: ['KeyE'],
   lamp: ['KeyF'],
   o2: ['KeyO'],
   battery: ['KeyR'],
@@ -34,7 +36,7 @@ export const DEFAULT_KEYS: KeyMap = {
   fullscreen: ['F11', 'KeyG'],
 }
 
-export const ACTION_ORDER: Action[] = ['forward', 'back', 'left', 'right', 'run', 'act', 'lamp', 'o2', 'battery', 'drink', 'tablet', 'pause', 'fullscreen']
+export const ACTION_ORDER: Action[] = ['forward', 'back', 'left', 'right', 'run', 'jump', 'act', 'lamp', 'o2', 'battery', 'drink', 'tablet', 'pause', 'fullscreen']
 
 let layout: Map<string, string> | null = null
 ;(navigator as any).keyboard
@@ -81,6 +83,7 @@ export function labelFor(keys: KeyMap, a: Action) {
 /** état des entrées lu par le joueur à chaque image */
 export const input = {
   down: new Set<string>(),
+  jumpRequested: false,
   look: { dx: 0, dy: 0 },
   // tactile
   joy: { x: 0, y: 0 },

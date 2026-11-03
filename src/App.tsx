@@ -79,8 +79,8 @@ export default function App() {
           gl.outputColorSpace = THREE.SRGBColorSpace
         }}
         onPointerDown={() => {
-          if (playing && !touch && !useGame.getState().locked && !paused && !tablet && !useGame.getState().puzzle) {
-            ;(document.querySelector('canvas') as any)?.requestPointerLock?.()
+          if (playing && !touch && !useGame.getState().locked && !paused && !tablet && !useGame.getState().puzzle && !useGame.getState().cine && !settingsOpen && !useGame.getState().readNote) {
+            ;(document.querySelector('canvas') as any)?.requestPointerLock?.()?.catch?.(() => {})
           }
         }}
       >

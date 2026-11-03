@@ -1,12 +1,13 @@
 import { useFrame } from '@react-three/fiber'
-import { useMemo, useRef } from 'react'
+import { useLayoutEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+
 import { BRIDGE_X, RIVER_HALF, WATER_Y, riverCenter, terrainHeight } from '../../game/maps/zone4'
 import { live } from '../../game/state'
 import { NOISE } from '../Exterior/glsl'
 import { rockGeometry } from '../Exterior/Asteroids'
-import { groundSet, rockSet } from '../textures'
+import { photoSurface } from '../photomaterials'
+import { makeTreeGeometry, foliageMaterial } from './foliage'
 
 export const SUN4 = new THREE.Vector3(-0.55, 0.13, -0.82).normalize()
 export const SUN4_COLOR = new THREE.Color('#ffbd7a')
@@ -31,11 +32,11 @@ export function Terrain() {
     const n = geo.attributes.normal as THREE.BufferAttribute
     const col = new Float32Array(p.count * 3)
     const c = new THREE.Color()
-    const grass = new THREE.Color('#7a8a3e')
-    const dry = new THREE.Color('#a39256')
-    const dirt = new THREE.Color('#6b5235')
-    const rock = new THREE.Color('#77736c')
-    const mud = new THREE.Color('#4a3d2c')
+    const grass = new THREE.Color('#c2c4a6')
+    const dry = new THREE.Color('#eee0c3')
+    const dirt = new THREE.Color('#b7a18a')
+    const rock = new THREE.Color('#d5d4ce')
+    const mud = new THREE.Color('#726b5f')
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i)
       const z = p.getZ(i)
@@ -53,9 +54,8 @@ export function Terrain() {
       col.set([c.r, c.g, c.b], i * 3)
     }
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3))
-    const s = groundSet(1024)
-    for (const t of [s.map, s.normalMap, s.roughnessMap]) t.repeat.set(70, 70)
-    const mat = new THREE.MeshStandardMaterial({ ...s, vertexColors: true, roughness: 1, metalness: 0, envMapIntensity: 0.4 })
+    const s = photoSurface('ground', 85)
+    const mat = new THREE.MeshStandardMaterial({ ...s, vertexColors: true, roughness: 1, metalness: 0, normalScale: new THREE.Vector2(0.85, 0.85), envMapIntensity: 0.5 })
     mat.color.set('#ffffff')
     return { geo, mat }
   }, [])
@@ -133,13 +133,13 @@ varying vec3 vW;
 varying float vRnd;
 #include <fog_pars_fragment>
 void main(){
-  vec3 base = mix(vec3(0.04, 0.07, 0.02), vec3(0.12, 0.17, 0.05), vRnd);
-  vec3 tip = mix(vec3(0.3, 0.44, 0.12), vec3(0.46, 0.5, 0.18), vRnd);
+  vec3 base = mix(vec3(0.025, 0.045, 0.012), vec3(0.055, 0.075, 0.025), vRnd);
+  vec3 tip = mix(vec3(0.12, 0.2, 0.055), vec3(0.23, 0.25, 0.1), vRnd);
   vec3 alb = mix(base, tip, smoothstep(0.0, 1.0, vH));
   vec3 V = normalize(cameraPosition - vW);
   float back = pow(max(dot(-V, normalize(uSun)), 0.0), 4.0);
   vec3 col = alb * (uSunCol * (0.55 + 0.35 * vH) + uSky * 0.35) * (0.35 + 0.65 * vH);
-  col += uSunCol * alb * back * 1.1 * vH;
+  col += uSunCol * alb * back * 0.5 * vH;
   gl_FragColor = vec4(col, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -157,11 +157,19 @@ function grassOK(x: number, z: number) {
 export function Grass({ count }: { count: number }) {
   const { geo, mat } = useMemo(() => {
     const blade = new THREE.BufferGeometry()
-    const w = 0.032
-    // lame à 5 sommets (triangle strip en 3 tris)
-    const v = [-w, 0, 0, w, 0, 0, -w * 0.7, 0.45, 0.01, w * 0.7, 0.45, 0.01, 0, 1, 0.03]
+    const w = 0.022
+    // Six curved blades per tuft, instead of isolated luminous sticks.
+    const v: number[] = [], indices: number[] = []
+    for (let i = 0; i < 6; i++) {
+      const angle = i * 2.399, h = 0.65 + (i % 3) * 0.16
+      const c = Math.cos(angle), s = Math.sin(angle), offset = i * 5
+      for (const [x, y, z] of [[-w, 0, 0], [w, 0, 0], [-w * 0.65, h * 0.45, 0.06], [w * 0.65, h * 0.45, 0.06], [0, h, 0.17]]) {
+        v.push(x * c + z * s + c * 0.07, y, -x * s + z * c + s * 0.07)
+      }
+      indices.push(...[0, 1, 2, 2, 1, 3, 2, 3, 4].map((index) => offset + index))
+    }
     blade.setAttribute('position', new THREE.Float32BufferAttribute(v, 3))
-    blade.setIndex([0, 1, 2, 2, 1, 3, 2, 3, 4])
+    blade.setIndex(indices)
     const g = new THREE.InstancedBufferGeometry()
     g.index = blade.index
     g.attributes.position = blade.attributes.position
@@ -201,49 +209,6 @@ export function Grass({ count }: { count: number }) {
 }
 
 // ——— arbres ———
-function treeGeometry(kind: 'pine' | 'oak') {
-  const parts: THREE.BufferGeometry[] = []
-  const colorize = (g: THREE.BufferGeometry, c: THREE.Color, jitter = 0.08) => {
-    const n = g.attributes.position.count
-    const col = new Float32Array(n * 3)
-    for (let i = 0; i < n; i++) {
-      const k = 1 + (Math.random() - 0.5) * jitter * 2
-      col.set([c.r * k, c.g * k, c.b * k], i * 3)
-    }
-    g.setAttribute('color', new THREE.BufferAttribute(col, 3))
-    return g
-  }
-  const trunkH = kind === 'pine' ? 3 : 2.4
-  const trunk = new THREE.CylinderGeometry(0.12, 0.22, trunkH, 7)
-  trunk.translate(0, trunkH / 2, 0)
-  parts.push(colorize(trunk.toNonIndexed(), new THREE.Color('#4a3524')))
-  if (kind === 'pine') {
-    for (let i = 0; i < 5; i++) {
-      const r = 1.6 - i * 0.28
-      const c = new THREE.ConeGeometry(r, 1.9, 9, 2)
-      const p = c.attributes.position as THREE.BufferAttribute
-      for (let k = 0; k < p.count; k++) p.setXYZ(k, p.getX(k) * (0.85 + Math.random() * 0.3), p.getY(k), p.getZ(k) * (0.85 + Math.random() * 0.3))
-      c.translate(0, 2.2 + i * 1.05, 0)
-      parts.push(colorize(c.toNonIndexed(), new THREE.Color(i % 2 ? '#1f3a22' : '#26452a')))
-    }
-  } else {
-    for (let i = 0; i < 7; i++) {
-      const s = new THREE.IcosahedronGeometry(1.1 + Math.random() * 0.6, 1)
-      const p = s.attributes.position as THREE.BufferAttribute
-      for (let k = 0; k < p.count; k++) {
-        const f = 0.85 + Math.random() * 0.3
-        p.setXYZ(k, p.getX(k) * f, p.getY(k) * f * 0.85, p.getZ(k) * f)
-      }
-      const a = (i / 7) * Math.PI * 2
-      s.translate(i === 0 ? 0 : Math.cos(a) * 1.1, 3.0 + (i === 0 ? 1.0 : Math.random() * 0.8), i === 0 ? 0 : Math.sin(a) * 1.1)
-      parts.push(colorize(s.toNonIndexed(), new THREE.Color(['#3d5a24', '#4a6a2a', '#56722e'][i % 3]), 0.15))
-    }
-  }
-  const g = mergeGeometries(parts)!
-  g.computeVertexNormals()
-  return g
-}
-
 function windMaterial(base: THREE.MeshStandardMaterial) {
   base.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = { value: 0 }
@@ -295,14 +260,16 @@ export function placeTrees(count: number): TreeInst[] {
 export function Trees({ trees }: { trees: TreeInst[] }) {
   const pineRef = useRef<THREE.InstancedMesh>(null)
   const oakRef = useRef<THREE.InstancedMesh>(null)
-  const { pine, oak, mat } = useMemo(() => {
-    const mat = windMaterial(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0, envMapIntensity: 0.5 }))
-    return { pine: treeGeometry('pine'), oak: treeGeometry('oak'), mat }
+  const pineTrunk = useRef<THREE.InstancedMesh>(null)
+  const oakTrunk = useRef<THREE.InstancedMesh>(null)
+  const { pine, oak, pineMat, oakMat, bark } = useMemo(() => {
+    const bark = new THREE.MeshStandardMaterial({ ...photoSurface('bark', 2), roughness: 1, normalScale: new THREE.Vector2(0.7, 0.7) })
+    return { pine: makeTreeGeometry('pine'), oak: makeTreeGeometry('oak'),
+      pineMat: windMaterial(foliageMaterial('pine')), oakMat: windMaterial(foliageMaterial('oak')), bark }
   }, [])
   const pines = trees.filter((t) => t.kind === 'pine')
   const oaks = trees.filter((t) => t.kind === 'oak')
-  useMemo(() => {
-    requestAnimationFrame(() => {
+  useLayoutEffect(() => {
       const m = new THREE.Matrix4()
       const q = new THREE.Quaternion()
       const fill = (im: THREE.InstancedMesh | null, list: TreeInst[]) => {
@@ -317,16 +284,21 @@ export function Trees({ trees }: { trees: TreeInst[] }) {
       }
       fill(pineRef.current, pines)
       fill(oakRef.current, oaks)
-    })
+      fill(pineTrunk.current, pines)
+      fill(oakTrunk.current, oaks)
   }, [trees])
   useFrame(({ clock }) => {
-    const sh = mat.userData.shader
-    if (sh) sh.uniforms.uTime.value = clock.elapsedTime
+    for (const mat of [pineMat, oakMat]) {
+      const sh = mat.userData.shader
+      if (sh) sh.uniforms.uTime.value = clock.elapsedTime
+    }
   })
   return (
     <group>
-      <instancedMesh ref={pineRef} args={[pine, mat, pines.length]} castShadow receiveShadow frustumCulled={false} />
-      <instancedMesh ref={oakRef} args={[oak, mat, oaks.length]} castShadow receiveShadow frustumCulled={false} />
+      <instancedMesh ref={pineTrunk} args={[pine.wood, bark, pines.length]} castShadow receiveShadow />
+      <instancedMesh ref={oakTrunk} args={[oak.wood, bark, oaks.length]} castShadow receiveShadow />
+      <instancedMesh ref={pineRef} args={[pine.leaves, pineMat, pines.length]} castShadow receiveShadow />
+      <instancedMesh ref={oakRef} args={[oak.leaves, oakMat, oaks.length]} castShadow receiveShadow />
     </group>
   )
 }
@@ -334,7 +306,7 @@ export function Trees({ trees }: { trees: TreeInst[] }) {
 // ——— rochers ———
 export function Rocks() {
   const { geos, mat, list } = useMemo(() => {
-    const s = rockSet(512, '#857d72')
+    const s = photoSurface('rock')
     const mat = new THREE.MeshStandardMaterial({ ...s, roughness: 1, metalness: 0 })
     const geos = [1, 2, 3].map((i) => rockGeometry(i + 10, 3, 0.3))
     const list: { x: number; z: number; s: number; k: number; r: number }[] = []

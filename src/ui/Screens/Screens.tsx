@@ -468,7 +468,10 @@ export function SkipCine() {
   const cine = useGame((s) => s.cine)
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
-      if (e.code === 'Enter' || e.code === 'NumpadEnter') skipCine()
+      if (!e.repeat && (e.code === 'Enter' || e.code === 'NumpadEnter')) {
+        e.preventDefault()
+        skipCine()
+      }
     }
     window.addEventListener('keydown', k)
     return () => window.removeEventListener('keydown', k)
@@ -503,7 +506,7 @@ export function Prologue() {
     )
     timers.push(setTimeout(finish, (IMPACT_T + 3.5) * 1000))
     const k = (e: KeyboardEvent) => {
-      if (e.code === 'Enter' || e.code === 'Escape' || e.code === 'Space') finish()
+      if (!e.repeat && (e.code === 'Enter' || e.code === 'Escape' || e.code === 'Space')) finish(true)
     }
     window.addEventListener('keydown', k)
     return () => {
@@ -530,7 +533,7 @@ export function Prologue() {
           {line}
         </div>
       )}
-      <button className="btn ghost skip" data-testid="skip-prologue" onClick={finish}>
+      <button className="btn ghost skip" data-testid="skip-prologue" onClick={() => finish(true)}>
         Passer ▸ <span className="key" style={{ marginLeft: 8, marginRight: 0 }}>Entrée</span>
       </button>
     </>
@@ -538,7 +541,7 @@ export function Prologue() {
 }
 
 let finished = false
-function finish() {
+function finish(skip = false) {
   if (useGame.getState().screen !== 'prologue' || finished) return
   finished = true
   setTimeout(() => (finished = false), 1000)
@@ -546,6 +549,7 @@ function finish() {
   live.flash = 0
   useGame.setState({ screen: 'playing', paused: false })
   transitionTo(1)
+  if (skip) skipCine()
   requestLock()
 }
 

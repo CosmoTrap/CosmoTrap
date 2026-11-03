@@ -25,7 +25,7 @@ export interface WindowDef {
 }
 
 interface Built {
-  rooms: Record<string, { floor: THREE.BufferGeometry[]; ceil: THREE.BufferGeometry[]; wall: THREE.BufferGeometry[] }>
+  rooms: Record<string, { floor: THREE.BufferGeometry[]; ceil: THREE.BufferGeometry[]; wall: THREE.BufferGeometry[]; trim: THREE.BufferGeometry[] }>
   windows: WindowDef[]
   colliders: { p: [number, number, number]; h: [number, number, number] }[]
   doors: { id: string; x: number; z: number; alongZ: boolean; room: string }[]
@@ -74,7 +74,7 @@ function buildLevel(map: GridMap): Built {
   const rooms: Built['rooms'] = {}
   const windows: WindowDef[] = []
   const doors: Built['doors'] = []
-  const R = (id: string) => (rooms[id] ??= { floor: [], ceil: [], wall: [] })
+  const R = (id: string) => (rooms[id] ??= { floor: [], ceil: [], wall: [], trim: [] })
   const H = map.grid.length
   const W = Math.max(...map.grid.map((r) => r.length))
 
@@ -131,6 +131,18 @@ function buildLevel(map: GridMap): Built {
         g.rotateY(dir.rot)
         g.translate(x, 0, z)
         r.wall.push(g)
+        // Real depth at panel seams and skirting: catch grazing light without
+        // adding a draw call per rib. Do not bridge doors or cover the windows.
+        for (const [width, height, depth, px, py] of [
+          [TILE, 0.12, 0.06, 0, 0.06],
+          [TILE, 0.1, 0.1, 0, CEIL - 0.05],
+          [0.045, CEIL, 0.065, -0.97, CEIL / 2],
+        ]) {
+          const rib = new THREE.BoxGeometry(width, height, depth)
+          rib.translate(px, py, depth / 2)
+          rib.rotateY(dir.rot); rib.translate(x, 0, z)
+          r.trim.push(rib)
+        }
       }
     }
 
@@ -170,16 +182,19 @@ function RoomMeshes({ room, geo, shadows }: { room: RoomDef; geo: Built['rooms']
       floor: mergeGeometries(geo.floor),
       ceil: mergeGeometries(geo.ceil),
       wall: geo.wall.length ? mergeGeometries(geo.wall) : null,
+      trim: geo.trim.length ? mergeGeometries(geo.trim) : null,
     }),
     [geo],
   )
   const dark = !!room.dark
   const theme = room.theme ?? 'station'
+  const m = useMats()
   return (
     <group>
       <mesh geometry={merged.floor} material={floorMaterial(floorKind(room), dark, room.id)} receiveShadow castShadow={shadows} />
       <mesh geometry={merged.ceil} material={ceilingMaterial(dark, room.id)} receiveShadow castShadow={shadows} />
       {merged.wall && <mesh geometry={merged.wall} material={wallMaterial(theme, dark, room.id)} receiveShadow castShadow={shadows} />}
+      {merged.trim && <mesh geometry={merged.trim} material={m.painted('#60676b', 0.48, 0.65)} receiveShadow castShadow={shadows} />}
     </group>
   )
 }
@@ -244,6 +259,8 @@ function flickerAt(t: number, seed: number) {
 /** plafonniers émissifs (bloom) */
 function Fixtures({ room, lit }: { room: RoomDef; lit: boolean }) {
   const ref = useRef<THREE.InstancedMesh>(null)
+  const housing = useRef<THREE.InstancedMesh>(null)
+  const materials = useMats()
   const tiles = useMemo(() => {
     const out: [number, number][] = []
     const [x0, z0, x1, z1] = room.rect
@@ -262,10 +279,13 @@ function Fixtures({ room, lit }: { room: RoomDef; lit: boolean }) {
     tiles.forEach(([tx, tz], i) => {
       const [cx, cz] = tileCenter(tx, tz)
       m.makeRotationY(wide ? 0 : Math.PI / 2)
-      m.setPosition(cx, CEIL - 0.03, cz)
+      m.setPosition(cx, CEIL - 0.105, cz)
       ref.current!.setMatrixAt(i, m)
+      m.setPosition(cx, CEIL - 0.045, cz)
+      housing.current!.setMatrixAt(i, m)
     })
     ref.current!.instanceMatrix.needsUpdate = true
+    housing.current!.instanceMatrix.needsUpdate = true
   }, [tiles, room])
   const color = room.light ?? '#ffffff'
   const mat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#111', emissive: color, emissiveIntensity: 0 }), [color])
@@ -275,9 +295,14 @@ function Fixtures({ room, lit }: { room: RoomDef; lit: boolean }) {
     mat.color.set(lit ? '#1a1a1a' : '#0a0a0a')
   })
   return (
-    <instancedMesh ref={ref} args={[undefined, undefined, tiles.length]} material={mat}>
-      <boxGeometry args={[1.3, 0.05, 0.22]} />
-    </instancedMesh>
+    <group>
+      <instancedMesh ref={housing} args={[undefined, undefined, tiles.length]} material={materials.painted('#454b50', 0.4, 0.6)} receiveShadow>
+        <boxGeometry args={[1.45, 0.09, 0.32]} />
+      </instancedMesh>
+      <instancedMesh ref={ref} args={[undefined, undefined, tiles.length]} material={mat}>
+        <boxGeometry args={[1.3, 0.025, 0.2]} />
+      </instancedMesh>
+    </group>
   )
 }
 

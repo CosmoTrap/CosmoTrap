@@ -61,7 +61,7 @@ export const zone3: GridMap = {
     { model: 'crates', tile: [1, 11] },
     { model: 'crates', tile: [3, 11], rot: 0.5 },
     { model: 'crates', tile: [1, 12], off: [0.2, 0] },
-    { model: 'rack', tile: [2, 10], wall: 'N' },
+    { model: 'rack', tile: [1, 10], wall: 'N' },
     { model: 'engineCore', tile: [6, 11], off: [0, 0.2] },
     { model: 'pipesBig', tile: [5, 10], scale: 3 },
     { model: 'beacon', tile: [7, 12], wall: 'E', y: 2.4 },

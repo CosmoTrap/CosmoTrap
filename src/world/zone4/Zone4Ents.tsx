@@ -4,7 +4,8 @@ import { useGame } from '../../game/state'
 import type { Ent } from '../../game/types'
 import { useMats } from '../materials'
 import { Box, Cyl } from '../props/models'
-import { textTexture, woodSet } from '../textures'
+import { textTexture } from '../textures'
+import { photoSurface } from '../photomaterials'
 
 // Objets interactifs de la zone 4 (Terre).
 
@@ -124,8 +125,8 @@ export const ZONE4_ENT_MODELS: Record<string, (e: Ent) => ReactNode> = {
 let woodCache: THREE.MeshStandardMaterial | null = null
 export function woodMat() {
   if (!woodCache) {
-    const s = woodSet(512)
-    woodCache = new THREE.MeshStandardMaterial({ ...s, roughness: 1, metalness: 0 })
+    const s = photoSurface('wood')
+    woodCache = new THREE.MeshStandardMaterial({ ...s, color: '#e3d4bc', roughness: 0.95, metalness: 0, normalScale: new THREE.Vector2(0.65, 0.65) })
   }
   return woodCache
 }

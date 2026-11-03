@@ -1,5 +1,6 @@
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react'
 import * as THREE from 'three'
+import { photoSurface } from './photomaterials'
 
 // Astronaute réaliste construit en code (combinaison EVA, sac PLSS, casque à visière dorée).
 // Utilisé pour l'hologramme, l'écran de fin et l'aperçu du personnage.
@@ -21,9 +22,11 @@ export const Astronaut = forwardRef<AstronautHandle, { accent?: string; override
   useImperativeHandle(ref, () => ({ root: root.current, armR: armR.current, armL: armL.current, foreR: foreR.current, head: head.current }))
   const mats = useMemo(() => {
     if (override) return { suit: override, soft: override, accent: override, visor: override, metal: override, dark: override, pack: override }
+    const fabric = photoSurface('fabric', 3)
+    const weave = { normalMap: fabric.normalMap, normalScale: new THREE.Vector2(0.22, 0.22), roughnessMap: fabric.roughnessMap }
     return {
-      suit: new THREE.MeshStandardMaterial({ color: '#e9e6de', roughness: 0.88, metalness: 0 }),
-      soft: new THREE.MeshStandardMaterial({ color: '#d8d4ca', roughness: 0.95 }),
+      suit: new THREE.MeshStandardMaterial({ ...weave, color: '#e9e6de', roughness: 0.88, metalness: 0 }),
+      soft: new THREE.MeshStandardMaterial({ ...weave, color: '#d8d4ca', roughness: 0.95 }),
       accent: new THREE.MeshStandardMaterial({ color: accent, roughness: 0.7 }),
       visor: new THREE.MeshPhysicalMaterial({ color: '#c99a35', metalness: 1, roughness: 0.08, clearcoat: 1, envMapIntensity: 2 }),
       metal: new THREE.MeshStandardMaterial({ color: '#b7bbc0', metalness: 1, roughness: 0.3 }),

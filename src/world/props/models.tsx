@@ -1,6 +1,7 @@
 import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef, type ReactNode } from 'react'
 import * as THREE from 'three'
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { useGame } from '../../game/state'
 import { useMats } from '../materials'
 import { drawTexture, textTexture, texRnd, texSeed } from '../textures'
@@ -9,11 +10,18 @@ import { drawTexture, textTexture, texRnd, texSeed } from '../textures'
 // et s'étendent vers +z (l'intérieur de la pièce) ; les objets au sol sont centrés.
 
 type M = THREE.Material
+const boxGeometries = new Map<string, THREE.BufferGeometry>()
 export function Box({ s, p = [0, 0, 0], r, m, cast = true }: { s: [number, number, number]; p?: [number, number, number]; r?: [number, number, number]; m: M; cast?: boolean }) {
+  const soft = !!m.userData.fabric
+  const key = `${s.join(':')}:${soft}`
+  let geometry = boxGeometries.get(key)
+  if (!geometry) {
+    const radius = Math.min(soft ? 0.065 : 0.014, Math.min(...s) * (soft ? 0.42 : 0.2))
+    geometry = Math.min(...s) < 0.018 ? new THREE.BoxGeometry(...s) : new RoundedBoxGeometry(...s, soft ? 2 : 1, radius)
+    boxGeometries.set(key, geometry)
+  }
   return (
-    <mesh position={p} rotation={r} material={m} castShadow={cast} receiveShadow>
-      <boxGeometry args={s} />
-    </mesh>
+    <mesh position={p} rotation={r} geometry={geometry} material={m} castShadow={cast} receiveShadow dispose={null} />
   )
 }
 export function Cyl({ a, p = [0, 0, 0], r, m, seg = 20 }: { a: [number, number, number]; p?: [number, number, number]; r?: [number, number, number]; m: M; seg?: number }) {
@@ -86,13 +94,25 @@ function Bunk() {
   const frame = m.painted('#7d8288', 0.4, 0.6)
   const mattress = m.fabric('#3e5566')
   const blanket = m.fabric('#a4643e')
+  const blanketGeo = useMemo(() => {
+    const g = new THREE.PlaneGeometry(1.25, 1.02, 28, 24)
+    g.rotateX(-Math.PI / 2)
+    const p = g.attributes.position
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), z = p.getZ(i)
+      p.setY(i, 0.025 * Math.sin(x * 19 + z * 3) + 0.009 * Math.sin(z * 37 + x * 8) - Math.pow(Math.max(0, Math.abs(z) - 0.38) * 3, 2))
+    }
+    g.computeVertexNormals()
+    return g
+  }, [])
+  blanket.side = THREE.DoubleSide
   return (
     <group>
       {[0.35, 1.45].map((y, i) => (
         <group key={i} position={[0, y, 0.48]}>
           <Box s={[1.9, 0.08, 0.9]} m={frame} />
           <Box s={[1.84, 0.14, 0.84]} p={[0, 0.11, 0]} m={mattress} />
-          <Box s={[1.2, 0.05, 0.86]} p={[0.3, 0.2, 0]} r={[0, 0, 0.02]} m={blanket} />
+          <mesh geometry={blanketGeo} material={blanket} position={[0.28, 0.22, 0]} castShadow receiveShadow />
           <Box s={[0.4, 0.1, 0.6]} p={[-0.7, 0.23, 0]} m={m.fabric('#d9d4c8')} />
         </group>
       ))}
@@ -626,7 +646,7 @@ function Flasks() {
   )
 }
 
-function PlantRack() {
+function PlantRack({ movable = false }: { movable?: boolean }) {
   const m = useMats()
   const leaf = m.plastic('#4c8f3a', 0.65)
   const leaf2 = m.plastic('#2f6b2c', 0.65)
@@ -651,8 +671,18 @@ function PlantRack() {
         </group>
       ))}
       {[-0.95, 0.95].map((x) => (
-        <Box key={x} s={[0.05, 2.2, 0.05]} p={[x, 1.1, 0.65]} m={m.metal('#8d9196')} />
+        <Box key={x} s={[0.05, movable ? 2.06 : 2.2, 0.05]} p={[x, movable ? 1.17 : 1.1, 0.65]} m={m.metal('#8d9196')} />
       ))}
+      {movable && <>
+        <Box s={[1.95, 0.08, 0.65]} p={[0, 0.18, 0.35]} m={m.metal('#8d9196')} />
+        {[-0.88, 0.88].flatMap((x) => [0.1, 0.6].map((z) => (
+          <Cyl key={`${x}:${z}`} a={[0.09, 0.09, 0.07]} p={[x, 0.09, z]} r={[0, 0, Math.PI / 2]} m={m.rubber()} seg={16} />
+        )))}
+        <Screen w={0.58} h={0.1} p={[0, 0.55, 0.69]} lines={['POUSSER']} fg="#f3dfab" intensity={0.25} />
+        <group position={[0, 0.55, 0.065]} rotation={[0, Math.PI, 0]}>
+          <Screen w={0.58} h={0.1} lines={['POUSSER']} fg="#f3dfab" intensity={0.25} />
+        </group>
+      </>}
     </group>
   )
 }
@@ -869,7 +899,7 @@ function EngineCore() {
   )
 }
 
-export const PROP_MODELS: Record<string, (p: { color?: string; scale?: number }) => ReactNode> = {
+export const PROP_MODELS: Record<string, (p: { color?: string; scale?: number; movable?: boolean }) => ReactNode> = {
   bunk: () => <Bunk />,
   shelf: () => <Shelf />,
   photos: () => <Photos />,
@@ -900,7 +930,7 @@ export const PROP_MODELS: Record<string, (p: { color?: string; scale?: number })
   labBench: () => <LabBench />,
   microscope: () => <Microscope />,
   flasks: () => <Flasks />,
-  plantRack: () => <PlantRack />,
+  plantRack: (p) => <PlantRack movable={p.movable} />,
   ladder: () => <Ladder />,
   brokenPipe: () => <BrokenPipe />,
   elecCabinet: () => <ElecCabinet />,

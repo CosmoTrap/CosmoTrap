@@ -14,6 +14,7 @@ import { RoomCtx, useMats } from '../materials'
 import { textTexture } from '../textures'
 import { Box, Cyl, DockHatch, Screen } from './models'
 import { ZONE4_ENT_MODELS } from '../zone4/Zone4Ents'
+import { SolidProp } from './SolidProps'
 
 // Objets interactifs + zones de détection invisibles (raycast).
 
@@ -672,6 +673,7 @@ function EntNode({ e, zone }: { e: Ent; zone: ZoneId }) {
     <RoomCtx.Provider value={{ id: room?.id ?? '', dark: !!room?.dark }}>
       <group position={p} rotation={[0, r, 0]}>
         {model ? model(e) : null}
+        {!e.item && <SolidProp model={e.model} />}
         {e.item && e.wall && (e.y ?? 0) > 0.3 && WALL_BRACKET.has(e.model) && <Bracket />}
         {e.item && <Glint resource={ITEM_KIND[e.item] === 'resource'} />}
         {active && <Hitbox e={e} />}

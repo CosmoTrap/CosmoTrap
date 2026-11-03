@@ -91,7 +91,9 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
   await g(page, 'teleportXZ', 35, 11, -Math.PI / 2)
   await page.waitForTimeout(600)
   await holdKey(page, 'w', 2500)
-  expect((await st(page)).pos[0]).toBeLessThan(39.6)
+  // Steam starts at x=40; capsule radius 0.30 + controller skin 0.02.
+  expect((await st(page)).pos[0]).toBeLessThan(39.75)
+  expect((await st(page)).pos[0]).toBeGreaterThan(35.3)
   await act(page, 'fuse')
   await act(page, 'wrench')
   await act(page, 'steamValve')

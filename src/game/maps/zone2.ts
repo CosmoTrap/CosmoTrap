@@ -68,14 +68,15 @@ export const zone2: GridMap = {
     { model: 'microscope', tile: [3, 1], wall: 'N', y: 0.92 },
     { model: 'flasks', tile: [6, 1], wall: 'N', y: 0.92 },
     { model: 'cabinet', tile: [1, 3], wall: 'W' },
-    { model: 'screen', tile: [4, 3], wall: 'S', y: 1.7 },
+    { model: 'screen', tile: [3, 3], wall: 'S', y: 1.7 },
     { model: 'photos', tile: [7, 1], wall: 'E', y: 1.6 },
     // serre
     { model: 'plantRack', tile: [10, 1], wall: 'N' },
     { model: 'plantRack', tile: [12, 1], wall: 'N' },
     { model: 'plantRack', tile: [14, 1], wall: 'N' },
     { model: 'plantRack', tile: [10, 3], wall: 'S' },
-    { model: 'plantRack', tile: [12, 3], wall: 'S' },
+    // Chariot mobile devant la serre : pousser vers l'intérieur pour entrer.
+    { model: 'plantRack', tile: [12, 3], wall: 'S', off: [0, 0.18], pushable: 'serre-cart' },
     { model: 'plant', tile: [15, 3], off: [0.4, 0.3] },
     // couloir
     { model: 'ladder', tile: [1, 5], wall: 'W' },

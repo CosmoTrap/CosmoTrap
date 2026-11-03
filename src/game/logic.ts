@@ -169,7 +169,7 @@ function pickup(e: Ent) {
   }
 }
 
-/** agir sur une entité (E / Espace / bouton Agir) */
+/** agir sur une entité (E / bouton Agir) */
 export function act(id: string) {
   const s = G()
   const e = entById(id)

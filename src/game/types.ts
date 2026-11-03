@@ -82,6 +82,8 @@ export interface Ent {
 
 export interface Prop {
   model: string
+  /** identifiant stable du mobilier poussable, utilisé pour sa sauvegarde */
+  pushable?: string
   tile?: [number, number]
   pos?: [number, number, number]
   wall?: Wall
