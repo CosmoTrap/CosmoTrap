@@ -16,14 +16,21 @@ if ($method === 'GET' && isset($_GET['ghost'])) {
 }
 
 if ($method === 'GET') {
-  $st = db()->prepare('SELECT s.user_id, u.pseudo, s.time_ms, s.hints, s.errors, s.score, s.character_id, s.ending, s.created_at
+  // période : tout (global) ou 7 derniers jours (semaine) ; difficulté : toutes ou une seule
+  $since = ($_GET['period'] ?? '') === 'week' ? time() - 7 * 86400 : 0;
+  $all = ($_GET['difficulty'] ?? '') === 'all';
+  $where = $all ? 's2.created_at >= ?' : 's2.difficulty = ? AND s2.created_at >= ?';
+  $args = $all ? [$since] : [$diff, $since];
+  $st = db()->prepare("SELECT s.user_id, u.pseudo, u.character_id AS avatar, s.difficulty, s.time_ms, s.hints, s.errors, s.score, s.character_id, s.ending, s.created_at
     FROM scores s JOIN users u ON u.id = s.user_id
-    WHERE s.difficulty = ? AND s.id = (SELECT s2.id FROM scores s2 WHERE s2.user_id = s.user_id AND s2.difficulty = s.difficulty ORDER BY s2.time_ms ASC, s2.id ASC LIMIT 1)
-    ORDER BY s.time_ms ASC LIMIT 50');
-  $st->execute([$diff]);
+    WHERE s.id = (SELECT s2.id FROM scores s2 WHERE s2.user_id = s.user_id AND $where ORDER BY s2.time_ms ASC, s2.id ASC LIMIT 1)
+    ORDER BY s.time_ms ASC LIMIT 50");
+  $st->execute($args);
   $rows = $st->fetchAll();
   $me = current_user();
-  out(['difficulty' => $diff, 'rows' => array_map(fn($r) => [
+  $myRank = null;
+  if ($me) foreach ($rows as $i => $r) if ((int)$r['user_id'] === (int)$me['id']) $myRank = $i + 1;
+  out(['difficulty' => $diff, 'myRank' => $myRank, 'rows' => array_map(fn($r) => [
     'pseudo' => $r['pseudo'],
     'timeMs' => (int)$r['time_ms'],
     'hints' => (int)$r['hints'],
@@ -33,6 +40,8 @@ if ($method === 'GET') {
     'ending' => $r['ending'],
     'date' => (int)$r['created_at'],
     'me' => $me && (int)$me['id'] === (int)$r['user_id'],
+    'avatar' => $r['avatar'],
+    'difficulty' => $r['difficulty'],
   ], $rows)]);
 }
 

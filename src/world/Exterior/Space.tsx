@@ -1,7 +1,7 @@
 import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { NOISE } from './glsl'
+import { tex } from '../assets'
 
 // Ciel étoilé : étoiles ponctuelles (magnitudes, températures) + Voie lactée + soleil.
 
@@ -57,39 +57,18 @@ export function Stars({ count = 9000 }: { count?: number }) {
   return <points ref={ref} geometry={geo} material={mat} frustumCulled={false} renderOrder={-10} />
 }
 
-const skyFrag = /* glsl */ `
-varying vec3 vDir;
-${NOISE}
-void main(){
-  vec3 d = normalize(vDir);
-  vec3 gN = normalize(vec3(0.3, 0.9, 0.3));
-  float b = dot(d, gN);
-  float band = exp(-b * b * 18.0);
-  float core = exp(-pow(length(d - normalize(vec3(-0.6, 0.15, -0.78))), 2.0) * 2.0);
-  float n = fbm(d * 6.0);
-  float dust = smoothstep(0.45, 0.7, fbm(d * 9.0 + 3.0));
-  float glow = band * (0.35 + 0.65 * n) * (1.0 - dust * 0.75) + core * band * 0.8;
-  vec3 col = mix(vec3(0.35, 0.4, 0.55), vec3(0.95, 0.8, 0.6), core) * glow * 0.09;
-  col += vec3(0.006, 0.008, 0.016);
-  gl_FragColor = vec4(col, 1.0);
-}`
-
 export function MilkyWay() {
   const ref = useRef<THREE.Mesh>(null)
-  const mat = useMemo(
-    () =>
-      new THREE.ShaderMaterial({
-        vertexShader: `varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-        fragmentShader: skyFrag,
-        side: THREE.BackSide,
-        depthWrite: false,
-      }),
-    [],
-  )
+  // vrai panorama de la Voie lactée (d'après les relevés ESO / NASA)
+  const mat = useMemo(() => {
+    const t = tex('/assets/planets/milky_way.jpg')
+    t.wrapS = THREE.RepeatWrapping
+    return new THREE.MeshBasicMaterial({ map: t, side: THREE.BackSide, depthWrite: false, fog: false, color: new THREE.Color(0.55, 0.55, 0.6) })
+  }, [])
   useFrame(({ camera }) => ref.current?.position.copy(camera.position))
   return (
-    <mesh ref={ref} material={mat} renderOrder={-11} frustumCulled={false}>
-      <sphereGeometry args={[R, 48, 32]} />
+    <mesh ref={ref} material={mat} renderOrder={-11} frustumCulled={false} rotation={[0.4, 1.2, 0.2]}>
+      <sphereGeometry args={[R, 64, 32]} />
     </mesh>
   )
 }

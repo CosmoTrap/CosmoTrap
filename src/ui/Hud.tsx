@@ -219,6 +219,8 @@ export function Hud() {
   const padActive = useGame((s) => s.padActive)
   const character = useGame((s) => s.character)
   const briefer = character === 'ines' ? 'kenji' : 'ines'
+  const showChrono = useGame((s) => s.settings.showChrono)
+  const subsOn = useGame((s) => s.settings.subtitles)
   const touch = isTouch()
   const showUi = !cine || cine === 'briefing'
   return (
@@ -231,7 +233,7 @@ export function Hud() {
             <Gauge kind="water" value={res.water} color="#5aa8ff" label={fr.hud.water} />
           </div>
           <Objective />
-          <Chrono />
+          {showChrono && <Chrono />}
           {!overlay && (
             <>
               <div className={`reticle ${label ? 'on' : ''}`} />
@@ -253,7 +255,7 @@ export function Hud() {
           </div>
         ))}
       </div>
-      {subtitle && (
+      {subtitle && (subsOn || cine === 'briefing' || cine === 'tour') && (
         <div className="subtitle">
           {cine === 'briefing' && <small>{fr.briefingFrom(fr.characters[briefer].name)}</small>}
           {subtitle}

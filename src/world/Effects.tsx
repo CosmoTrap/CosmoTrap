@@ -16,9 +16,10 @@ uniform float uRed;
 uniform float uBlur;
 uniform float uGrain;
 uniform float uFade;
+uniform float uBright;
 float rnd(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233)) + uTime) * 43758.5453); }
 void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor){
-  vec3 c = inputColor.rgb;
+  vec3 c = inputColor.rgb * uBright;
   if (uBlur > 0.001) {
     vec3 acc = vec3(0.0);
     float r = uBlur * 0.006;
@@ -59,6 +60,7 @@ class GradeEffect extends Effect {
         ['uBlur', new THREE.Uniform(0)],
         ['uGrain', new THREE.Uniform(0.012)],
         ['uFade', new THREE.Uniform(0)],
+        ['uBright', new THREE.Uniform(1)],
       ]),
     })
   }
@@ -70,6 +72,7 @@ const Grade = forwardRef<GradeEffect>(function Grade(_, ref) {
     const s = G()
     const u = effect.uniforms
     u.get('uTime')!.value = clock.elapsedTime % 100
+    u.get('uBright')!.value = s.settings.brightness ?? 1
     const lowO2 = s.zone < 4 && s.screen === 'playing' ? THREE.MathUtils.clamp(1 - s.res.o2 / 25, 0, 1) : 0
     const thirst = s.screen === 'playing' && s.res.water <= 0 ? 1 : 0
     const r = u.get('uRed')!

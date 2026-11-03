@@ -131,7 +131,7 @@ export function Title() {
   )
 }
 
-function AchievementsPanel({ onClose }: { onClose: () => void }) {
+export function AchievementsPanel({ onClose }: { onClose: () => void }) {
   const [have, setHave] = useState<string[]>(localAchievements())
   useEffect(() => {
     allAchievements().then(setHave)
@@ -246,7 +246,7 @@ export function CharSelect() {
     <div className="screen-full" data-testid="charselect">
       <h2 style={{ fontFamily: 'Rajdhani', letterSpacing: '0.2em', textTransform: 'uppercase', margin: 0 }}>{M.chooseChar}</h2>
       <p className="sub" style={{ color: 'var(--muted)' }}>
-        Station Orion · 2041 · Orbite lunaire basse
+        Station Selene-7 · 2041 · Orbite lunaire basse
       </p>
       <div className="chars">
         {Object.entries(fr.characters).map(([id, c]) => (
@@ -279,7 +279,6 @@ export function CharSelect() {
 }
 
 export function Pause() {
-  const [settings, setSettings] = useState(false)
   const resume = () => {
     useGame.setState({ paused: false })
     requestLock()
@@ -293,7 +292,7 @@ export function Pause() {
           <button className="btn primary" onClick={resume}>
             {M.resume}
           </button>
-          <button className="btn" onClick={() => setSettings(true)}>
+          <button className="btn" onClick={() => useGame.setState({ settingsOpen: true, settingsTab: 1 })}>
             {M.settings}
           </button>
           <button className="btn" onClick={() => toggleFullscreen()}>
@@ -312,7 +311,6 @@ export function Pause() {
         </div>
         <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 16 }}>{fr.msg.saved} automatiquement toutes les 30 s (et à chaque changement de zone).</p>
       </div>
-      {settings && <Settings onClose={() => setSettings(false)} />}
     </div>
   )
 }

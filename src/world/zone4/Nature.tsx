@@ -6,7 +6,8 @@ import { BRIDGE_X, RIVER_HALF, WATER_Y, riverCenter, terrainHeight } from '../..
 import { live } from '../../game/state'
 import { NOISE } from '../Exterior/glsl'
 import { rockGeometry } from '../Exterior/Asteroids'
-import { groundSet, rockSet } from '../textures'
+import { rockSet } from '../textures'
+import { splatMaterial, splatWeights } from './RealNature'
 
 export const SUN4 = new THREE.Vector3(-0.55, 0.13, -0.82).normalize()
 export const SUN4_COLOR = new THREE.Color('#ffbd7a')
@@ -27,37 +28,8 @@ export function buildTerrain(size: number, seg: number, cx: number, cz: number) 
 export function Terrain() {
   const { geo, mat } = useMemo(() => {
     const geo = buildTerrain(260, 220, 0, -26)
-    const p = geo.attributes.position as THREE.BufferAttribute
-    const n = geo.attributes.normal as THREE.BufferAttribute
-    const col = new Float32Array(p.count * 3)
-    const c = new THREE.Color()
-    const grass = new THREE.Color('#7a8a3e')
-    const dry = new THREE.Color('#a39256')
-    const dirt = new THREE.Color('#6b5235')
-    const rock = new THREE.Color('#77736c')
-    const mud = new THREE.Color('#4a3d2c')
-    for (let i = 0; i < p.count; i++) {
-      const x = p.getX(i)
-      const z = p.getZ(i)
-      const y = p.getY(i)
-      const slope = 1 - n.getY(i)
-      const dr = Math.abs(z - riverCenter(x))
-      const k = (Math.sin(x * 0.11) * Math.cos(z * 0.09) + 1) * 0.5
-      c.copy(grass).lerp(dry, k * 0.6)
-      // sentier vers le pont puis l'hélisurface
-      const path = Math.min(Math.abs(x - (BRIDGE_X - 4 + Math.sin(z * 0.08) * 3)), 99)
-      if (path < 1.1 && z > -64) c.lerp(dirt, 0.8 * (1 - path / 1.1))
-      if (dr < RIVER_HALF + 1.2) c.lerp(mud, THREE.MathUtils.smoothstep(RIVER_HALF + 1.2 - dr, 0, 1.5))
-      c.lerp(rock, THREE.MathUtils.smoothstep(slope, 0.25, 0.5))
-      if (y > 6) c.lerp(rock, 0.5)
-      col.set([c.r, c.g, c.b], i * 3)
-    }
-    geo.setAttribute('color', new THREE.BufferAttribute(col, 3))
-    const s = groundSet(1024)
-    for (const t of [s.map, s.normalMap, s.roughnessMap]) t.repeat.set(70, 70)
-    const mat = new THREE.MeshStandardMaterial({ ...s, vertexColors: true, roughness: 1, metalness: 0, envMapIntensity: 0.4 })
-    mat.color.set('#ffffff')
-    return { geo, mat }
+    splatWeights(geo)
+    return { geo, mat: splatMaterial() }
   }, [])
   return <mesh geometry={geo} material={mat} receiveShadow />
 }
@@ -96,25 +68,36 @@ export function Mountains() {
 
 // ——— herbe instanciée, ondulant au vent ———
 const grassVert = /* glsl */ `
-attribute vec3 aOffset;
+attribute vec3 aOffset; // x, z dans le tapis [0, P), y inutilisé
 attribute vec2 aScale; // hauteur, angle
 uniform float uTime;
+uniform vec2 uCenter;
+uniform float uPatch;
+uniform sampler2D uHeight; // r = hauteur du terrain, g = herbe autorisée
+uniform vec4 uArea; // xMin, zMin, taille, -
 varying float vH;
 varying vec3 vW;
 varying float vRnd;
 #include <fog_pars_vertex>
 void main(){
   vec3 p = position;
-  float h = aScale.x;
+  // le tapis se répète autour du joueur : chaque brin reste fixe dans le monde
+  vec2 base = uCenter - uPatch * 0.5;
+  vec2 xz = base + mod(aOffset.xz - base, uPatch);
+  vec2 uv = (xz - uArea.xy) / uArea.z;
+  vec4 hm = texture2D(uHeight, uv);
+  float edge = 1.0 - smoothstep(uPatch * 0.32, uPatch * 0.5, length(xz - uCenter));
+  float h = aScale.x * hm.g * edge * (0.75 + 0.5 * fract(sin(dot(floor(xz * 0.35), vec2(12.9898, 78.233))) * 43758.5453));
+  vec3 aOff = vec3(xz.x, hm.r - 0.03, xz.y);
   float t = p.y; // 0..1
   vH = t;
   vRnd = fract(aOffset.x * 13.7 + aOffset.z * 7.1);
   float c = cos(aScale.y), s = sin(aScale.y);
   p.xz = mat2(c, -s, s, c) * p.xz;
   p.y *= h;
-  vec3 w = aOffset + p;
-  float wind = sin(uTime * 1.6 + aOffset.x * 0.35 + aOffset.z * 0.22) * 0.5 + sin(uTime * 2.7 + aOffset.x * 1.3) * 0.2;
-  float gust = smoothstep(0.3, 1.0, sin(uTime * 0.35 + aOffset.x * 0.05 - aOffset.z * 0.03));
+  vec3 w = aOff + p;
+  float wind = sin(uTime * 1.6 + aOff.x * 0.35 + aOff.z * 0.22) * 0.5 + sin(uTime * 2.7 + aOff.x * 1.3) * 0.2;
+  float gust = smoothstep(0.3, 1.0, sin(uTime * 0.35 + aOff.x * 0.05 - aOff.z * 0.03));
   float bend = (wind * (0.25 + gust * 0.45) + 0.12) * t * t * h;
   w.x += bend * 0.8;
   w.z += bend * 0.5;
@@ -133,13 +116,17 @@ varying vec3 vW;
 varying float vRnd;
 #include <fog_pars_fragment>
 void main(){
-  vec3 base = mix(vec3(0.04, 0.07, 0.02), vec3(0.12, 0.17, 0.05), vRnd);
-  vec3 tip = mix(vec3(0.3, 0.44, 0.12), vec3(0.46, 0.5, 0.18), vRnd);
+  // variations par taches : herbe verte, herbe sèche, trèfle sombre
+  float patchN = fract(sin(dot(floor(vW.xz * 0.18), vec2(41.3, 289.1))) * 43758.5453);
+  vec3 green = mix(vec3(0.12, 0.22, 0.06), vec3(0.2, 0.3, 0.08), vRnd);
+  vec3 dry = mix(vec3(0.36, 0.34, 0.16), vec3(0.42, 0.38, 0.2), vRnd);
+  vec3 base = mix(vec3(0.03, 0.05, 0.02), vec3(0.07, 0.09, 0.04), vRnd);
+  vec3 tip = mix(green, dry, smoothstep(0.55, 0.95, patchN) * 0.8);
   vec3 alb = mix(base, tip, smoothstep(0.0, 1.0, vH));
   vec3 V = normalize(cameraPosition - vW);
   float back = pow(max(dot(-V, normalize(uSun)), 0.0), 4.0);
   vec3 col = alb * (uSunCol * (0.55 + 0.35 * vH) + uSky * 0.35) * (0.35 + 0.65 * vH);
-  col += uSunCol * alb * back * 1.1 * vH;
+  col += uSunCol * alb * back * 0.7 * vH;
   gl_FragColor = vec4(col, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -154,12 +141,36 @@ function grassOK(x: number, z: number) {
   return true
 }
 
+/** carte de hauteur du terrain (et des zones où l'herbe pousse) pour le shader d'herbe */
+const AREA = { x0: -120, z0: -146, size: 260 }
+let heightTex: THREE.DataTexture | null = null
+function heightMap() {
+  if (heightTex) return heightTex
+  const N = 512
+  const data = new Float32Array(N * N * 4)
+  for (let j = 0; j < N; j++)
+    for (let i = 0; i < N; i++) {
+      const x = AREA.x0 + ((i + 0.5) / N) * AREA.size
+      const z = AREA.z0 + ((j + 0.5) / N) * AREA.size
+      const k = (j * N + i) * 4
+      data[k] = terrainHeight(x, z)
+      data[k + 1] = grassOK(x, z) ? 1 : 0
+    }
+  heightTex = new THREE.DataTexture(data, N, N, THREE.RGBAFormat, THREE.FloatType)
+  heightTex.magFilter = THREE.LinearFilter
+  heightTex.minFilter = THREE.LinearFilter
+  heightTex.needsUpdate = true
+  return heightTex
+}
+
+/** herbe dense qui suit le joueur (la texture du terrain prend le relais au loin) */
 export function Grass({ count }: { count: number }) {
+  const P = count > 400000 ? 46 : count > 200000 ? 40 : 32
   const { geo, mat } = useMemo(() => {
     const blade = new THREE.BufferGeometry()
-    const w = 0.032
-    // lame à 5 sommets (triangle strip en 3 tris)
-    const v = [-w, 0, 0, w, 0, 0, -w * 0.7, 0.45, 0.01, w * 0.7, 0.45, 0.01, 0, 1, 0.03]
+    const w = 0.016
+    // lame à 5 sommets (3 triangles), légèrement courbée
+    const v = [-w, 0, 0, w, 0, 0, -w * 0.7, 0.45, 0.02, w * 0.7, 0.45, 0.02, 0, 1, 0.07]
     blade.setAttribute('position', new THREE.Float32BufferAttribute(v, 3))
     blade.setIndex([0, 1, 2, 2, 1, 3, 2, 3, 4])
     const g = new THREE.InstancedBufferGeometry()
@@ -167,23 +178,13 @@ export function Grass({ count }: { count: number }) {
     g.attributes.position = blade.attributes.position
     const off = new Float32Array(count * 3)
     const sc = new Float32Array(count * 2)
-    let n = 0
-    let tries = 0
-    while (n < count && tries < count * 3) {
-      tries++
-      // plus dense près du joueur : distribution concentrée sur la zone jouable
-      const x = (Math.random() * 2 - 1) * 46
-      const z = 24 - Math.random() * 104
-      if (!grassOK(x, z)) continue
-      const clump = Math.sin(x * 0.3) * Math.cos(z * 0.27)
-      if (clump < -0.6 && Math.random() < 0.7) continue
-      off.set([x, terrainHeight(x, z) - 0.02, z], n * 3)
-      sc.set([0.25 + Math.random() * 0.55 + Math.max(0, clump) * 0.35, Math.random() * Math.PI * 2], n * 2)
-      n++
+    for (let n = 0; n < count; n++) {
+      off.set([Math.random() * P, 0, Math.random() * P], n * 3)
+      sc.set([0.22 + Math.random() * 0.38, Math.random() * Math.PI * 2], n * 2)
     }
     g.setAttribute('aOffset', new THREE.InstancedBufferAttribute(off, 3))
     g.setAttribute('aScale', new THREE.InstancedBufferAttribute(sc, 2))
-    g.instanceCount = n
+    g.instanceCount = count
     const mat = new THREE.ShaderMaterial({
       vertexShader: grassVert,
       fragmentShader: grassFrag,
@@ -191,12 +192,24 @@ export function Grass({ count }: { count: number }) {
       fog: true,
       uniforms: THREE.UniformsUtils.merge([
         THREE.UniformsLib.fog,
-        { uTime: { value: 0 }, uSun: { value: SUN4.clone() }, uSunCol: { value: SUN4_COLOR.clone().multiplyScalar(2.2) }, uSky: { value: SKY4.clone() } },
+        {
+          uTime: { value: 0 },
+          uSun: { value: SUN4.clone() },
+          uSunCol: { value: SUN4_COLOR.clone().multiplyScalar(2.2) },
+          uSky: { value: SKY4.clone() },
+          uCenter: { value: new THREE.Vector2() },
+          uPatch: { value: P },
+          uArea: { value: new THREE.Vector4(AREA.x0, AREA.z0, AREA.size, 0) },
+        },
       ]),
     })
+    mat.uniforms.uHeight = { value: heightMap() }
     return { geo: g, mat }
-  }, [count])
-  useFrame(({ clock }) => (mat.uniforms.uTime.value = clock.elapsedTime))
+  }, [count, P])
+  useFrame(({ clock, camera }) => {
+    mat.uniforms.uTime.value = clock.elapsedTime
+    mat.uniforms.uCenter.value.set(camera.position.x, camera.position.z)
+  })
   return <mesh geometry={geo} material={mat} frustumCulled={false} />
 }
 

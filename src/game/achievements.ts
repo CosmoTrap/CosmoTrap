@@ -22,7 +22,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { code: 'keeper', name: 'La découverte', desc: 'Ramener les échantillons de Maya.', icon: '🧪' },
   { code: 'survivor', name: 'Survivant', desc: 'Terminer en difficulté Survie.', icon: '🔥' },
   { code: 'sealed', name: 'Bricoleur', desc: 'Colmater une micro-fuite au ruban adhésif.', icon: '🩹' },
-  { code: 'cartographer', name: 'Cartographe', desc: 'Explorer toute la station Orion (zones 1 et 2).', icon: '🗺️' },
+  { code: 'cartographer', name: 'Cartographe', desc: 'Explorer toute la station Selene-7 (zones 1 et 2).', icon: '🗺️' },
 ]
 
 const KEY = () => `cosmotrap.ach.${G().user?.id ?? 'guest'}`
