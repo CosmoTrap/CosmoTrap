@@ -4,10 +4,11 @@ import { existsSync } from 'node:fs'
 import { createConnection } from 'node:net'
 import { networkInterfaces } from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
 
-const root = fileURLToPath(new URL('../', import.meta.url))
+const root = dirname(dirname(fileURLToPath(import.meta.url)))
 process.chdir(root)
-const portable = fileURLToPath(new URL('../.tools/php/php.exe', import.meta.url))
+const portable = join(root, '.tools', 'php', 'php.exe')
 const php = process.env.PHP_BINARY || (existsSync(portable) ? portable : 'php')
 const check = spawnSync(php, ['-m'], { encoding: 'utf8', windowsHide: true })
 if (check.error || check.status !== 0 || !['pdo_sqlite', 'mbstring'].every((ext) => check.stdout?.includes(ext))) {
@@ -46,7 +47,7 @@ function start(command, args) {
   p.on('exit', (code) => { if (!stopping) stop(code || 1) })
 }
 start(php, ['-S', '127.0.0.1:8787', '-t', 'public'])
-if (!apiOnly) start(process.execPath, [fileURLToPath(new URL('../node_modules/vite/bin/vite.js', import.meta.url)), '--host', '0.0.0.0', '--port', '5180', '--strictPort'])
+if (!apiOnly) start(process.execPath, [join(root, 'node_modules', 'vite', 'bin', 'vite.js'), '--host', '0.0.0.0', '--port', '5180', '--strictPort'])
 process.on('SIGINT', () => stop())
 process.on('SIGTERM', () => stop())
 let ready = false

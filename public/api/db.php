@@ -80,7 +80,12 @@ function db(): PDO {
     PRIMARY KEY (user_id, code)
   )");
   // migrations : colonnes ajoutées après la première version
-  foreach (["ALTER TABLE scores ADD COLUMN difficulty $text NOT NULL DEFAULT 'astronaut'", "ALTER TABLE scores ADD COLUMN ghost $long"] as $sql) {
+  $pdo->exec("CREATE TABLE IF NOT EXISTS resets (
+    token $text PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL
+  )");
+  foreach (["ALTER TABLE scores ADD COLUMN difficulty $text NOT NULL DEFAULT 'astronaut'", "ALTER TABLE scores ADD COLUMN ghost $long", "ALTER TABLE users ADD COLUMN character_id $text NOT NULL DEFAULT 'nova'"] as $sql) {
     try { $pdo->exec($sql); } catch (Throwable $e) { /* colonne déjà présente */ }
   }
   return $pdo;
@@ -98,7 +103,7 @@ function bearer(): ?string {
 function current_user(): ?array {
   $t = bearer();
   if (!$t) return null;
-  $st = db()->prepare('SELECT u.id, u.email, u.pseudo FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > ?');
+  $st = db()->prepare('SELECT u.id, u.email, u.pseudo, u.character_id FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > ?');
   $st->execute([$t, time()]);
   $u = $st->fetch();
   return $u ?: null;
@@ -118,5 +123,12 @@ function new_session(int $userId): string {
 }
 
 function public_user(array $u): array {
-  return ['id' => (int)$u['id'], 'email' => $u['email'], 'pseudo' => $u['pseudo']];
+  return ['id' => (int)$u['id'], 'email' => $u['email'], 'pseudo' => $u['pseudo'], 'character' => $u['character_id'] ?? 'nova'];
+}
+
+const CHARACTERS = ['leo', 'nova', 'kenji', 'ines', 'sam', 'maya'];
+
+function valid_pseudo(string $p): void {
+  if (mb_strlen($p) < 3 || mb_strlen($p) > 16) fail('Le pseudo doit faire entre 3 et 16 caractères.');
+  if (!preg_match('/^[\p{L}\p{N}_\-\.]+$/u', $p)) fail('Le pseudo ne peut contenir que des lettres, chiffres, « _ », « - » et « . ».');
 }

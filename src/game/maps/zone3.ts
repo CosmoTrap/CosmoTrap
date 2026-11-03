@@ -65,5 +65,8 @@ export const zone3: GridMap = {
     { model: 'engineCore', tile: [6, 11], off: [0, 0.2] },
     { model: 'pipesBig', tile: [5, 10], scale: 3 },
     { model: 'beacon', tile: [7, 12], wall: 'E', y: 2.4 },
+    { model: 'toolChest', tile: [5, 12], wall: 'W' },
+    { model: 'container', tile: [2, 12], off: [0.3, 0] },
+    { model: 'camera', tile: [5, 5], wall: 'N', y: 2.35 },
   ],
 }

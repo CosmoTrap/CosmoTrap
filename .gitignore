@@ -1,12 +1,30 @@
+# Dépendances et builds
 node_modules
 .tools/
 dist
+.vite
+
+# Données locales (comptes, sauvegardes, classements)
+cosmotrap-data
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# Secrets (ne jamais versionner)
+.env
+.env.*
+!.env.example
+public/api/config.local.php
+
+# Tests, outils, sources brutes
 test-results
 playwright-report
-.DS_Store
-cosmotrap-data
 .claude
-playwright-report
-.DS_Store
-.vite
 DossierTemporaire
+asset-src
+
+# OS et éditeurs
+.DS_Store
+Thumbs.db
+*.log

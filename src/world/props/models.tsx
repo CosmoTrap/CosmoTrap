@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { useGame } from '../../game/state'
 import { useMats } from '../materials'
+import { RealModel } from './RealModel'
 import { drawTexture, textTexture, texRnd, texSeed } from '../textures'
 
 // Accessoires de décor modélisés en code. Convention : les objets muraux ont le dos en z = 0
@@ -327,7 +328,7 @@ function Plant() {
 function WallScreen() {
   const m = useMats()
   const zone = useGame((s) => s.zone)
-  const lines = zone === 1 ? ['ORION · ÉTAT', 'COQUE : BRÈCHE S-4', 'O₂ CABINE : 14 %', 'ÉVACUATION EN COURS'] : zone === 2 ? ['LABO-2 · CULTURES', 'TEMP 21.4°C', 'CO₂ 0.9 %', '▲ ALERTE RÉSEAU'] : ['HERMÈS · NAV', 'ORBITE LUNAIRE', 'Δv dispo 3.1 km/s', 'CIBLE : TERRE']
+  const lines = zone === 1 ? ['SELENE-7 · ÉTAT', 'COQUE : BRÈCHE S-4', 'O₂ CABINE : 14 %', 'ÉVACUATION EN COURS'] : zone === 2 ? ['LABO-2 · CULTURES', 'TEMP 21.4°C', 'CO₂ 0.9 %', '▲ ALERTE RÉSEAU'] : ['HERMÈS · NAV', 'ORBITE LUNAIRE', 'Δv dispo 3.1 km/s', 'CIBLE : TERRE']
   return (
     <group>
       <Box s={[1.0, 0.6, 0.05]} p={[0, 0, 0.025]} m={m.plastic('#1b1d20', 0.3)} />
@@ -900,6 +901,15 @@ function EngineCore() {
 }
 
 export const PROP_MODELS: Record<string, (p: { color?: string; scale?: number; movable?: boolean }) => ReactNode> = {
+  toolChest: () => <RealModel id="metal_tool_chest" solid fit="wall" height={1.05} />,
+  toolCart: () => <RealModel id="tool_cart" solid height={0.95} />,
+  generator: () => <RealModel id="portable_generator" solid height={0.6} />,
+  camera: () => <RealModel id="security_camera_01" fit="wall" height={0.25} />,
+  utilityBox: () => <RealModel id="utility_box_01" fit="wall" height={0.55} />,
+  stool: () => <RealModel id="metal_stool_01" solid height={0.65} />,
+  clock: () => <RealModel id="alarm_clock_01" height={0.12} />,
+  seeding: () => <RealModel id="seeding_tray_01" height={0.1} />,
+  container: () => <RealModel id="industrial_pastic_container" solid height={1.0} />,
   bunk: () => <Bunk />,
   shelf: () => <Shelf />,
   photos: () => <Photos />,

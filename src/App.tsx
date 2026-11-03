@@ -1,4 +1,5 @@
 import { Canvas } from '@react-three/fiber'
+import { setLanguage } from './i18n'
 import { Component, useEffect, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { audio } from './game/audio/audio'
@@ -9,7 +10,8 @@ import { Hud } from './ui/Hud'
 import { MobileControls } from './ui/Mobile'
 import { CharSelect, End, Leaderboard, NoteReader, Pause, Prologue, PuzzleHost, RotatePhone, SkipCine, Title } from './ui/Screens/Screens'
 import { Login } from './ui/Screens/Login'
-import { Settings } from './ui/Screens/Settings'
+import { MainMenu } from './ui/Screens/Menu'
+import { SettingsPage } from './ui/Screens/SettingsPage'
 import { Tablet } from './ui/Tablet/Tablet'
 import { Scene } from './world/Scene'
 
@@ -45,9 +47,18 @@ export default function App() {
   const settingsOpen = useGame((s) => s.settingsOpen)
   const cine = useGame((s) => s.cine)
   const vols = useGame((s) => s.settings)
+  const character = useGame((s) => s.character)
   useEffect(() => {
-    audio.setVolumes({ music: vols.music, sfx: vols.sfx, voice: vols.voice })
-  }, [vols.music, vols.sfx, vols.voice])
+    audio.female = ['nova', 'ines', 'maya'].includes(character)
+  }, [character])
+  useEffect(() => {
+    audio.setVolumes({ music: vols.music * vols.master, sfx: vols.sfx * vols.master, voice: vols.voice * vols.master })
+  }, [vols.master, vols.music, vols.sfx, vols.voice])
+  useEffect(() => {
+    audio.browserVoice = vols.browserVoice
+    audio.lang = vols.lang
+    setLanguage(vols.lang)
+  }, [vols.browserVoice, vols.lang])
   useEffect(() => {
     const unlock = () => audio.init()
     window.addEventListener('pointerdown', unlock, { once: true })
@@ -87,12 +98,18 @@ export default function App() {
         <Scene />
       </Canvas>
       </CrashGuard>
+      <div key={vols.lang} style={{ display: 'contents' }}>
       {screen === 'login' && <Login />}
-      {screen === 'title' && <Title />}
+      {screen === 'title' && <MainMenu />}
+      {screen === 'settings' && <SettingsPage />}
       {screen === 'leaderboard' && <Leaderboard />}
       {screen === 'charSelect' && <CharSelect />}
       {screen === 'end' && <End />}
       {screen === 'prologue' && <Prologue />}
+      <div className={`film-bars ${screen === 'prologue' || (playing && (cine === 'tour' || cine === 'launch' || cine === 'heli' || cine === 'fail')) ? 'on' : ''}`} aria-hidden>
+        <i />
+        <i />
+      </div>
       {playing && (
         <>
           <Hud />
@@ -102,10 +119,11 @@ export default function App() {
           <NoteReader />
           <SkipCine />
           {paused && <Pause />}
-          {settingsOpen && <Settings onClose={() => useGame.setState({ settingsOpen: false })} />}
+          {settingsOpen && <SettingsPage overlay onClose={() => useGame.setState({ settingsOpen: false })} />}
         </>
       )}
       <RotatePhone />
+      </div>
     </>
   )
 }

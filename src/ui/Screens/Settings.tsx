@@ -5,7 +5,7 @@ import { fr } from '../../i18n/fr'
 import { ACTION_ORDER, DEFAULT_KEYS, keyName, type Action } from '../../player/input'
 
 const T = fr.settings
-const ACTION_LABEL: Record<Action, string> = {
+export const ACTION_LABEL: Record<Action, string> = {
   forward: 'Avancer',
   back: 'Reculer',
   left: 'Gauche',
@@ -26,10 +26,10 @@ export function update(p: Partial<S>) {
   const s = { ...useGame.getState().settings, ...p }
   useGame.setState({ settings: s })
   saveSettings(s)
-  audio.setVolumes({ music: s.music, sfx: s.sfx, voice: s.voice })
+  audio.setVolumes({ music: s.music * s.master, sfx: s.sfx * s.master, voice: s.voice * s.master })
 }
 
-function KeyRow({ a }: { a: Action }) {
+export function KeyRow({ a }: { a: Action }) {
   const keys = useGame((s) => s.settings.keys)
   const [wait, setWait] = useState<number | null>(null)
   useEffect(() => {

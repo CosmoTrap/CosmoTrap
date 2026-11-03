@@ -1,5 +1,5 @@
 // Génère les bruitages et les voix françaises avec l'API ElevenLabs, puis met à jour public/audio/manifest.json.
-// Usage : ELEVENLABS_API_KEY=xxx npx tsx scripts/generate-audio.ts [--voice <voice_id>] [--force]
+// Usage : ELEVENLABS_API_KEY=xxx npx tsx scripts/generate-audio.ts [--voices] [--force]   (--voices : répliques seulement)
 // Les fichiers existants sont gardés (sauf --force). La musique (Suno) se dépose à la main : music_*.mp3.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -12,7 +12,6 @@ if (!KEY) {
 }
 const args = process.argv.slice(2)
 const force = args.includes('--force')
-const VOICE = args.includes('--voice') ? args[args.indexOf('--voice') + 1] : 'pNInz6obpgDQGcFmaJgB' // voix multilingue par défaut
 const OUT = join(process.cwd(), 'public', 'audio')
 mkdirSync(OUT, { recursive: true })
 
@@ -41,18 +40,41 @@ const SFX: [string, string, number, boolean?][] = [
   ['amb_wind_birds_loop', 'gentle wind in a valley with distant birds and a small river, loop', 10, true],
   ['sfx_launch', 'rocket engine ignition and liftoff from inside the cockpit, massive rumble, rattling', 6],
   ['sfx_radio_tune', 'radio static while tuning a dial, one-shot', 1],
+  ['sfx_impact', 'space capsule crashing into a forest clearing, massive low boom, metal crunching, debris and dirt raining down, one-shot', 4],
   ['sfx_helicopter', 'helicopter approaching overhead, rotor thump growing louder', 5],
   ...[1, 2, 3, 4].map((i) => [`sfx_steps_metal_${i}`, `single footstep on metal grating, magnetic boots, variation ${i}, one-shot`, 0.5] as [string, string, number]),
   ...[1, 2, 3, 4].map((i) => [`sfx_steps_grass_${i}`, `single footstep on soft grass, variation ${i}, one-shot`, 0.5] as [string, string, number]),
 ]
 
-// voix : toutes les répliques du jeu
-const VOICES: [string, string][] = [
-  ...fr.story.prologue.map((t, i) => [`voice_prologue_${i}`, t] as [string, string]),
-  ...fr.briefing.map((t, i) => [`voice_briefing_${i}`, t] as [string, string]),
-  ...Object.entries(fr.story.tours).flatMap(([z, lines]) => lines.map((t, i) => [`voice_tour_${z}_${i}`, t] as [string, string])),
-  ['voice_radio', 'Signal reçu sur 121,5. Hélicoptère en route.'],
-]
+// voix : toutes les répliques du jeu, une voix par rôle, en français et en anglais.
+// La voix intérieure (scènes d'entrée de zone) existe en version masculine et féminine (préfixe f_).
+import { en } from '../src/i18n/en'
+const CAST = {
+  // voix « premade » : le forfait gratuit n'autorise pas les voix de la bibliothèque via l'API
+  fr: { narr: 'JBFqnCBsd6RMkjVDRZzb' /* George, conteur */, fem: 'pFZP5JQG7iQjIQuC4Bku' /* Lily */, cmd: 'XrExE9yKIg1WjnnlVkGX' /* Matilda, commandante */ },
+  en: { narr: 'nPczCjzI2devNBz1zQrb' /* Brian */, fem: 'EXAVITQu4vr4xnSDxMaL' /* Sarah */, cmd: 'Xb7hH8MSUJpSbSDYk0k2' /* Alice */ },
+}
+type Lang = keyof typeof CAST
+function linesOf(L: any, lang: Lang): [string, string, string][] {
+  const c = CAST[lang]
+  const p = lang === 'en' ? 'en_' : ''
+  const story = { ...fr.story, ...(L.story ?? {}) }
+  const tours = { ...fr.story.tours, ...(L.story?.tours ?? {}) } as Record<string, string[]>
+  return [
+    ...(story.prologue as string[]).map((t, i) => [`voice_${p}prologue_${i}`, t, c.narr] as [string, string, string]),
+    ...((L.briefing ?? fr.briefing) as string[]).map((t, i) => [`voice_${p}briefing_${i}`, t, c.cmd] as [string, string, string]),
+    ...Object.entries(tours).flatMap(([z, lines]) =>
+      lines.flatMap((t, i) => [
+        [`voice_${p}tour_${z}_${i}`, t, c.narr] as [string, string, string],
+        [`voice_${p}f_tour_${z}_${i}`, t, c.fem] as [string, string, string],
+      ]),
+    ),
+    [`voice_${p}radio`, lang === 'en' ? 'Signal received on 121.5. Helicopter on its way.' : 'Signal reçu sur 121,5. Hélicoptère en route.', c.cmd],
+  ]
+}
+const onlyVoices = args.includes('--voices')
+const VOICES: [string, string, string][] = [...linesOf(fr, 'fr'), ...linesOf(en, 'en')]
+console.log(`${VOICES.length} répliques, ${VOICES.reduce((a, v) => a + v[1].length, 0)} caractères`)
 
 async function save(name: string, res: Response) {
   if (!res.ok) throw new Error(`${name} : ${res.status} ${await res.text()}`)
@@ -60,7 +82,7 @@ async function save(name: string, res: Response) {
   console.log('✓', name)
 }
 
-for (const [name, text, duration, loop] of SFX) {
+for (const [name, text, duration, loop] of onlyVoices ? [] : SFX) {
   if (!force && existsSync(join(OUT, `${name}.mp3`))) continue
   await save(
     name,
@@ -71,14 +93,15 @@ for (const [name, text, duration, loop] of SFX) {
     }),
   )
 }
-for (const [name, text] of VOICES) {
+for (const [name, text, voice] of VOICES) {
   if (!force && existsSync(join(OUT, `${name}.mp3`))) continue
   await save(
     name,
-    await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE}`, {
+    await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_128`, {
       method: 'POST',
       headers: { 'xi-api-key': KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, model_id: 'eleven_multilingual_v2', voice_settings: { stability: 0.45, similarity_boost: 0.8 } }),
+      // stabilité moyenne + un peu de style : une diction jouée, pas lue
+      body: JSON.stringify({ text, model_id: 'eleven_multilingual_v2', voice_settings: { stability: 0.38, similarity_boost: 0.82, style: 0.3, use_speaker_boost: true } }),
     }),
   )
 }

@@ -1,6 +1,6 @@
 import type { GridMap } from '../types'
 
-// Station Orion — quartiers d'équipage. Tuile = 2 m, plafond 2,8 m.
+// Station Selene-7 — quartiers d'équipage. Tuile = 2 m, plafond 2,8 m.
 // # mur · . sol · W hublot · D porte
 export const zone1: GridMap = {
   zone: 1,
@@ -105,5 +105,12 @@ export const zone1: GridMap = {
     { model: 'suitRack', tile: [22, 9], wall: 'E' },
     { model: 'hazard', tile: [21, 8] },
     { model: 'beacon', tile: [19, 7], wall: 'N', y: 2.4 },
+    { model: 'camera', tile: [11, 5], wall: 'N', y: 2.35 },
+    { model: 'camera', tile: [22, 7], wall: 'E', y: 2.35 },
+    { model: 'clock', tile: [5, 1], wall: 'N', y: 1.02, off: [-0.35, 0.15] },
+    { model: 'stool', tile: [19, 2], off: [0, 0.3] },
+    { model: 'stool', tile: [20, 2], off: [0.2, 0.4] },
+    { model: 'utilityBox', tile: [19, 9], wall: 'S', y: 1.1 },
+    { model: 'container', tile: [6, 7], off: [0, -0.2] },
   ],
 }

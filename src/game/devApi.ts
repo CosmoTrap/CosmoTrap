@@ -35,6 +35,8 @@ export function installDevApi() {
         pos: [...live.pos],
         aimed: live.aimed,
         propPositions: { ...s.propPositions },
+        character: s.character,
+        settings: { character: s.settings.character, lang: s.settings.lang, help: s.settings.help },
       }
     },
     ents: () => allEnts(G().zone).map((e) => e.id),

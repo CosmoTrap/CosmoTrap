@@ -1,6 +1,6 @@
 import type { GridMap } from '../types'
 
-// Station Orion — labo & machinerie.
+// Station Selene-7 — labo & machinerie.
 export const zone2: GridMap = {
   zone: 2,
   grid: [
@@ -102,5 +102,13 @@ export const zone2: GridMap = {
     { model: 'suitRack', tile: [21, 10], wall: 'S' },
     { model: 'hazard', tile: [22, 9] },
     { model: 'beacon', tile: [23, 8], wall: 'E', y: 2.4 },
+    { model: 'toolChest', tile: [9, 10], wall: 'S' },
+    { model: 'generator', tile: [13, 9], rot: 0.6 },
+    { model: 'toolCart', tile: [6, 8], rot: -0.3 },
+    { model: 'container', tile: [18, 10] },
+    { model: 'camera', tile: [6, 5], wall: 'N', y: 2.35 },
+    { model: 'seeding', tile: [10, 1], wall: 'N', y: 0.66, off: [0, 0.38] },
+    { model: 'seeding', tile: [14, 1], wall: 'N', y: 1.56, off: [0.3, 0.38] },
+    { model: 'utilityBox', tile: [21, 3], wall: 'S', y: 1.2 },
   ],
 }

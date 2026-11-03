@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { audio } from '../game/audio/audio'
 import { act, drinkPouch, entById, labelOf, toggleLamp, useBattery, useO2, useSlot } from '../game/logic'
 import { GRID_MAPS, roomAt, spawnOf } from '../game/maps'
-import { G, live, toggleFullscreen, useGame } from '../game/state'
+import { G, ability, live, toggleFullscreen, useGame } from '../game/state'
 import { QUALITY } from '../world/quality'
 import { hitboxes } from '../world/props/EntModels'
 import { lampCookie } from '../world/textures'
@@ -254,7 +254,7 @@ export function Player() {
       iz /= len
     }
     const running = !frozen && (isDown(keys, 'run') || input.touchRun || pad.run || Math.hypot(input.joy.x, input.joy.y) > 0.95)
-    let speed = running ? 4.4 : 2.5
+    let speed = (running ? 4.4 : 2.5) * ability().speed
     if (s.res.water <= 0) speed *= 0.55
     if (s.zone < 4 && s.res.o2 < 10) speed *= 0.8
     fwd.set(-Math.sin(live.yaw), 0, -Math.cos(live.yaw))
@@ -316,7 +316,7 @@ export function Player() {
       camera.rotation.set(live.pitch + sy * 0.5, live.yaw + sx * 0.3, S.roll, 'YXZ')
     }
     const pc = camera as THREE.PerspectiveCamera
-    const fov = s.settings.fov + (running && moving ? 4 : 0) + lowO2 * 3
+    const fov = (s.cine ? live.camOverride?.fov : undefined) ?? s.settings.fov + (running && moving ? 4 : 0) + lowO2 * 3
     if (Math.abs(pc.fov - fov) > 0.05) {
       pc.fov = THREE.MathUtils.damp(pc.fov, fov, 5, dt)
       pc.updateProjectionMatrix()

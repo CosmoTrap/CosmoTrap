@@ -33,7 +33,7 @@ test('passer le prologue rend directement les commandes', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
   await guest(page)
-  await page.getByTestId('new-game').click()
+  await page.getByTestId('new-game').first().click()
   await page.getByTestId('start').click()
   await page.getByTestId('skip-prologue').click()
   await playable(page)
@@ -97,13 +97,23 @@ test('passer visite, briefing, transition, decollage et sauvetage', async ({ pag
     })
   }
   // Natural completion must also release the camera and all overlays.
-  await page.evaluate(() => window.__game.set({ cine: 'tour', cineT0: performance.now() - 30000, briefed: true }))
+  await page.evaluate(() => window.__game.set({ cine: 'tour', cineT0: performance.now() - 120000, briefed: true }))
   await playable(page)
   await call(page, 'goto', 3)
   await page.evaluate(() => window.__game.set({ cine: 'launch', cineT0: performance.now() - 12000 }))
   await page.getByTestId('skip').click()
   await expect.poll(async () => (await state(page)).zone).toBe(4)
   await expect.poll(async () => (await state(page)).cine).toBeNull()
+  // Main's crash scene must release its actor, blur and falling capsule when skipped.
+  await page.waitForFunction(() => window.__game.state().playerZone === 4)
+  await page.evaluate(() => window.__game.set({ cine: 'tour', cineT0: performance.now() - 3000 }))
+  await page.waitForFunction(() => !!window.__game.live.camOverride)
+  await page.getByTestId('skip').click()
+  await expect.poll(async () => (await state(page)).cine).toBeNull()
+  expect(await page.evaluate(async (path) => {
+    const { actor, film, crash } = await import(path)
+    return { actor: actor.visible, blur: film.blur, falling: crash.active, landed: crash.k }
+  }, '/src/world/FilmScenes.tsx')).toEqual({ actor: false, blur: 0, falling: false, landed: 1 })
   await page.keyboard.press('Tab')
   await expect(page.getByTestId('tablet')).toBeVisible()
   await page.keyboard.press('Tab')
@@ -199,7 +209,7 @@ test('le chariot de la serre se pousse et garde sa position, les autres portes r
   }, moved[2])
   await page.reload()
   await page.getByTestId('guest').click()
-  await page.getByTestId('continue').click()
+  await page.getByTestId('continue').first().click()
   await page.waitForFunction(() => window.__game.state().playerZone === 2)
   expect((await state(page)).propPositions['serre-cart'][2]).toBeCloseTo(moved[2], 1)
   expect(errors).toEqual([])

@@ -293,7 +293,7 @@ export function wallSet(theme: WallTheme, S: number, sd = 3): PBRSet {
       c.fillStyle = 'rgba(30,30,30,0.75)'
       c.font = `600 ${Math.round(px * 0.05)}px "JetBrains Mono", monospace`
       seed(sd * 13)
-      c.fillText(`ORN-${100 + Math.floor(rnd() * 800)} · P${Math.floor(rnd() * 40)}`, 0.12 * px, yOf(1.95))
+      c.fillText(`SLN-${100 + Math.floor(rnd() * 800)} · P${Math.floor(rnd() * 40)}`, 0.12 * px, yOf(1.95))
       c.fillStyle = 'rgba(200,60,40,0.8)'
       c.fillRect(1.12 * px, yOf(2.25), 0.12 * px, 0.04 * px)
       c.fillStyle = 'rgba(30,30,30,0.6)'

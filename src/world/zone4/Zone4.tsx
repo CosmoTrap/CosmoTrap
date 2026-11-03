@@ -14,11 +14,32 @@ import { concreteSet, drawTexture } from '../textures'
 import { rockGeometry } from '../Exterior/Asteroids'
 import { CloudLayer, FOG4, Grass, Mountains, River, Rocks, SUN4, SunLight, Terrain, Trees, buildTerrain, placeTrees } from './Nature'
 import { woodMat } from './Zone4Ents'
+import { capsulePos, crash } from '../FilmScenes'
 import { photoSurface } from '../photomaterials'
 
 // Zone 4 — Terre, vallée de l'atterrissage, fin d'après-midi.
 
 export const heli = { x: 60, y: 60, z: -120, yaw: 0, visible: false, rotor: 0 }
+
+/** la capsule pendant le crash : elle tombe du ciel en tournoyant, puis se pose à sa place */
+function Falling({ children }: { children: React.ReactNode }) {
+  const g = useRef<THREE.Group>(null)
+  useFrame(() => {
+    if (!g.current) return
+    if (!crash.active || crash.k >= 1) {
+      g.current.position.set(0, 0, 0)
+      g.current.rotation.set(0, 0, 0)
+      return
+    }
+    const c = capsulePos(crash.k)
+    const end = capsulePos(1)
+    g.current.position.set(c[0] - end[0], c[1] - end[1], c[2] - end[2])
+    // bouclier thermique vers l'avant, roulis
+    const a = 1 - crash.k
+    g.current.rotation.set(-1.1 * a - 0.2, crash.t * 0.8, 0.9 * a)
+  })
+  return <group ref={g}>{children}</group>
+}
 
 function Capsule() {
   const m = useMats()
@@ -424,7 +445,7 @@ export function Zone4() {
       <RoomCtx.Provider value={{ id: 'out', dark: false }}>
         {zone4Props.map((p, i) => (
           <group key={i} position={p.pos} rotation={[0, p.rot ?? 0, 0]}>
-            {p.model === 'capsule' && <Capsule />}
+            {p.model === 'capsule' && <Falling><Capsule /></Falling>}
             {p.model === 'parachute' && <Parachute />}
             {p.model === 'cabin' && <Cabin />}
             {p.model === 'helipad' && <Helipad />}

@@ -1,3 +1,4 @@
+import { CineActor, CrashFx } from './FilmScenes'
 import { Environment, Lightformer } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { Physics } from '@react-three/rapier'
@@ -15,6 +16,7 @@ import { Exterior } from './Exterior'
 import { Level } from './Level'
 import { QUALITY } from './quality'
 import { TitleScene } from './TitleScene'
+import { LunarScene } from './LunarScene'
 import { Zone4 } from './zone4/Zone4'
 import { Ghost, useLoadGhost } from './Ghost'
 
@@ -103,8 +105,10 @@ function PhysicsWorld() {
           <Zone4 />
           <EndAvatar />
           <Flare />
+          <CrashFx />
         </>
       )}
+      <CineActor />
       <Player key={zone} />
       <Ghost />
     </Physics>
@@ -169,8 +173,12 @@ export function Scene() {
           <CineDirector />
           <ZoneAudioWatcher />
         </Suspense>
-      ) : (
+      ) : screen === 'prologue' ? (
         <TitleScene />
+      ) : (
+        <Suspense fallback={null}>
+          <LunarScene />
+        </Suspense>
       )}
       <Effects />
     </>
