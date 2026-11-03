@@ -29,6 +29,8 @@ export interface Settings {
   quality: Quality
   sensitivity: number
   invertY: boolean
+  /** volume général (multiplie musique, effets et voix) */
+  master: number
   music: number
   sfx: number
   voice: number
@@ -76,7 +78,7 @@ export const live = {
   /** décor extérieur pendant les cinématiques (décollage, rentrée) */
   ext: { y: 0, plasma: 0 },
   /** contrôle caméra par une cinématique */
-  camOverride: null as null | { pos: [number, number, number]; look: [number, number, number] },
+  camOverride: null as null | { pos: [number, number, number]; look: [number, number, number]; fov?: number },
   bob: 0,
   /** fondu au noir (0..1) et flash blanc (0..1) pilotés par les cinématiques */
   fade: 0,
@@ -162,6 +164,8 @@ export interface GameData {
   /** imprévu en cours */
   event: { kind: 'blackout' | 'leak'; until: number } | null
   nextEventAt: number
+  /** temps de jeu (pénalités comprises) à la résolution de chaque énigme, par id */
+  splits: Record<string, number>
 }
 
 export const newGameData = (character = 'nova', difficulty: Difficulty = 'astronaut'): GameData => ({
@@ -195,6 +199,7 @@ export const newGameData = (character = 'nova', difficulty: Difficulty = 'astron
   track: [],
   event: null,
   nextEventAt: DIFFICULTY[difficulty].events * 0.7,
+  splits: {},
 })
 
 export interface GameState extends GameData {
@@ -262,6 +267,7 @@ function loadSettings(): Settings {
     quality: detectQuality(),
     sensitivity: 1,
     invertY: false,
+    master: 1,
     music: 0.7,
     sfx: 0.85,
     voice: 0.9,

@@ -25,7 +25,7 @@ export function update(p: Partial<S>) {
   const s = { ...useGame.getState().settings, ...p }
   useGame.setState({ settings: s })
   saveSettings(s)
-  audio.setVolumes({ music: s.music, sfx: s.sfx, voice: s.voice })
+  audio.setVolumes({ music: s.music * s.master, sfx: s.sfx * s.master, voice: s.voice * s.master })
 }
 
 export function KeyRow({ a }: { a: Action }) {

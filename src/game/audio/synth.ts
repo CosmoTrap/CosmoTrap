@@ -89,6 +89,7 @@ export type SfxName =
   | 'click'
   | 'gasp'
   | 'tick'
+  | 'impact'
 
 export const SFX: Record<SfxName, (s: SynthCtx, t: number) => number> = {
   door_open(s, t) {
@@ -361,6 +362,15 @@ export const SFX: Record<SfxName, (s: SynthCtx, t: number) => number> = {
     noise(s, t, 0.02, 0.25, 'bandpass', 3800, 6, 0.001)
     osc(s, 'sine', 1900, t, 0.03, 0.05, 0.001)
     return 0.05
+  },
+  impact(s, t) {
+    // choc sourd + grondement + débris métalliques
+    const o = osc(s, 'sine', 70, t, 2.2, 0.5, 0.004)
+    o.o.frequency.exponentialRampToValueAtTime(28, t + 2)
+    noise(s, t, 3.5, 0.45, 'lowpass', 500, 0.8, 0.005, s.out, true)
+    noise(s, t, 1.2, 0.18, 'bandpass', 2400, 1.2, 0.002)
+    for (let i = 0; i < 6; i++) osc(s, 'triangle', 900 + Math.random() * 1600, t + 0.3 + Math.random() * 1.4, 0.25, 0.025, 0.001)
+    return 3.6
   },
   gasp(s, t) {
     const { bf } = noise(s, t, 0.5, 0.2, 'bandpass', 900, 1.5, 0.08)

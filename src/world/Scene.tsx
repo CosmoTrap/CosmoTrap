@@ -1,3 +1,4 @@
+import { CineActor, CrashFx } from './FilmScenes'
 import { Environment, Lightformer } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { Physics } from '@react-three/rapier'
@@ -104,8 +105,10 @@ function PhysicsWorld() {
           <Zone4 />
           <EndAvatar />
           <Flare />
+          <CrashFx />
         </>
       )}
+      <CineActor />
       <Player key={zone} />
       <Ghost />
     </Physics>

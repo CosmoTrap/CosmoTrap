@@ -297,7 +297,7 @@ export function Player() {
       camera.rotation.set(live.pitch + sy * 0.5, live.yaw + sx * 0.3, S.roll, 'YXZ')
     }
     const pc = camera as THREE.PerspectiveCamera
-    const fov = s.settings.fov + (running && moving ? 4 : 0) + lowO2 * 3
+    const fov = live.camOverride?.fov ?? s.settings.fov + (running && moving ? 4 : 0) + lowO2 * 3
     if (Math.abs(pc.fov - fov) > 0.05) {
       pc.fov = THREE.MathUtils.damp(pc.fov, fov, 5, dt)
       pc.updateProjectionMatrix()

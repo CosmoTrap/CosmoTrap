@@ -47,9 +47,13 @@ export default function App() {
   const settingsOpen = useGame((s) => s.settingsOpen)
   const cine = useGame((s) => s.cine)
   const vols = useGame((s) => s.settings)
+  const character = useGame((s) => s.character)
   useEffect(() => {
-    audio.setVolumes({ music: vols.music, sfx: vols.sfx, voice: vols.voice })
-  }, [vols.music, vols.sfx, vols.voice])
+    audio.female = ['nova', 'ines', 'maya'].includes(character)
+  }, [character])
+  useEffect(() => {
+    audio.setVolumes({ music: vols.music * vols.master, sfx: vols.sfx * vols.master, voice: vols.voice * vols.master })
+  }, [vols.master, vols.music, vols.sfx, vols.voice])
   useEffect(() => {
     audio.browserVoice = vols.browserVoice
     audio.lang = vols.lang
@@ -102,6 +106,10 @@ export default function App() {
       {screen === 'charSelect' && <CharSelect />}
       {screen === 'end' && <End />}
       {screen === 'prologue' && <Prologue />}
+      <div className={`film-bars ${screen === 'prologue' || (playing && (cine === 'tour' || cine === 'launch' || cine === 'heli' || cine === 'fail')) ? 'on' : ''}`} aria-hidden>
+        <i />
+        <i />
+      </div>
       {playing && (
         <>
           <Hud />

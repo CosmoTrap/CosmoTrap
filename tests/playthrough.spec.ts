@@ -212,7 +212,7 @@ test('ressources à zéro, pénalités, indices et limite de temps', async ({ pa
   await g(page, 'drain', 1)
   await page.waitForFunction(() => window.__game.state().cine === 'fail')
   await expect(page.getByTestId('end')).toBeVisible({ timeout: 20000 })
-  await expect(page.getByText('Mission échouée')).toBeVisible()
+  await expect(page.getByText('Temps écoulé…')).toBeVisible()
 })
 
 test('difficulté, imprévus, succès, fantôme et manette', async ({ page, request }) => {
