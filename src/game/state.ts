@@ -8,7 +8,7 @@ export type Screen = 'launch' | 'login' | 'title' | 'prologue' | 'playing' | 'en
 /** carte choisie sur l'écran de lancement */
 export type MissionMap = 'base' | 'station'
 export type Quality = 'low' | 'medium' | 'high' | 'ultra'
-export type CineKind = 'briefing' | 'faint' | 'zoneCard' | 'tour' | 'launch' | 'heli' | 'fail' | null
+export type CineKind = 'briefing' | 'faint' | 'zoneCard' | 'lift' | 'tour' | 'launch' | 'heli' | 'fail' | null
 
 /** limite de temps de la partie (s) selon la difficulté : au-delà, échec */
 export const timeLimit = () => DIFFICULTY[useGame.getState().difficulty ?? 'astronaut'].time + (useGame.getState().character === 'ines' ? 180 : 0)

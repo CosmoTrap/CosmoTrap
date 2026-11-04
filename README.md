@@ -186,7 +186,7 @@ Le classement est séparé par difficulté.
 4. **Énigme 1, observation visuelle.** Taper **2041** sur le casier du dortoir pour récupérer le badge.
 5. Badger la porte du **sas**, à l'est du couloir.
 6. **Énigme 2, logique (Lights Out 3×3).** Appuyer sur les vannes de la diagonale : haut-gauche, centre, bas-droite.
-7. Descendre par la **trappe**.
+7. Prendre l'**ascenseur** du nœud central, déverrouillé par la pressurisation, pour descendre à l'étage 2. On peut ensuite circuler librement entre les étages 1 et 2.
 
 ### Zone 2 — Labo & machinerie
 
@@ -285,7 +285,7 @@ npx playwright test
 
 `tests/playthrough.spec.ts` crée un compte et joue toute la partie en se téléportant devant chaque objectif. Il résout les énigmes par l'interface et vérifie les verrous :
 
-- la trappe reste fermée avant la pressurisation ;
+- l'ascenseur reste verrouillé avant la pressurisation ;
 - la vapeur bloque l'accès au disjoncteur ;
 - le sas reste fermé tant que le terminal n'est pas décodé ;
 - la rivière est infranchissable avant le pont.

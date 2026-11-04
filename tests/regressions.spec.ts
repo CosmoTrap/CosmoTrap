@@ -28,8 +28,8 @@ async function playable(page: Page) {
   await expect(page.getByTestId('tablet')).toBeVisible()
   await page.keyboard.press('Tab')
   // A cleared state alone is insufficient: actual Rapier movement must resume.
-  await call(page, 'teleportXZ', 41, 41, -Math.PI / 2)
-  await expect.poll(async () => Math.abs((await state(page)).pos[0] - 41)).toBeLessThan(0.1)
+  await call(page, 'teleportXZ', 44, 41, -Math.PI / 2)
+  await expect.poll(async () => Math.abs((await state(page)).pos[0] - 44)).toBeLessThan(0.1)
   const before = (await state(page)).pos[0]
   await page.keyboard.down('ArrowUp')
   try { await expect.poll(async () => (await state(page)).pos[0], { timeout: 20000 }).toBeGreaterThan(before + 0.45) }

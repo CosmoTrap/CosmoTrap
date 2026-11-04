@@ -80,7 +80,7 @@ export function SkipCine() {
     window.addEventListener('keydown', k)
     return () => window.removeEventListener('keydown', k)
   }, [])
-  if (!cine || cine === 'faint' || cine === 'fail') return null
+  if (!cine || cine === 'faint' || cine === 'fail' || cine === 'lift') return null
   return (
     <button className="btn ghost skip" data-testid="skip" onClick={() => skipCine()}>
       Passer ▸ <span className="key" style={{ marginLeft: 8, marginRight: 0 }}>Entrée</span>

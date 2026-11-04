@@ -305,13 +305,13 @@ function Fixtures({ room, lit }: { room: RoomDef; lit: boolean }) {
 }
 
 /** lumière dynamique d'une pièce (nombre constant : on change l'intensité, pas le nombre) */
-function RoomLight({ room, on }: { room: RoomDef; on: boolean }) {
+function RoomLight({ room, on, offset = [0, 0], share = 1 }: { room: RoomDef; on: boolean; offset?: [number, number]; share?: number }) {
   const ref = useRef<THREE.PointLight>(null)
   const [x0, z0, x1, z1] = room.rect
-  const cx = ((x0 + x1 + 1) * TILE) / 2
-  const cz = ((z0 + z1 + 1) * TILE) / 2
+  const cx = ((x0 + x1 + 1) * TILE) / 2 + offset[0]
+  const cz = ((z0 + z1 + 1) * TILE) / 2 + offset[1]
   const reach = Math.hypot((x1 - x0 + 1) * TILE, (z1 - z0 + 1) * TILE) * 0.55 + 1.5
-  const base = (room.intensity ?? 8) * 2.3
+  const base = (room.intensity ?? 8) * 2.3 * share
   useFrame((_, dt) => {
     if (!ref.current) return
     // The normal circuit really goes dark. Red light comes from the beacons.
@@ -320,6 +320,12 @@ function RoomLight({ room, on }: { room: RoomDef; on: boolean }) {
   })
   return <pointLight name={`room-light:${room.id}`} ref={ref} position={[cx, CEIL - 0.45, cz]} color={room.light} intensity={on ? base : 0} distance={reach} decay={1.5} />
 }
+
+/** A light at the hub's centre would be inside the lift and leave its outer wall black. */
+const HUB_LIGHTS = [0, 1, 2].map((i): [number, number] => {
+  const a = Math.PI / 2 + i * Math.PI * 2 / 3
+  return [Math.sin(a) * 4, Math.cos(a) * 4]
+})
 
 export function Level({ map, shadows }: { map: GridMap; shadows: boolean }) {
   const built = useMemo(() => buildLevel(map), [map])
@@ -343,7 +349,9 @@ export function Level({ map, shadows }: { map: GridMap; shadows: boolean }) {
           <RoomCtx.Provider key={room.id} value={{ id: room.id, dark: !!room.dark }}>
             {room.shape === 'round' ? <RoundHub room={room} shadows={shadows} zone={map.zone} /> : <RoomMeshes room={room} geo={geo} shadows={shadows} />}
             <Fixtures room={room} lit={lit} />
-            {!room.noDynLight && <RoomLight room={room} on={lit} />}
+            {!room.noDynLight && (room.shape === 'round'
+              ? HUB_LIGHTS.map((offset, i) => <RoomLight key={i} room={room} on={lit} offset={offset} share={0.5} />)
+              : <RoomLight room={room} on={lit} />)}
           </RoomCtx.Provider>
         )
       })}

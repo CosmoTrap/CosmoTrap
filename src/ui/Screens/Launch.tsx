@@ -3,7 +3,7 @@ import { me, token } from '../../game/api'
 import { DIFF_ORDER, type Difficulty } from '../../game/difficulty'
 import { useGame, type MissionMap } from '../../game/state'
 import { fr } from '../../i18n/fr'
-import { hms, resumeGame, solvedCount, startNewGame, useCurrentSave } from './Menu'
+import { deleteCurrentSave, hms, resumeGame, solvedCount, startNewGame, useCurrentSave } from './Menu'
 import { update } from './Settings'
 import { GearIcon, openPage, Stage } from './Stage'
 
@@ -19,7 +19,10 @@ export function Launch() {
   const map = useGame((s) => s.settings.map)
   const difficulty = useGame((s) => s.settings.difficulty)
   const character = useGame((s) => s.user?.character ?? s.settings.character)
-  const save = useCurrentSave()
+  const current = useCurrentSave()
+  const [deleted, setDeleted] = useState(false)
+  // A slow answer from the account's save must not bring a deleted game back on screen.
+  const save = deleted ? null : current
   const [confirm, setConfirm] = useState(false)
   const session = !!user || offline
   const sc = save ? solvedCount(save) : null
@@ -39,13 +42,12 @@ export function Launch() {
   const enter = () => useGame.setState({ screen: session ? 'title' : 'login' })
   const launch = () => {
     if (!session) return enter()
-    if (save) return setConfirm(true)
     startNewGame(character, difficulty, map)
   }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.code !== 'Space' || e.repeat || (e.target as HTMLElement)?.tagName === 'BUTTON') return
+      if (confirm || e.code !== 'Space' || e.repeat || (e.target as HTMLElement)?.tagName === 'BUTTON') return
       e.preventDefault()
       enter()
     }
@@ -151,6 +153,13 @@ export function Launch() {
           {L.resume}
           {save && <span aria-hidden> →</span>}
         </button>
+        {save && (
+          <button type="button" className="la-trash" data-testid="delete-save" title={L.deleteSave} aria-label={L.deleteSave} onClick={() => setConfirm(true)}>
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v5.5M14 11v5.5" />
+            </svg>
+          </button>
+        )}
       </div>
 
       <div className="la-press">{L.pressToStart}</div>
@@ -165,14 +174,20 @@ export function Launch() {
 
       {confirm && (
         <div className="x-modal" onClick={() => setConfirm(false)}>
-          <div className="x-panel x-confirm" data-testid="confirm-new" onClick={(e) => e.stopPropagation()}>
+          <div className="x-panel x-confirm" data-testid="confirm-delete" onClick={(e) => e.stopPropagation()}>
             <h2>{L.confirmTitle}</h2>
             <p>{L.confirmText}</p>
             <div>
               <button type="button" className="x-ghost" onClick={() => setConfirm(false)}>
                 {L.confirmNo}
               </button>
-              <button type="button" className="x-primary" data-testid="confirm-yes" onClick={() => startNewGame(character, difficulty, map)}>
+              <button type="button" className="x-primary" data-testid="confirm-delete-yes"
+                onClick={() => {
+                  deleteCurrentSave()
+                  setDeleted(true)
+                  setConfirm(false)
+                }}
+              >
                 {L.confirmYes}
               </button>
             </div>

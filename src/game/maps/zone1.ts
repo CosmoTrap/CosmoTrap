@@ -1,6 +1,6 @@
 import type { GridMap, RoomDef, DoorDef } from '../types'
 import { modularGrid } from './modularGrid'
-import { hubDecor } from './hubDecor'
+import { hubDecor, liftEnts } from './hubDecor'
 
 // Niveau 1 : quatre ailes autour d'un nœud central. Toutes les énigmes et tous les objets sont conservés.
 const rooms: RoomDef[] = [
@@ -50,7 +50,7 @@ export const zone1: GridMap = {
     { id: 'medkit', model: 'medkit', tile: [27, 31], wall: 'E', y: 1.2, item: 'medkit', dot: 'surv' },
     { id: 'o2_c', model: 'o2', tile: [25, 32], wall: 'S', item: 'o2', dot: 'res' },
     { id: 'valves', model: 'valvePanel', tile: [32, 19], wall: 'N', y: 1.35, dot: 'key', hit: [1.2, 1.2, 0.4] },
-    { id: 'hatch', model: 'hatch', tile: [33, 20], dot: 'exit', hit: [1.5, 0.5, 1.5] },
+    ...liftEnts(rooms.find((r) => r.id === 'couloir')!),
   ],
   props: [
     ...hubDecor(rooms.find((r) => r.id === 'couloir')!),
@@ -89,7 +89,6 @@ export const zone1: GridMap = {
     { model: 'photos', tile: [27, 30], wall: 'E', y: 1.6 },
     { model: 'suitRack', tile: [34, 19], wall: 'E' },
     { model: 'suitRack', tile: [34, 21], wall: 'E' },
-    { model: 'hazard', tile: [33, 20] },
     { model: 'beacon', tile: [31, 19], wall: 'N', y: 2.4 },
     { model: 'camera', tile: [20, 26], wall: 'E', y: 2.35 },
     { model: 'camera', tile: [34, 19], wall: 'E', y: 2.35 },
