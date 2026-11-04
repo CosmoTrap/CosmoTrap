@@ -182,6 +182,8 @@ function MapTab() {
             if (ch === ' ' || !live.explored.has(`${zone}:${tx},${tz}`)) return
             const ri = map.rooms.findIndex((r) => tx >= r.rect[0] && tx <= r.rect[2] && tz >= r.rect[1] && tz <= r.rect[3])
             const room = map.rooms[ri]
+            // The grid is a navigation mask; circular rooms have their own wall.
+            if (ch === '#' && map.rooms.some((r) => r.shape === 'round' && tx >= r.rect[0] - 1 && tx <= r.rect[2] + 1 && tz >= r.rect[1] - 1 && tz <= r.rect[3] + 1)) return
             if (ch === '#') ctx.fillStyle = 'rgba(216,244,255,0.28)'
             else if (ch === 'W' || ch === 'V') ctx.fillStyle = 'rgba(127,227,255,0.85)'
             else if (ch === 'D') ctx.fillStyle = 'rgba(255,255,255,0.55)'
@@ -189,7 +191,14 @@ function MapTab() {
               const col = ROOM_COLORS[ri % ROOM_COLORS.length] ?? '#7fe3ff'
               ctx.fillStyle = room?.dark ? col + '33' : col + '55'
             }
+            ctx.save()
+            if (room?.shape === 'round') {
+              ctx.beginPath()
+              ctx.arc(ox + (room.rect[0] + room.rect[2] + 1) * ts / 2, oy + (room.rect[1] + room.rect[3] + 1) * ts / 2, (room.rect[2] - room.rect[0] + 1) * ts / 2, 0, Math.PI * 2)
+              ctx.clip()
+            }
             ctx.fillRect(ox + tx * ts, oy + tz * ts, ts - 0.6, ts - 0.6)
+            ctx.restore()
           }),
         )
         ctx.font = '700 12px Rajdhani, sans-serif'
@@ -198,6 +207,21 @@ function MapTab() {
           const cx = Math.floor((r.rect[0] + r.rect[2]) / 2)
           const cz = Math.floor((r.rect[1] + r.rect[3]) / 2)
           if (!live.explored.has(`${zone}:${cx},${cz}`)) return
+          if (r.shape === 'round') {
+            const radius = (r.rect[2] - r.rect[0] + 1) / 2
+            const opening = Math.asin(0.5 / radius)
+            const px = ox + (cx + 0.5) * ts, pz = oy + (cz + 0.5) * ts
+            for (let q = 0; q < 4; q++) {
+              const start = q * Math.PI / 2 + opening, end = (q + 1) * Math.PI / 2 - opening
+              const arc = (a: number, b: number, color: string) => {
+                ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 3
+                ctx.arc(px, pz, radius * ts, Math.PI / 2 - a, Math.PI / 2 - b, true); ctx.stroke()
+              }
+              arc(start, end, '#9aabb5')
+              arc(start + (end - start) * 10 / 32, start + (end - start) * 22 / 32, '#7fe3ff')
+            }
+            ctx.lineWidth = 1
+          }
           ctx.fillStyle = ROOM_COLORS[i % ROOM_COLORS.length]
           const labelWidth = Math.max(5, r.rect[2] - r.rect[0] + 1) * ts - 4
           ctx.fillText((fr.rooms[r.name] ?? r.name).toUpperCase() + (r.dark ? ' ◐' : ''), ox + ((r.rect[0] + r.rect[2] + 1) / 2) * ts, oy + r.rect[1] * ts + 14, labelWidth)

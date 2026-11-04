@@ -268,6 +268,8 @@ test('difficulté, imprévus, succès, fantôme et manette', async ({ page, requ
   await g(page, 'startEvent', 'blackout')
   expect((await st(page)).event?.kind).toBe('blackout')
   await g(page, 'drain', 25)
+  expect((await st(page)).event?.kind).toBe('blackout')
+  await g(page, 'drain', 10)
   expect((await st(page)).event).toBeNull()
 
   // trajectoire enregistrée pour la réplique fantôme

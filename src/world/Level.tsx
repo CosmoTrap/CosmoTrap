@@ -13,6 +13,7 @@ import { EntModels } from './props/EntModels'
 import { Props } from './props/Props'
 import { EmergencyLights } from './EmergencyLights'
 import { roomPowerCut } from './roomPower'
+import { RoundHub } from './RoundHub'
 
 export const WIN_R = 0.42
 export const WIN_Y = 1.5
@@ -103,6 +104,7 @@ function buildLevel(map: GridMap): Built {
       const c = cellAt(map, tx, tz)
       if (!isFloor(c)) continue
       const rid = roomOf(tx, tz)
+      if (map.rooms.find((room) => room.id === rid)?.shape === 'round') continue
       const r = R(rid)
       const [cx, cz] = tileCenter(tx, tz)
       const f = new THREE.PlaneGeometry(TILE, TILE)
@@ -256,6 +258,10 @@ function Fixtures({ room, lit }: { room: RoomDef; lit: boolean }) {
   const tiles = useMemo(() => {
     const out: [number, number][] = []
     const [x0, z0, x1, z1] = room.rect
+    if (room.shape === 'round') return Array.from({ length: 4 }, (_, i): [number, number] => {
+      const a = i * Math.PI / 2
+      return [(x0 + x1) / 2 + Math.sin(a) * 1.6, (z0 + z1) / 2 + Math.cos(a) * 1.6]
+    })
     const wide = x1 - x0 >= z1 - z0
     for (let tz = z0; tz <= z1; tz++)
       for (let tx = x0; tx <= x1; tx++) {
@@ -331,11 +337,11 @@ export function Level({ map, shadows }: { map: GridMap; shadows: boolean }) {
     <group>
       {map.rooms.map((room) => {
         const geo = built.rooms[room.id]
-        if (!geo) return null
+        if (!geo && room.shape !== 'round') return null
         const lit = lightsOn(room)
         return (
           <RoomCtx.Provider key={room.id} value={{ id: room.id, dark: !!room.dark }}>
-            <RoomMeshes room={room} geo={geo} shadows={shadows} />
+            {room.shape === 'round' ? <RoundHub room={room} shadows={shadows} zone={map.zone} /> : <RoomMeshes room={room} geo={geo} shadows={shadows} />}
             <Fixtures room={room} lit={lit} />
             {!room.noDynLight && <RoomLight room={room} on={lit} />}
           </RoomCtx.Provider>

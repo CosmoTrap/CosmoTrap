@@ -719,7 +719,7 @@ function updateEvents(dt: number): 'blackout' | 'leak' | null {
 
 export function startEvent(kind: 'blackout' | 'leak') {
   const s = G()
-  const dur = kind === 'blackout' ? 22 : 28
+  const dur = kind === 'blackout' ? 32 : 28
   useGame.setState({ event: { kind, until: s.playTime + dur } })
   audio.sting('danger')
   if (kind === 'blackout') {

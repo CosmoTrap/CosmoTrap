@@ -59,7 +59,7 @@
 .inventory-detail-action small { display: block; font-size: 10px; line-height: 1.6; color: var(--muted); margin-top: 12px; }
 .inventory-footer { padding: 14px 26px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; color: var(--muted); font-size: 10px; gap: 12px; }
 /* Keep interaction and dialogue above the expanded quick bar. */
-.layer .prompt { bottom: 152px; }
+.layer .prompt { top: min(calc(50% + 34px), calc(100% - 195px)); bottom: auto; }
 .layer .click-to-play { bottom: 150px; }
 .layer .subtitle { bottom: 185px; }
 @media (max-width: 900px), (max-height: 540px) {

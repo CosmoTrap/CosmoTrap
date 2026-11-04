@@ -9,8 +9,8 @@ export function roomPowerCut(room: RoomDef) {
   if (room.id === 'machinerie' && !(s.flags.power && s.flags.pw_lights)) return true
 
   const unstable = room.flicker || (s.zone === 1 && room.id === 'sas' && !s.flags.pressurized)
-  // Damaged circuits still cut out periodically. Hold each outage for six
-  // seconds instead of rapidly strobing; the gyro takes over for that duration.
+  // Sixteen seconds of backup lighting, then twenty seconds of normal power.
+  // Extending the cycle preserves the normal interval between local outages.
   // Gameplay time freezes this cycle in pause, loading and cinematics.
-  return !!unstable && s.playTime >= 8 && (s.playTime - 8) % 26 < 6
+  return !!unstable && s.playTime >= 8 && (s.playTime - 8) % 36 < 16
 }

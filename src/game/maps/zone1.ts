@@ -1,5 +1,6 @@
 import type { GridMap, RoomDef, DoorDef } from '../types'
 import { modularGrid } from './modularGrid'
+import { hubDecor } from './hubDecor'
 
 // Niveau 1 : quatre ailes autour d'un nœud central. Toutes les énigmes et tous les objets sont conservés.
 const rooms: RoomDef[] = [
@@ -8,7 +9,7 @@ const rooms: RoomDef[] = [
   { id: 'reserve', name: 'reserve', rect: [12, 30, 17, 32], dark: true, noDynLight: true },
   { id: 'infirmerie', name: 'infirmerie', rect: [19, 30, 27, 32], light: '#e8f6ff', intensity: 11, theme: 'lab' },
   { id: 'sas', name: 'sas', rect: [30, 19, 34, 21], light: '#ff5a3a', intensity: 7, theme: 'machine' },
-  { id: 'couloir', name: 'noeud', rect: [17, 17, 23, 23], light: '#dfe9ff', intensity: 10, flicker: true },
+  { id: 'couloir', name: 'noeud', shape: 'round', rect: [17, 17, 23, 23], light: '#dfe9ff', intensity: 10, flicker: true },
   { id: 'liaison_nord', name: 'liaison_nord', rect: [20, 12, 20, 16], light: '#dfe9ff', intensity: 7, flicker: true },
   { id: 'liaison_sud', name: 'liaison_sud', rect: [20, 24, 20, 28], light: '#dfe9ff', intensity: 7, flicker: true },
   { id: 'liaison_ouest', name: 'liaison_ouest', rect: [12, 20, 16, 20], light: '#dfe9ff', intensity: 7, flicker: true },
@@ -52,6 +53,7 @@ export const zone1: GridMap = {
     { id: 'hatch', model: 'hatch', tile: [33, 20], dot: 'exit', hit: [1.5, 0.5, 1.5] },
   ],
   props: [
+    ...hubDecor(rooms.find((r) => r.id === 'couloir')!),
     { model: 'bunk', tile: [5, 19], wall: 'W' },
     { model: 'bunk', tile: [5, 21], wall: 'W' },
     { model: 'shelf', tile: [9, 19], wall: 'N', y: 1 },

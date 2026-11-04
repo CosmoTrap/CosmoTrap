@@ -1,5 +1,6 @@
 import type { GridMap, RoomDef, DoorDef } from '../types'
 import { modularGrid } from './modularGrid'
+import { atHub, hubDecor } from './hubDecor'
 
 // Niveau 2 : quatre ailes autour d'un nœud central. Toutes les énigmes et tous les objets sont conservés.
 const rooms: RoomDef[] = [
@@ -8,7 +9,7 @@ const rooms: RoomDef[] = [
   { id: 'disjoncteur', name: 'disjoncteur', rect: [31, 17, 37, 19], light: '#ffb070', intensity: 5, theme: 'machine' },
   { id: 'machinerie', name: 'machinerie', rect: [14, 28, 28, 31], dark: true, light: '#cfe0ff', intensity: 16, theme: 'machine' },
   { id: 'amarrage', name: 'amarrage', rect: [5, 16, 11, 19], light: '#9fd0ff', intensity: 9, theme: 'machine' },
-  { id: 'couloir', name: 'noeud', rect: [18, 15, 24, 21], light: '#dfe9ff', intensity: 10, flicker: true },
+  { id: 'couloir', name: 'noeud', shape: 'round', rect: [18, 15, 24, 21], light: '#dfe9ff', intensity: 10, flicker: true },
   { id: 'liaison_nord', name: 'liaison_nord', rect: [21, 9, 21, 14], light: '#dfe9ff', intensity: 7, flicker: true },
   { id: 'liaison_sud', name: 'liaison_sud', rect: [21, 22, 21, 26], light: '#dfe9ff', intensity: 7, flicker: true },
   { id: 'liaison_ouest', name: 'liaison_ouest', rect: [13, 18, 17, 18], light: '#dfe9ff', intensity: 7, flicker: true },
@@ -51,6 +52,7 @@ export const zone2: GridMap = {
     { id: 'dockExit', model: 'dockHatch', tile: [5, 18], wall: 'W', y: 1.2, dot: 'exit', hit: [0.6, 2.2, 1.8] },
   ],
   props: [
+    ...hubDecor(rooms.find((r) => r.id === 'couloir')!),
     { model: 'labBench', tile: [11, 5], wall: 'N' },
     { model: 'labBench', tile: [14, 5], wall: 'N' },
     { model: 'labBench', tile: [14, 7], wall: 'S' },
@@ -65,7 +67,7 @@ export const zone2: GridMap = {
     { model: 'plantRack', tile: [19, 7], wall: 'S' },
     { model: 'plantRack', tile: [21, 7], wall: 'S', off: [0, 0.18], pushable: 'serre-cart' },
     { model: 'plant', tile: [24, 7], off: [0.4, 0.3] },
-    { model: 'ladder', tile: [20, 15], wall: 'N' },
+    atHub(rooms.find((r) => r.id === 'couloir')!, 'ladder', 286, 6.92),
     { model: 'pipes', tile: [13, 18], scale: 5 },
     { model: 'brokenPipe', tile: [28, 18] },
     { model: 'extinguisher', tile: [15, 18], wall: 'N' },

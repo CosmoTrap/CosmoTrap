@@ -8,7 +8,13 @@ export function modularGrid(rooms: RoomDef[], doors: DoorDef[], windows: [number
   for (const room of rooms) {
     const [x0, z0, x1, z1] = room.rect
     for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
-      if (room.id === hub && Math.abs(x - (x0 + x1) / 2) + Math.abs(z - (z0 + z1) / 2) > 4) continue
+      if (room.id === hub) {
+        // Include every tile intersecting the circular interior. The curved
+        // meshes and collision surface define the exact boundary in 3D.
+        const dx = Math.max(0, Math.abs(x - (x0 + x1) / 2) - 0.5)
+        const dz = Math.max(0, Math.abs(z - (z0 + z1) / 2) - 0.5)
+        if (Math.hypot(dx, dz) > (x1 - x0 + 1) / 2) continue
+      }
       cells[z][x] = '.'
     }
   }

@@ -103,6 +103,8 @@ test('la coupure allume des faisceaux rouges rotatifs continus puis rétablit le
   expect(samples.at(-1).target).not.toEqual(before.target)
   await page.screenshot({ path: 'test-results/emergency-beacon.png' })
   await page.evaluate(() => window.__game.drain(23))
+  expect(await page.evaluate(() => window.__game.state().event?.kind)).toBe('blackout')
+  await page.evaluate(() => window.__game.drain(10))
   expect(await page.evaluate(() => window.__game.state().event)).toBeNull()
   await page.waitForFunction(() => (window as any).testScene.getObjectByName('alert-beam:0').intensity === 0)
   await page.waitForFunction(() => (window as any).testScene.getObjectByName('room-light:couloir').intensity > 10)
@@ -128,6 +130,8 @@ test('les coupures régulières du couloir reviennent et les gyrophares prennent
   expect(await page.evaluate(() => window.__game.state().event)).toBeNull()
   await page.screenshot({ path: 'test-results/power-cut-red.png' })
   await page.evaluate(() => window.__game.drain(6))
+  expect(await page.evaluate(() => (window as any).testScene.getObjectByName('room-light:couloir').intensity)).toBe(0)
+  await page.evaluate(() => window.__game.drain(10))
   await page.waitForFunction(() => (window as any).testScene.getObjectByName('room-light:couloir').intensity > 10)
   expect(await page.evaluate(() => (window as any).testScene.getObjectByName('alert-beam:0').intensity)).toBe(0)
   // The local outage must recur, independently of random global events.
