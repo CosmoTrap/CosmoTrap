@@ -1,7 +1,7 @@
 import { act, cycleItem, drinkPouch, toggleLamp, useBattery, useSelectedItem, useO2 } from '../game/logic'
 import { G, live, useGame } from '../game/state'
 import { skipCine } from '../world/Cinematics'
-import { aim, closeInventory, closeTablet, openInventory, openTablet } from './Player'
+import { aim, closeTablet, openInventory, openTablet } from './Player'
 import { input, type PadType } from './input'
 
 // Manette (mapping standard Xbox / PlayStation), réaffectable dans Paramètres › Touches :
@@ -25,17 +25,17 @@ const dz = (v: number) => (Math.abs(v) < DZ ? 0 : Math.sign(v) * ((Math.abs(v) -
 
 function overlayOpen() {
   const s = G()
-  return s.screen !== 'playing' || s.loading < 1 || s.tabletOpen || s.inventoryOpen || !!s.puzzle || !!s.readNote || s.paused || s.settingsOpen
+  return s.screen !== 'playing' || s.loading < 1 || s.tabletOpen || !!s.puzzle || !!s.readNote || s.paused || s.settingsOpen
 }
 
 /** déplacement du focus entre boutons visibles (menus, énigmes, tablette) */
 function moveFocus(dx: number, dy: number) {
-  const els = [...document.querySelectorAll<HTMLElement>('button:not([disabled]), input[type=range], .char, .diff')].filter((e) => {
+  const els = [...document.querySelectorAll<HTMLElement | SVGElement>('button:not([disabled]), input[type=range], .char, .diff, .nav-room')].filter((e) => {
     const r = e.getBoundingClientRect()
     return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden'
   })
   if (!els.length) return
-  const cur = document.activeElement as HTMLElement | null
+  const cur = document.activeElement as HTMLElement | SVGElement | null
   if (!cur || !els.includes(cur)) {
     els[0].focus()
     return
@@ -43,7 +43,7 @@ function moveFocus(dx: number, dy: number) {
   const a = cur.getBoundingClientRect()
   const ax = a.left + a.width / 2
   const ay = a.top + a.height / 2
-  let best: HTMLElement | null = null
+  let best: HTMLElement | SVGElement | null = null
   let bestD = Infinity
   for (const e of els) {
     if (e === cur) continue
@@ -115,13 +115,17 @@ export function pollGamepad(dt: number) {
     if (s.screen === 'playing' && !s.cine) {
       if (s.puzzle || s.readNote) useGame.setState({ puzzle: null, readNote: null })
       else if (s.tabletOpen) closeTablet()
-      else if (s.inventoryOpen) closeInventory()
       else useGame.setState({ paused: !s.paused })
     }
   }
   if (pressed(8, b) && s.cine) skipCine()
 
   if (menu) {
+    if (s.tabletOpen && !s.tabletReady) {
+      if (pressed(1, b) || pressed(P.tablet, b) || pressed(P.inventory, b)) closeTablet()
+      prev = b.map((x) => x.pressed)
+      return
+    }
     // navigation dans les menus
     navCooldown -= dt
     const ny = (b[12]?.pressed ? -1 : 0) + (b[13]?.pressed ? 1 : 0) || (Math.abs(ax[1] ?? 0) > 0.6 ? Math.sign(ax[1]) : 0)
@@ -136,15 +140,17 @@ export function pollGamepad(dt: number) {
       navCooldown = 0.18
     }
     if (!nx && !ny) navCooldown = 0
-    if (pressed(0, b)) (document.activeElement as HTMLElement | null)?.click()
+    if (pressed(0, b)) {
+      const focused = document.activeElement
+      if (focused instanceof HTMLElement) focused.click()
+      else focused?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    }
     if (pressed(1, b)) {
       if (s.tabletOpen) closeTablet()
-      else if (s.inventoryOpen) closeInventory()
       else if (s.puzzle || s.readNote) useGame.setState({ puzzle: null, readNote: null })
       else if (s.paused) useGame.setState({ paused: false })
       else if (s.settingsOpen) useGame.setState({ settingsOpen: false })
     }
-    if (pressed(P.inventory, b) && s.inventoryOpen) closeInventory()
     if ((pressed(P.tablet, b) || pressed(P.inventory, b) || pressed(P.hint, b)) && s.tabletOpen) closeTablet()
   } else if (s.screen === 'playing' && (!s.cine || s.cine === 'briefing')) {
     if (pressed(P.act, b) && aim.id && !s.cine) act(aim.id)
@@ -152,7 +158,7 @@ export function pollGamepad(dt: number) {
     if (pressed(P.lamp, b)) toggleLamp()
     if (pressed(P.tablet, b)) openTablet()
     if (pressed(P.inventory, b)) openInventory()
-    if (pressed(P.hint, b)) { useGame.setState({ tab: 0 }); openTablet() }
+    if (pressed(P.hint, b)) openTablet(1)
     if (pressed(P.o2, b)) useO2()
     if (pressed(P.battery, b)) useBattery()
     if ((b[P.drink]?.value ?? 0) > 0.5 && !prev[P.drink]) drinkPouch()

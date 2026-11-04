@@ -9,7 +9,6 @@ import { isTouch } from './player/Player'
 import { detectPadType, startGamepadLoop } from './player/gamepad'
 import { setKeyLayout } from './player/input'
 import { Hud } from './ui/Hud'
-import { Inventory } from './ui/Inventory'
 import { MobileControls } from './ui/Mobile'
 import { End, NoteReader, Pause, Prologue, PuzzleHost, RotatePhone, SkipCine } from './ui/Screens/Screens'
 import { Launch } from './ui/Screens/Launch'
@@ -51,7 +50,6 @@ export default function App() {
   const screen = useGame((s) => s.screen)
   const paused = useGame((s) => s.paused)
   const tablet = useGame((s) => s.tabletOpen)
-  const inventory = useGame((s) => s.inventoryOpen)
   const settingsOpen = useGame((s) => s.settingsOpen)
   const cine = useGame((s) => s.cine)
   const vols = useGame((s) => s.settings)
@@ -113,7 +111,7 @@ export default function App() {
           gl.outputColorSpace = THREE.SRGBColorSpace
         }}
         onPointerDown={() => {
-          if (playing && useGame.getState().loading === 1 && !touch && !useGame.getState().locked && !paused && !tablet && !inventory && !useGame.getState().puzzle && !useGame.getState().cine && !settingsOpen && !useGame.getState().readNote) {
+          if (playing && useGame.getState().loading === 1 && !touch && !useGame.getState().locked && !paused && !tablet && !useGame.getState().puzzle && !useGame.getState().cine && !settingsOpen && !useGame.getState().readNote) {
             ;(document.querySelector('canvas') as any)?.requestPointerLock?.()?.catch?.(() => {})
           }
         }}
@@ -138,9 +136,8 @@ export default function App() {
         <>
           <Hud />
           <SceneLoading />
-          {touch && !paused && !inventory && !tablet && !settingsOpen && !useGame.getState().puzzle && !useGame.getState().readNote && (!cine || cine === 'briefing') && <MobileControls />}
+          {touch && !paused && !tablet && !settingsOpen && !useGame.getState().puzzle && !useGame.getState().readNote && (!cine || cine === 'briefing') && <MobileControls />}
           {tablet && <Tablet />}
-          {inventory && !cine && !paused && <Inventory />}
           <PuzzleHost />
           <NoteReader />
           <SkipCine />

@@ -308,21 +308,7 @@ function Postits() {
 }
 
 function Plant() {
-  const m = useMats()
-  const leaves = useMemo(() => {
-    texSeed(9)
-    return Array.from({ length: 14 }, () => [texRnd() * Math.PI * 2, 0.3 + texRnd() * 0.5, 0.4 + texRnd() * 0.6] as const)
-  }, [])
-  return (
-    <group>
-      <Cyl a={[0.18, 0.14, 0.35]} p={[0, 0.175, 0]} m={m.plastic('#e8e3d8', 0.4)} />
-      {leaves.map(([a, tilt, h], i) => (
-        <mesh key={i} position={[Math.cos(a) * 0.08, 0.35 + h * 0.3, Math.sin(a) * 0.08]} rotation={[tilt * Math.sin(a), a, tilt * Math.cos(a)]} material={m.plastic('#3f7d3a', 0.6)} castShadow>
-          <coneGeometry args={[0.06, h, 4]} />
-        </mesh>
-      ))}
-    </group>
-  )
+  return <RealModel id="potted_plant_02" solid height={0.58} />
 }
 
 function WallScreen() {
@@ -595,6 +581,7 @@ function Beacon() {
   })
   return (
     <group position={[0, 0, 0.12]}>
+      <Box s={[0.06, 0.22, 0.04]} p={[0, 0.1, -0.06]} m={m.metal('#2d3034')} />
       <Cyl a={[0.08, 0.09, 0.06]} m={m.metal('#2d3034')} />
       <mesh position={[0, 0.08, 0]} material={mat}>
         <sphereGeometry args={[0.07, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
@@ -612,10 +599,15 @@ function LabBench() {
       {[-0.6, 0, 0.6].map((x) => (
         <Box key={x} s={[0.55, 0.22, 0.01]} p={[x, 0.7, 0.715]} m={m.painted('#bfc5c9', 0.45, 0.2)} />
       ))}
-      <Box s={[1.9, 0.5, 0.3]} p={[0, 1.85, 0.15]} m={m.painted('#d3d8db', 0.45, 0.2)} />
-      <mesh position={[0, 1.58, 0.2]} material={m.glow('#e8f6ff', 2.5)}>
-        <boxGeometry args={[1.6, 0.02, 0.05]} />
-      </mesh>
+      {/* colonnes latérales : le hublot, au centre du mur, reste dégagé */}
+      {[-0.62, 0.62].map((x) => (
+        <Box key={x} s={[0.5, 0.42, 0.26]} p={[x, 1.72, 0.16]} m={m.painted('#d3d8db', 0.45, 0.2)} />
+      ))}
+      {[-0.62, 0.62].map((x) => (
+        <mesh key={`light-${x}`} position={[x, 1.48, 0.2]} material={m.glow('#e8f6ff', 1.6)}>
+          <boxGeometry args={[0.36, 0.012, 0.06]} />
+        </mesh>
+      ))}
     </group>
   )
 }
@@ -653,7 +645,7 @@ function PlantRack({ movable = false }: { movable?: boolean }) {
   const leaf2 = m.plastic('#2f6b2c', 0.65)
   const pos = useMemo(() => {
     texSeed(4)
-    return Array.from({ length: 22 }, () => [texRnd() * 1.6 - 0.8, texRnd() * 0.3, texRnd()] as const)
+    return Array.from({ length: 10 }, () => [texRnd() * 1.5 - 0.75, texRnd() * 0.28, texRnd()] as const)
   }, [])
   return (
     <group>
@@ -662,9 +654,15 @@ function PlantRack({ movable = false }: { movable?: boolean }) {
           <Box s={[1.9, 0.18, 0.6]} m={m.painted('#e9ece8', 0.4, 0.2)} />
           <Box s={[1.85, 0.03, 0.55]} p={[0, 0.1, 0]} m={m.fabric('#3b2c1f')} />
           {pos.map(([x, z, s], i) => (
-            <mesh key={i} position={[x, 0.18 + s * 0.1, z - 0.15]} material={i % 2 ? leaf : leaf2} castShadow>
-              <sphereGeometry args={[0.07 + s * 0.06, 7, 5]} />
-            </mesh>
+            <group key={i} position={[x, 0.16, z - 0.15]}>
+              <Cyl a={[0.006, 0.008, 0.05]} p={[0, 0.02, 0]} m={m.plastic('#3d5a32', 0.6)} seg={6} />
+              {[0, 1.4, 2.7, 4.1].map((k) => (
+                <mesh key={k} position={[Math.cos(s * 8 + k) * 0.035, 0.045, Math.sin(s * 8 + k) * 0.03]}
+                  rotation={[0.85, s * 8 + k, 0.2]} material={i % 2 ? leaf : leaf2} castShadow>
+                  <boxGeometry args={[0.1 + s * 0.04, 0.008, 0.04]} />
+                </mesh>
+              ))}
+            </group>
           ))}
           <mesh position={[0, 0.6, 0]} material={m.glow('#ff5ad1', 3)}>
             <boxGeometry args={[1.7, 0.03, 0.08]} />
@@ -877,6 +875,153 @@ function CrewSeats() {
   )
 }
 
+/** tapis de course le long du mur : bande longue, rails, console à une extrémité */
+function Treadmill() {
+  const m = useMats()
+  const frame = m.painted('#2a2e33', 0.4, 0.5)
+  return (
+    <group>
+      <Box s={[1.35, 0.08, 0.48]} p={[0, 0.1, 0.32]} m={frame} />
+      <Box s={[1.18, 0.015, 0.34]} p={[0, 0.148, 0.32]} m={m.rubber()} />
+      {[-0.56, 0.56].map((x) => (
+        <Cyl key={x} a={[0.035, 0.035, 0.36]} p={[x, 0.14, 0.32]} r={[Math.PI / 2, 0, 0]} m={m.metal('#8a8e93')} seg={12} />
+      ))}
+      {[-0.2, 0.2].map((z) => (
+        <Box key={z} s={[1.28, 0.025, 0.025]} p={[0, 0.2, 0.32 + z]} m={m.metal('#b0b4b8')} />
+      ))}
+      {[-0.62, 0.62].map((x) => (
+        <Box key={x} s={[0.06, 0.1, 0.5]} p={[x, 0.05, 0.32]} m={frame} />
+      ))}
+      <Box s={[0.04, 0.7, 0.04]} p={[0.58, 0.5, 0.2]} m={m.metal('#9aa0a6')} />
+      <Box s={[0.04, 0.7, 0.04]} p={[0.58, 0.5, 0.44]} m={m.metal('#9aa0a6')} />
+      <Box s={[0.07, 0.2, 0.3]} p={[0.6, 0.86, 0.32]} m={m.plastic('#141618', 0.35)} />
+      <Screen w={0.2} h={0.09} p={[0.6, 0.87, 0.48]} lines={['6,4 km/h']} fg="#9dffa8" intensity={0.55} />
+    </group>
+  )
+}
+
+/** ergomètre : cadre tubulaire, volant, selle, guidon, pédales */
+function ErgBike() {
+  const m = useMats()
+  const frame = m.metal('#d0d4d8', 0.22)
+  const dark = m.painted('#1c1f24', 0.4, 0.55)
+  return (
+    <group>
+      {[-0.16, 0.16].map((x) => (
+        <Cyl key={x} a={[0.016, 0.016, 0.74]} p={[x, 0.035, 0.4]} r={[Math.PI / 2, 0, 0]} m={dark} seg={10} />
+      ))}
+      <Cyl a={[0.016, 0.016, 0.34]} p={[0, 0.035, 0.08]} r={[0, 0, Math.PI / 2]} m={dark} seg={10} />
+      <Cyl a={[0.016, 0.016, 0.34]} p={[0, 0.035, 0.7]} r={[0, 0, Math.PI / 2]} m={dark} seg={10} />
+      <Cyl a={[0.2, 0.2, 0.035]} p={[0, 0.26, 0.58]} r={[0, 0, Math.PI / 2]} m={m.metal('#2c3036', 0.4)} seg={24} />
+      <Cyl a={[0.045, 0.045, 0.05]} p={[0, 0.26, 0.58]} r={[0, 0, Math.PI / 2]} m={frame} seg={12} />
+      <Cyl a={[0.018, 0.018, 0.48]} p={[0, 0.48, 0.36]} r={[1.05, 0, 0]} m={frame} seg={10} />
+      <Cyl a={[0.016, 0.016, 0.4]} p={[0, 0.5, 0.24]} r={[-0.4, 0, 0]} m={frame} seg={10} />
+      <Cyl a={[0.016, 0.016, 0.32]} p={[0, 0.62, 0.18]} m={frame} seg={8} />
+      <Box s={[0.11, 0.04, 0.26]} p={[0, 0.8, 0.18]} m={m.fabric('#1e3a5f')} />
+      <Cyl a={[0.016, 0.016, 0.48]} p={[0, 0.52, 0.62]} r={[0.7, 0, 0]} m={frame} seg={8} />
+      <Cyl a={[0.014, 0.014, 0.34]} p={[0, 0.78, 0.74]} r={[0, 0, Math.PI / 2]} m={m.rubber()} seg={10} />
+      <Cyl a={[0.012, 0.012, 0.24]} p={[0, 0.24, 0.42]} r={[0, 0, Math.PI / 2]} m={frame} seg={8} />
+      {[-0.13, 0.13].map((x) => (
+        <Box key={x} s={[0.07, 0.016, 0.11]} p={[x, 0.24, 0.42]} m={m.plastic('#22262b', 0.5)} />
+      ))}
+      <Screen w={0.12} h={0.07} p={[0, 0.86, 0.78]} lines={['92 W']} fg="#9dffa8" intensity={0.5} />
+    </group>
+  )
+}
+
+/** pèse-personne : plateforme ovale basse, assez large pour les deux pieds */
+function BodyScale() {
+  const m = useMats()
+  return (
+    <group>
+      <mesh position={[0, 0.03, 0]} scale={[1.15, 1, 0.9]} material={m.plastic('#f4f6f8', 0.32)} castShadow receiveShadow>
+        <cylinderGeometry args={[0.2, 0.21, 0.03, 28]} />
+      </mesh>
+      <mesh position={[0, 0.048, 0.05]} material={m.plastic('#12161a', 0.28)}>
+        <boxGeometry args={[0.1, 0.006, 0.055]} />
+      </mesh>
+      <Screen w={0.08} h={0.032} p={[0, 0.052, 0.05]} lines={['72.4']} fg="#9dffa8" intensity={0.35} />
+      {[[-0.14, -0.1], [0.14, -0.1], [-0.14, 0.1], [0.14, 0.1]].map(([x, z], i) => (
+        <Cyl key={i} a={[0.014, 0.016, 0.014]} p={[x, 0.007, z]} m={m.rubber()} seg={8} />
+      ))}
+    </group>
+  )
+}
+
+function Lounge() {
+  const m = useMats()
+  const cloth = m.fabric('#5c4638')
+  return (
+    <group>
+      <Box s={[0.72, 0.12, 0.48]} p={[0, 0.32, 0.32]} m={cloth} />
+      <Box s={[0.72, 0.42, 0.1]} p={[0, 0.58, 0.12]} m={cloth} />
+      {[-0.38, 0.38].map((x) => (
+        <Box key={x} s={[0.08, 0.22, 0.48]} p={[x, 0.42, 0.32]} m={cloth} />
+      ))}
+      {[-0.28, 0.28].map((x) => [-0.02, 0.5].map((z) => (
+        <Cyl key={`${x}:${z}`} a={[0.02, 0.02, 0.22]} p={[x, 0.11, 0.16 + z]} m={m.metal('#8d9196')} seg={8} />
+      )))}
+    </group>
+  )
+}
+
+function SideTable() {
+  const m = useMats()
+  return (
+    <group>
+      <Cyl a={[0.16, 0.16, 0.025]} p={[0, 0.44, 0.28]} m={m.plastic('#d8d2c6', 0.35)} seg={20} />
+      <Cyl a={[0.025, 0.03, 0.4]} p={[0, 0.22, 0.28]} m={m.metal('#8d9196')} seg={10} />
+      <Cyl a={[0.1, 0.1, 0.02]} p={[0, 0.02, 0.28]} m={m.metal('#6a6e73')} seg={12} />
+    </group>
+  )
+}
+
+function Dumbbells() {
+  const m = useMats()
+  const iron = m.metal('#6a6e73', 0.4)
+  return (
+    <group position={[0, 0.06, 0]}>
+      {[ -0.12, 0.12].map((x) => (
+        <group key={x} position={[x, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <Cyl a={[0.018, 0.018, 0.22]} m={iron} seg={8} />
+          <Cyl a={[0.05, 0.05, 0.03]} p={[0, 0.08, 0]} m={iron} seg={12} />
+          <Cyl a={[0.05, 0.05, 0.03]} p={[0, -0.08, 0]} m={iron} seg={12} />
+        </group>
+      ))}
+    </group>
+  )
+}
+
+function Poster() {
+  const m = useMats()
+  const mat = useMemo(() => new THREE.MeshStandardMaterial({
+    map: textTexture(['CONDITIONNEMENT', '', '1. Tapis  20 min', '2. Vélo  15 min', '3. Élastiques', '', 'Chaque jour — Cdte'], { w: 256, h: 340, bg: '#12324a', fg: '#e7f6ff', size: 22, align: 'center', pad: 16 }),
+    roughness: 0.45,
+  }), [])
+  return (
+    <group>
+      <Box s={[0.62, 0.82, 0.02]} p={[0, 0, 0.01]} m={m.metal('#8d9196', 0.35)} />
+      <mesh position={[0, 0, 0.022]} material={mat}>
+        <planeGeometry args={[0.54, 0.74]} />
+      </mesh>
+    </group>
+  )
+}
+
+function Bands() {
+  const m = useMats()
+  return (
+    <group>
+      <Box s={[0.22, 0.04, 0.04]} p={[0, 0.12, 0.02]} m={m.metal('#8d9196')} />
+      {[-0.05, 0.05].map((x, i) => (
+        <mesh key={x} position={[x, -0.02, 0.06]} material={m.plastic(i ? '#3aa0ff' : '#e23b4a', 0.5)}>
+          <torusGeometry args={[0.06, 0.012, 8, 16]} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
 function EngineCore() {
   const m = useMats()
   const engine = useGame((s) => s.flags.engine)
@@ -953,4 +1098,15 @@ export const PROP_MODELS: Record<string, (p: { color?: string; scale?: number; m
   dockHatch: () => <DockHatch />,
   crewSeats: () => <CrewSeats />,
   engineCore: () => <EngineCore />,
+  treadmill: () => <Treadmill />,
+  ergBike: () => <ErgBike />,
+  bodyScale: () => <BodyScale />,
+  lounge: () => <Lounge />,
+  sideTable: () => <SideTable />,
+  chemSet: () => <RealModel id="chemistry_set" height={0.28} p={[0, 0, 0.22]} />,
+  gasTank: () => <RealModel id="propane_tank" solid height={0.72} />,
+  shelfUnit: () => <RealModel id="steel_frame_shelves_01" solid fit="wall" height={1.7} />,
+  dumbbells: () => <Dumbbells />,
+  poster: () => <Poster />,
+  bands: () => <Bands />,
 }

@@ -14,7 +14,7 @@ function beaconsFor(room: RoomDef): BeaconDef[] {
   const w = (x1 - x0 + 1) * TILE, h = (z1 - z0 + 1) * TILE
   const n = Math.max(1, Math.ceil(Math.max(w, h) / 8))
   return Array.from({ length: n }, (_, i) => ({ room, id: `${room.id}:${i}`, pos: [
-    x0 * TILE + (w >= h ? w * (i + 0.5) / n : w / 2), CEIL - 0.32,
+    x0 * TILE + (w >= h ? w * (i + 0.5) / n : w / 2), CEIL,
     z0 * TILE + (w >= h ? h / 2 : h * (i + 0.5) / n),
   ] }))
 }
@@ -32,12 +32,14 @@ function Beacon({ room, pos, id }: BeaconDef) {
     if (rotor.current) rotor.current.rotation.y = angle(room)
   })
   return <group position={pos} name={`alert-beacon:${id}`}>
-    <Cyl a={[0.14, 0.14, 0.045]} p={[0, 0.15, 0]} m={m.metal('#43494b')} />
-    <Cyl a={[0.095, 0.1, 0.19]} p={[0, 0.04, 0]} m={m.glass('#a71b0d', 0.34)} seg={24} />
-    <Cyl a={[0.105, 0.105, 0.025]} p={[0, -0.06, 0]} m={m.metal('#383d40')} />
-    <group ref={rotor}>
-      <Cyl a={[0.065, 0.065, 0.018]} r={[Math.PI / 2, 0, 0]} p={[0, 0.035, 0.044]} m={lens} seg={24} />
-      <Cyl a={[0.03, 0.03, 0.14]} p={[0, 0.025, 0]} m={m.metal('#a2a19c', 0.25)} />
+    {/* y = 0 est le plafond : le socle y est vissé, le fût pend en dessous */}
+    <Cyl a={[0.16, 0.16, 0.02]} p={[0, -0.012, 0]} m={m.metal('#43494b')} />
+    <Cyl a={[0.07, 0.09, 0.06]} p={[0, -0.05, 0]} m={m.metal('#383d40')} />
+    <Cyl a={[0.095, 0.1, 0.2]} p={[0, -0.18, 0]} m={m.glass('#a71b0d', 0.34)} seg={24} />
+    <Cyl a={[0.105, 0.105, 0.02]} p={[0, -0.29, 0]} m={m.metal('#383d40')} />
+    <group ref={rotor} position={[0, -0.18, 0]}>
+      <Cyl a={[0.065, 0.065, 0.018]} r={[Math.PI / 2, 0, 0]} p={[0, 0, 0.05]} m={lens} seg={24} />
+      <Cyl a={[0.03, 0.03, 0.14]} p={[0, 0, 0]} m={m.metal('#a2a19c', 0.25)} />
     </group>
   </group>
 }

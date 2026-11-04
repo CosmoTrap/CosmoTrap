@@ -90,15 +90,23 @@ et demandent une carte graphique plus puissante. Garder la résolution sur
 | S’accroupir | Ctrl | — |
 | Agir | E | Bouton « Agir » |
 | Lampe | F | Bouton « Lampe » |
-| Oxygène, piles, boire | O, R, B | Tablette → Sac |
-| Inventaire complet | I (ou touche personnalisée), I / Échap pour fermer | Bouton Inventaire |
+| Oxygène, piles, boire | O, R, B | Tablette → Inventaire |
+| Tablette → Inventaire | I (ou touche personnalisée), I / Échap pour fermer | Bouton Inventaire |
 | Sélection d’objet | Molette ou 1 à 9, sans consommer | Toucher une case / flèches de la barre |
 | Utiliser la sélection | X, ou bouton dans l’inventaire | Bouton d’utilisation |
-| Tablette | Tab | Bouton « Tablette » |
+| Tablette → Plan | Tab | Bouton « Tablette » |
+| Tablette → Journal et indices | H | Onglet « Journal » |
 | Pause | P ou Échap | Bouton « Pause » |
 | Passer une cinématique | Entrée ou bouton « Passer » | Bouton « Passer » |
 
 **Regard.** Il marche à la souris (clic pour la verrouiller), au glisser-cliquer, et à Alt + glisser à deux doigts sur le pavé tactile (réglage activé par défaut).
+
+**Tablette de poignet.** Le bras gauche se lève avant l'ouverture du terminal.
+Ses quatre onglets regroupent le **Plan** (pièces réelles, position et orientation,
+choix du niveau, zoom et recentrage), le **Journal** (missions, progression et
+indices), les **Messages** (transmissions, alertes et documents reçus, conservés
+dans la sauvegarde) et l'**Inventaire** (objets, quantités et utilisation).
+La barre d'objets reste accessible à la molette pendant le jeu.
 
 **Chariot de la serre (zone 2).** Avancer contre l'étagère à légumes sur roulettes
 pour la pousser et dégager l'entrée. Sa position est conservée dans la sauvegarde.
@@ -137,7 +145,7 @@ Le classement est séparé par difficulté.
 ### Imprévus (zones 1 à 3)
 
 - **Coupure de courant** (32 s) : l’éclairage normal s’éteint et les gyrophares rouges prennent le relais. Les coupures locales des couloirs durent 16 s ; la lampe reste utilisable.
-- **Micro-fuite** (28 s) : l'O₂ baisse 2,2 fois plus vite. Le ruban adhésif (objet de survie, Tablette → Sac → Colmater) l'arrête tout de suite.
+- **Micro-fuite** (28 s) : l'O₂ baisse 2,2 fois plus vite. Le ruban adhésif (objet de survie, Tablette → Inventaire → Colmater) l'arrête tout de suite.
 
 ### Succès et réplique fantôme
 
@@ -149,7 +157,7 @@ Le classement est séparé par difficulté.
   - Code faux, mauvaise séquence ou programme mal exécuté : −30 s.
   - Tâche lancée trop tôt dans le planning : −20 s.
   - Mauvaise fréquence radio : −20 s.
-- **Indices.** Il y a 2 niveaux par étape, dans la tablette, onglet Mission :
+- **Indices.** Il y a 2 niveaux par étape, dans la tablette, onglet Journal :
   - indice léger : −30 s ;
   - indice fort : −60 s.
 

@@ -9,6 +9,7 @@ import { textTexture } from '../world/textures'
 import { HeldItem } from './HandheldModels'
 import { handFabric } from './handMaterials'
 import { skinOf } from '../world/skins'
+import { TABLET_RAISE_MS } from './tabletMotion'
 
 type V3 = [number, number, number]
 
@@ -19,7 +20,7 @@ function Stitch({ points, radius = 0.001, material }: { points: V3[]; radius?: n
 }
 
 /** Closed EVA glove, centered on the grip rather than floating below the tool. */
-function Glove({ side = 1 }: { side?: 1 | -1 }) {
+function Glove({ side = 1, sleeve = true }: { side?: 1 | -1; sleeve?: boolean }) {
   const m = useMats()
   const character = useGame((s) => s.character)
   const look = skinOf(character)
@@ -28,14 +29,14 @@ function Glove({ side = 1 }: { side?: 1 | -1 }) {
   const rubber = m.rubber('#303a39')
   const seam = m.fabric('#c3c1b0')
   return <group scale={[side, 1, 1]} name="eva-glove">
-    <group position={[0.012, -0.20, 0.11]} rotation={[-0.34, 0, -0.06]}>
+    {sleeve && <group position={[0.012, -0.20, 0.11]} rotation={[-0.34, 0, -0.06]}>
       <mesh material={cloth} receiveShadow><cylinderGeometry args={[0.048, 0.064, 0.26, 24]} /></mesh>
       {[-0.085, -0.057, -0.025].map((y) => <mesh key={y} position={[0, y, 0]} material={cloth} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.053, 0.004, 8, 32]} />
       </mesh>)}
       <Box s={[0.055, 0.09, 0.005]} p={[0, 0.012, 0.05]} m={leather} />
       <Stitch points={[[-0.028, -0.03, 0.051], [-0.028, 0.055, 0.051], [0.028, 0.055, 0.051], [0.028, -0.03, 0.051]]} material={seam} />
-    </group>
+    </group>}
     <group position={[0.006, -0.079, 0.063]} rotation={[-0.25, 0, 0]}>
       <Cyl a={[0.048, 0.05, 0.025]} m={rubber} seg={32} />
       <Cyl a={[0.05, 0.05, 0.005]} p={[0, -0.007, 0]} m={m.painted('#8b5235', 0.65, 0.15)} seg={32} />
@@ -64,21 +65,37 @@ function Glove({ side = 1 }: { side?: 1 | -1 }) {
 
 function TabletModel() {
   const m = useMats()
+  const character = useGame((s) => s.character)
+  const cloth = handFabric(skinOf(character).suit)
   const screen = useMemo(() => {
-    const map = textTexture(['SELENE-7  /  FIELD TERMINAL', 'MISSION CONTROL', 'SYSTEMS • ONLINE', 'O2 / POWER / NAVIGATION'],
-      { w: 1024, h: 640, size: 48, bg: '#101d24', fg: '#8eafb2', pad: 50 })
+    const map = textTexture(['SELENE-7  /  NAV', 'PLAN   JOURNAL   MESSAGES', 'TERMINAL • CONNECTED', 'INVENTORY / CREW SYSTEMS'],
+      { w: 1024, h: 640, size: 44, bg: '#10142e', fg: '#9bb3ed', pad: 50 })
     return new THREE.MeshStandardMaterial({ map, emissiveMap: map, emissive: '#8eb7b9', emissiveIntensity: 0.45, roughness: 0.26, metalness: 0.05 })
   }, [])
   useEffect(() => () => { screen.map?.dispose(); screen.dispose() }, [screen])
-  return <group>
+  return <group name="left-wrist-tablet">
+    <group name="left-forearm" position={[-0.09, -0.04, -0.105]} rotation={[0, 0, -Math.PI / 2]}>
+      <mesh material={cloth}><cylinderGeometry args={[0.057, 0.084, 0.60, 32]} /></mesh>
+      {[-0.23, -0.20, -0.17].map((y) => <mesh key={y} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]} material={cloth}><torusGeometry args={[0.077, 0.004, 8, 32]} /></mesh>)}
+    </group>
+    {[-0.12, 0.12].map((x) => {
+      const radius = 0.084 - (x + 0.39) * 0.045 + 0.003
+      return <group key={x}>
+        <mesh position={[x, -0.04, -0.105]} rotation={[0, 0, -Math.PI / 2]} material={m.rubber('#1d232b')}>
+          <cylinderGeometry args={[radius - 0.001, radius + 0.001, 0.04, 32, 1, true]} />
+        </mesh>
+        <Box s={[0.044, 0.09, 0.025]} p={[x, -0.04, -0.025]} m={m.rubber('#1d232b')} />
+        <Box s={[0.055, 0.025, 0.025]} p={[x, -0.04 - radius, -0.105]} m={m.metal('#828b98', 0.35)} />
+      </group>
+    })}
     <Box s={[0.425, 0.285, 0.021]} m={m.metal('#474f51', 0.4)} />
     <Box s={[0.409, 0.269, 0.025]} m={m.rubber()} />
     <Box s={[0.365, 0.233, 0.003]} p={[0, 0, 0.013]} m={m.plastic('#111c20')} />
     <mesh position={[0, 0, 0.015]} material={screen}><planeGeometry args={[0.355, 0.223]} /></mesh>
     {[-1, 1].flatMap((x) => [-1, 1].map((y) => <Cyl key={`${x}:${y}`} a={[0.003, 0.003, 0.002]} p={[x * 0.199, y * 0.124, 0.014]} r={[Math.PI / 2, 0, 0]} m={m.metal('#979a92')} seg={12} />))}
     <Cyl a={[0.003, 0.003, 0.002]} p={[0.19, 0.105, 0.015]} r={[Math.PI / 2, 0, 0]} m={m.glow('#89bfb1', 0.6)} seg={12} />
-    <group position={[-0.211, -0.075, 0.018]} rotation={[0, 0, -0.12]}><Glove side={-1} /></group>
-    <group position={[0.211, -0.075, 0.018]} rotation={[0, 0, 0.12]}><Glove /></group>
+    {/* This glove joins the continuous forearm above; its generic tool sleeve would cross the display. */}
+    <group position={[0.30, -0.035, -0.173]} rotation={[0, 0, -Math.PI / 2]}><Glove side={-1} sleeve={false} /></group>
   </group>
 }
 
@@ -100,19 +117,23 @@ export function Hands() {
     g.current.quaternion.copy(camera.quaternion)
     const blocked = s.loading < 1 || !!s.cine || !!live.camOverride
     g.current.visible = !blocked
-    k.current = THREE.MathUtils.damp(k.current, open ? 1 : 0, 9, dt)
+    if (blocked) k.current = 0
+    else if (s.tabletOpen) k.current = Math.min(1, (performance.now() - s.tabletOpenedAt) / TABLET_RAISE_MS)
+    else k.current = Math.max(0, k.current - dt * 3.5)
     const e = THREE.MathUtils.smootherstep(k.current, 0, 1)
     if (tablet.current) {
       tablet.current.visible = k.current > 0.01
-      tablet.current.position.set(0, -0.57 + e * 0.42, -0.51)
-      tablet.current.rotation.set(-0.55 + e * 0.35, 0, (1 - e) * 0.15)
+      tablet.current.position.set(-0.43 + e * 0.39, -0.74 + e * 0.69, -0.48 - e * 0.12)
+      tablet.current.rotation.set(-0.75 * (1 - e), -0.5 * (1 - e), 0.8 * (1 - e) + 0.035)
+      tablet.current.userData.raiseProgress = k.current
     }
+    if (!blocked && s.tabletOpen && !s.tabletReady && k.current === 1) useGame.setState({ tabletReady: true })
     if (held.current) {
       raise.current = THREE.MathUtils.damp(raise.current, 1, 12, dt)
       const wide = item === 'carBattery' || item === 'manual' || item === 'map'
       const motion = Math.min(live.speed / 2.5, 1)
       const sway = Math.sin(clock.elapsedTime * 1.5) * 0.002 + Math.sin(clock.elapsedTime * 7) * 0.003 * motion
-      held.current.visible = !!item && !open && !s.inventoryOpen
+      held.current.visible = !!item && !open && k.current < 0.02
       held.current.position.set(wide ? 0.12 : 0.23, -0.20 + sway - (1 - raise.current) * 0.18, wide ? -0.47 : -0.43)
       held.current.rotation.set((1 - raise.current) * 0.25, Math.sin(clock.elapsedTime * 1.1) * 0.009, sway * 1.4)
     }
@@ -120,7 +141,7 @@ export function Hands() {
   const right: V3 = item === 'carBattery' ? [0.115, 0.015, 0] : item === 'badge' ? [0.042, 0.008, 0]
     : item === 'manual' || item === 'map' ? [0.075, 0.03, 0] : [0, 0, 0]
   return <group ref={g} name="first-person-hands">
-    <group ref={tablet} visible={false}><TabletModel /></group>
+    <group ref={tablet} name="tablet-arm-animation" visible={false}><TabletModel /></group>
     <group ref={held} visible={false} name="held-item">
       <group position={right}><Glove /></group>
       {(item === 'carBattery' || item === 'manual' || item === 'map') && <group position={[-right[0], right[1], 0]}><Glove side={-1} /></group>}

@@ -180,7 +180,7 @@ export function Hud() {
   const subtitle = useGame((s) => s.subtitle)
   const cine = useGame((s) => s.cine)
   const locked = useGame((s) => s.locked)
-  const overlay = useGame((s) => s.tabletOpen || s.inventoryOpen || !!s.puzzle || !!s.readNote || s.paused || s.settingsOpen)
+  const overlay = useGame((s) => s.tabletOpen || !!s.puzzle || !!s.readNote || s.paused || s.settingsOpen)
   const keys = useGame((s) => s.settings.keys)
   const padActive = useGame((s) => s.padActive)
   const padType = useGame((s) => s.settings.padType)

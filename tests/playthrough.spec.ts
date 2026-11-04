@@ -204,6 +204,7 @@ test('ressources à zéro, pénalités, indices et limite de temps', async ({ pa
   // indice léger : compté et pénalisé
   await page.keyboard.press('Tab')
   await expect(page.getByTestId('tablet')).toBeVisible()
+  await page.getByTestId('tab-1').click()
   const before = (await st(page)).penalty
   await page.getByTestId('hint').click()
   s = await st(page)

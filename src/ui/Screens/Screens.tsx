@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { audio } from '../../game/audio/audio'
-import { live, useGame } from '../../game/state'
+import { live, recordMessage, useGame } from '../../game/state'
 import { skipCine } from '../../world/Cinematics'
 import { IMPACT_T, prologue } from '../../world/TitleScene'
 import { transitionTo } from '../../game/logic'
@@ -91,6 +91,7 @@ export function SkipCine() {
 /** prologue : la station au-dessus de la Lune, puis l'impact */
 export function Prologue() {
   const [line, setLine] = useState<string | null>(null)
+  useEffect(() => { if (line) recordMessage(line, 'radio') }, [line])
   useEffect(() => {
     prologue.t0 = performance.now()
     audio.playMusic('title')
