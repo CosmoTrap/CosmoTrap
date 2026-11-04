@@ -17,6 +17,7 @@ export type Action =
   | 'battery'
   | 'drink'
   | 'tablet'
+  | 'useSelected'
   | 'pause'
   | 'fullscreen'
 
@@ -31,18 +32,19 @@ export const DEFAULT_KEYS: KeyMap = {
   jump: ['Space'],
   crouch: ['ControlLeft'],
   act: ['KeyE'],
-  inventory: ['Tab'],
+  inventory: ['KeyI'],
   hint: ['KeyH'],
   lamp: ['KeyF'],
   o2: ['KeyO'],
   battery: ['KeyR'],
   drink: ['KeyB'],
-  tablet: ['KeyT'],
+  tablet: ['Tab'],
+  useSelected: ['KeyX'],
   pause: ['Escape', 'KeyP'],
   fullscreen: ['F11', 'KeyG'],
 }
 
-export const ACTION_ORDER: Action[] = ['forward', 'back', 'left', 'right', 'run', 'jump', 'crouch', 'act', 'inventory', 'tablet', 'lamp', 'hint', 'pause', 'o2', 'battery', 'drink', 'fullscreen']
+export const ACTION_ORDER: Action[] = ['forward', 'back', 'left', 'right', 'run', 'jump', 'crouch', 'act', 'inventory', 'useSelected', 'tablet', 'lamp', 'hint', 'pause', 'o2', 'battery', 'drink', 'fullscreen']
 
 // ——— disposition du clavier (libellés seulement : les codes restent physiques) ———
 export type KeyLayout = 'azerty' | 'qwerty'
@@ -56,9 +58,9 @@ export const detectKeyLayout = (): KeyLayout => (typeof navigator !== 'undefined
 // ——— manette ———
 export type PadType = 'xbox' | 'ps5'
 /** actions réaffectables à la manette (index du mapping standard) */
-export type PadAction = 'jump' | 'crouch' | 'act' | 'inventory' | 'tablet' | 'lamp' | 'hint' | 'pause' | 'run' | 'drink' | 'o2' | 'battery'
+export type PadAction = 'jump' | 'crouch' | 'act' | 'inventory' | 'useSelected' | 'previousItem' | 'nextItem' | 'tablet' | 'lamp' | 'hint' | 'pause' | 'run' | 'drink' | 'o2' | 'battery'
 export type PadMap = Record<PadAction, number>
-export const DEFAULT_PAD: PadMap = { jump: 0, crouch: 1, act: 2, inventory: 3, tablet: 8, lamp: 4, hint: 5, pause: 9, run: 6, drink: 7, o2: 13, battery: 11 }
+export const DEFAULT_PAD: PadMap = { jump: 0, crouch: 1, act: 2, inventory: 3, useSelected: 12, previousItem: 14, nextItem: 15, tablet: 8, lamp: 4, hint: 5, pause: 9, run: 6, drink: 7, o2: 13, battery: 11 }
 const PAD_XBOX = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'Vue', 'Menu', 'L3', 'R3', 'Croix ↑', 'Croix ↓', 'Croix ←', 'Croix →', 'Xbox']
 const PAD_PS5 = ['Croix', 'Rond', 'Carré', 'Triangle', 'L1', 'R1', 'L2', 'R2', 'Créer', 'Options', 'L3', 'R3', 'Flèche ↑', 'Flèche ↓', 'Flèche ←', 'Flèche →', 'PS', 'Pavé tactile']
 /** nom d'un bouton de manette, avec le symbole de la marque */

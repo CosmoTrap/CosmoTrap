@@ -151,7 +151,7 @@ function finish(skip = false) {
   setTimeout(() => (finished = false), 1000)
   audio.stopSpeech()
   live.flash = 0
-  useGame.setState({ screen: 'playing', paused: false })
+  useGame.setState({ screen: 'playing', loading: 0, paused: false })
   transitionTo(1)
   if (skip) skipCine()
   requestLock()

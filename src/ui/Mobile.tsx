@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { fr } from '../i18n/fr'
 import { act, toggleLamp } from '../game/logic'
 import { useGame } from '../game/state'
-import { aim, closeTablet, openTablet } from '../player/Player'
+import { aim, closeTablet, openTablet, openInventory } from '../player/Player'
 import { input } from '../player/input'
 
 // Commandes tactiles (paysage) : joystick à gauche, glisser à droite, boutons Agir / Lampe.
@@ -76,6 +76,7 @@ export function MobileControls() {
         </button>
       </div>
       <div className="mtop">
+        <button className="mbtn" onPointerDown={openInventory}>{fr.inventory.title}</button>
         <button className="mbtn" onPointerDown={() => (tablet ? closeTablet() : openTablet())}>
           {fr.hud.tablet}
         </button>

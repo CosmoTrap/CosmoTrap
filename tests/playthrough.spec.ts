@@ -13,8 +13,7 @@ const g = <T = any>(page: Page, fn: string, ...args: unknown[]) => page.evaluate
 const st = (page: Page) => page.evaluate(() => window.__game.state())
 
 async function waitIdle(page: Page, zone: number) {
-  await page.waitForFunction((z) => window.__game.state().zone === z && !window.__game.state().cine, zone, { timeout: 120000 })
-  await page.waitForTimeout(600)
+  await page.waitForFunction((z) => window.__game.state().zone === z && !window.__game.state().cine && window.__game.state().loading === 1, zone, { timeout: 120000 })
 }
 
 async function act(page: Page, id: string) {
@@ -31,7 +30,7 @@ async function holdKey(page: Page, key: string, ms: number) {
 
 async function signedInPage(page: Page, request: any) {
   const email = `pw-${Date.now()}-${Math.floor(Math.random() * 1e6)}@cosmotrap.test`
-  const r = await request.post('http://localhost:5180/api/auth.php?action=register', { data: { email, pseudo: `Robot${Math.floor(Math.random() * 1e6)}`, password: 'playwright-orion' } })
+  const r = await request.post('/api/auth.php?action=register', { data: { email, pseudo: `Robot${Math.floor(Math.random() * 1e6)}`, password: 'playwright-orion' } })
   expect(r.ok()).toBeTruthy()
   const { token } = await r.json()
   await page.addInitScript((t) => localStorage.setItem('cosmotrap.token', t), token)
@@ -49,8 +48,7 @@ async function signedInPage(page: Page, request: any) {
 async function startGame(page: Page) {
   await g(page, 'start', 'nova', true)
   await g(page, 'set', { toured: [1, 2, 3, 4] })
-  await page.waitForFunction(() => window.__game.state().screen === 'playing')
-  await page.waitForTimeout(2500)
+  await page.waitForFunction(() => window.__game.state().screen === 'playing' && window.__game.state().loading === 1)
 }
 
 test('partie complète, de la station à la Terre', async ({ page, request }) => {
@@ -91,12 +89,12 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
   // ——— Zone 2 ———
   await waitIdle(page, 2)
   // le disjoncteur est inaccessible avant la vanne : la vapeur bloque le couloir
-  await g(page, 'teleportXZ', 35, 11, -Math.PI / 2)
+  await g(page, 'teleportXZ', 51, 37, -Math.PI / 2)
   await page.waitForTimeout(600)
   await holdKey(page, 'w', 2500)
-  // Steam starts at x=40; capsule radius 0.30 + controller skin 0.02.
-  expect((await st(page)).pos[0]).toBeLessThan(39.75)
-  expect((await st(page)).pos[0]).toBeGreaterThan(35.3)
+  // Steam starts at x=56; capsule radius 0.30 + controller skin 0.02.
+  expect((await st(page)).pos[0]).toBeLessThan(55.75)
+  expect((await st(page)).pos[0]).toBeGreaterThan(51.3)
   await act(page, 'fuse')
   await act(page, 'wrench')
   await act(page, 'steamValve')
@@ -169,7 +167,7 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
   expect(end.ended).toBe(true)
   await page.screenshot({ path: 'test-results/fin.png' })
   // le score est enregistré dans le classement
-  const board = await (await request.get('http://localhost:5180/api/leaderboard.php')).json()
+  const board = await (await request.get('/api/leaderboard.php')).json()
   expect(board.rows.some((r: any) => r.pseudo.startsWith('Robot'))).toBe(true)
 })
 
@@ -240,25 +238,25 @@ test('difficulté, imprévus, succès, fantôme et manette', async ({ page, requ
   await expect.poll(async () => (await st(page)).penalty).toBe(45)
   await page.keyboard.press('Escape')
 
-  // manette : stick gauche → le joueur avance, bouton A → ramasse la lampe
+  // manette : stick gauche → le joueur avance, bouton X → ramasse la lampe
   await g(page, 'teleport', 'lamp', 1.2)
   await page.waitForTimeout(600)
   await page.evaluate(() => ((window as any).__game.live.pitch = -0.35))
   await page.waitForTimeout(500)
   expect((await st(page)).aimed).toBe('lamp')
-  await page.evaluate(() => ((window as any).__pad.buttons[0].pressed = true))
+  await page.evaluate(() => ((window as any).__pad.buttons[2].pressed = true))
   await page.waitForTimeout(400)
-  await page.evaluate(() => ((window as any).__pad.buttons[0].pressed = false))
+  await page.evaluate(() => ((window as any).__pad.buttons[2].pressed = false))
   await expect.poll(async () => (await st(page)).inv.lamp).toBe(1)
   const z0 = (await st(page)).pos[2]
   await page.evaluate(() => ((window as any).__pad.axes[1] = 1))
   await page.waitForTimeout(1500)
   await page.evaluate(() => ((window as any).__pad.axes[1] = 0))
   expect((await st(page)).pos[2]).toBeGreaterThan(z0 + 0.5)
-  // bouton X → lampe
-  await page.evaluate(() => ((window as any).__pad.buttons[2].pressed = true))
+  // bouton LB → lampe
+  await page.evaluate(() => ((window as any).__pad.buttons[4].pressed = true))
   await page.waitForTimeout(400)
-  await page.evaluate(() => ((window as any).__pad.buttons[2].pressed = false))
+  await page.evaluate(() => ((window as any).__pad.buttons[4].pressed = false))
   await expect.poll(async () => (await st(page)).lampOn).toBe(true)
 
   // imprévu : micro-fuite colmatée au ruban adhésif → succès « Bricoleur »
@@ -278,7 +276,7 @@ test('difficulté, imprévus, succès, fantôme et manette', async ({ page, requ
   // trajectoire enregistrée pour la réplique fantôme
   expect((await st(page)).trackLen).toBeGreaterThan(8)
   // un fantôme existe après la partie complète du 1er test (difficulté Astronaute)
-  const ghost = await (await request.get('http://localhost:5180/api/leaderboard.php?ghost=1&difficulty=astronaut')).json()
+  const ghost = await (await request.get('/api/leaderboard.php?ghost=1&difficulty=astronaut')).json()
   expect(ghost.ghost?.track?.length ?? 0).toBeGreaterThan(8)
 
   // menu des succès

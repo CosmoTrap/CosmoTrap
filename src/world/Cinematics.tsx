@@ -49,6 +49,7 @@ export function CineDirector() {
 
   useFrame(() => {
     const s = G()
+    if (s.loading < 1) return
     // Read the store, not the previous render: a click can finish the cinematic
     // between two frames. A stale tour frame must never take the camera back.
     const cine = s.cine
@@ -234,7 +235,7 @@ function resumePlaying(briefed = G().briefed) {
   resetCineView()
   const s = G()
   useGame.setState({ cine: null, subtitle: null, briefed, paused: false, shake: 0,
-    tabletOpen: false, puzzle: null, readNote: null, settingsOpen: false,
+    tabletOpen: false, inventoryOpen: false, puzzle: null, readNote: null, settingsOpen: false,
     toured: s.toured.includes(s.zone) ? s.toured : [...s.toured, s.zone] })
 }
 

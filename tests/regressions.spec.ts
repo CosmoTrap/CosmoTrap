@@ -20,6 +20,7 @@ async function enterAsGuest(page: Page) {
 }
 async function playable(page: Page) {
   await expect.poll(async () => (await state(page)).cine).toBeNull()
+  await expect.poll(async () => (await state(page)).loading).toBe(1)
   expect(await page.evaluate(() => ({ camera: window.__game.live.camOverride, fade: window.__game.live.fade,
     flash: window.__game.live.flash, card: window.__game.live.card, countdown: window.__game.live.countdown })))
     .toEqual({ camera: null, fade: 0, flash: 0, card: null, countdown: null })
@@ -27,8 +28,8 @@ async function playable(page: Page) {
   await expect(page.getByTestId('tablet')).toBeVisible()
   await page.keyboard.press('Tab')
   // A cleared state alone is insufficient: actual Rapier movement must resume.
-  await call(page, 'teleportXZ', 7, 11, -Math.PI / 2)
-  await expect.poll(async () => Math.abs((await state(page)).pos[0] - 7)).toBeLessThan(0.1)
+  await call(page, 'teleportXZ', 41, 41, -Math.PI / 2)
+  await expect.poll(async () => Math.abs((await state(page)).pos[0] - 41)).toBeLessThan(0.1)
   const before = (await state(page)).pos[0]
   await page.keyboard.down('ArrowUp')
   try { await expect.poll(async () => (await state(page)).pos[0], { timeout: 20000 }).toBeGreaterThan(before + 0.45) }
@@ -110,7 +111,7 @@ test('passer visite, briefing, transition, decollage et sauvetage', async ({ pag
   await expect.poll(async () => (await state(page)).zone).toBe(4)
   await expect.poll(async () => (await state(page)).cine).toBeNull()
   // Main's crash scene must release its actor, blur and falling capsule when skipped.
-  await page.waitForFunction(() => window.__game.state().playerZone === 4)
+  await page.waitForFunction(() => window.__game.state().playerZone === 4 && window.__game.state().loading === 1)
   await page.evaluate(() => window.__game.set({ cine: 'tour', cineT0: performance.now() - 3000 }))
   await page.waitForFunction(() => !!window.__game.live.camOverride)
   await page.getByTestId('skip').click()
@@ -134,10 +135,10 @@ test('tables, lits, meubles et caisses bloquent la marche sans bloquer les passa
   await call(page, 'start')
   await page.waitForFunction(() => window.__game.state().playerZone === 1 && window.__game.state().playTime > 0.4)
   const cases = [
-    { label: 'table et banc', zone: 1, x: 25, z: 8.2, yaw: 0, axis: 2, min: 6.2, max: 6.6 },
-    { label: 'lit medical', zone: 1, x: 23, z: 20, yaw: 0, axis: 2, min: 18.24, max: 18.65 },
-    { label: 'lit mural tourne', zone: 1, x: 5, z: 3, yaw: Math.PI / 2, axis: 0, min: 3.22, max: 3.65 },
-    { label: 'meuble laboratoire', zone: 2, x: 5, z: 5.2, yaw: 0, axis: 2, min: 3.04, max: 3.4 },
+    { label: 'table et banc', zone: 1, x: 35, z: 22.2, yaw: 0, axis: 2, min: 20.2, max: 20.6 },
+    { label: 'lit medical', zone: 1, x: 45, z: 66, yaw: 0, axis: 2, min: 64.24, max: 64.65 },
+    { label: 'lit mural tourne', zone: 1, x: 13, z: 39, yaw: Math.PI / 2, axis: 0, min: 11.22, max: 11.65 },
+    { label: 'meuble laboratoire', zone: 2, x: 23, z: 13.2, yaw: 0, axis: 2, min: 11.04, max: 11.4 },
     // Approach perpendicular to the rotated face, inside the room; walking
     // obliquely against a corner correctly slides around it.
     { label: 'caisses tournees', zone: 3, x: 7 + Math.sin(0.5) * 1.35, z: 23 + Math.cos(0.5) * 1.35, yaw: 0.5, axis: 2, min: 23.48, max: 23.95 },
@@ -146,7 +147,7 @@ test('tables, lits, meubles et caisses bloquent la marche sans bloquer les passa
     await test.step(c.label, async () => {
       await call(page, 'goto', c.zone)
       await call(page, 'set', { cine: null, paused: false })
-      await page.waitForFunction((z) => window.__game.state().playerZone === z, c.zone)
+      await page.waitForFunction((z) => window.__game.state().playerZone === z && window.__game.state().loading === 1, c.zone)
       await call(page, 'teleportXZ', c.x, c.z, c.yaw)
       await expect.poll(async () => Math.hypot((await state(page)).pos[0] - c.x, (await state(page)).pos[2] - c.z)).toBeLessThan(0.1)
       await page.keyboard.down('ArrowUp')
@@ -171,16 +172,16 @@ test('le chariot de la serre se pousse et garde sa position, les autres portes r
   page.on('pageerror', (e) => errors.push(e.message))
   await call(page, 'goto', 2)
   await call(page, 'set', { cine: null, paused: false, toured: [1, 2, 3, 4] })
-  await page.waitForFunction(() => window.__game.state().playerZone === 2 && !!window.__game.state().propPositions['serre-cart'])
-  await call(page, 'teleportXZ', 25, 11, 0)
-  await page.waitForFunction(() => Math.abs(window.__game.live.pos[0] - 25) < 0.05 && window.__game.live.pos[1] < 0.021)
+  await page.waitForFunction(() => window.__game.state().playerZone === 2 && window.__game.state().loading === 1 && !!window.__game.state().propPositions['serre-cart'])
+  await call(page, 'teleportXZ', 43, 19, 0)
+  await page.waitForFunction(() => Math.abs(window.__game.live.pos[0] - 43) < 0.05 && window.__game.live.pos[1] < 0.021)
   const initial = (await state(page)).propPositions['serre-cart']
   await page.screenshot({ path: 'test-results/serre-avant-poussee.png' })
   await page.keyboard.down('ArrowUp')
   try {
     // The player must pass the door by physically pushing, without a teleport
     // or an interaction call that bypasses collision detection.
-    await expect.poll(async () => (await state(page)).pos[2], { timeout: 20000 }).toBeLessThan(6.5)
+    await expect.poll(async () => (await state(page)).pos[2], { timeout: 20000 }).toBeLessThan(14.5)
   } finally { await page.keyboard.up('ArrowUp') }
   await page.waitForTimeout(700)
   const moved = (await state(page)).propPositions['serre-cart']
@@ -192,11 +193,11 @@ test('le chariot de la serre se pousse et garde sa position, les autres portes r
 
   // Back out through the same doorway; the cart must not follow the player.
   await page.keyboard.down('ArrowDown')
-  try { await expect.poll(async () => (await state(page)).pos[2]).toBeGreaterThan(10.5) }
+  try { await expect.poll(async () => (await state(page)).pos[2]).toBeGreaterThan(18.5) }
   finally { await page.keyboard.up('ArrowDown') }
   await call(page, 'goto', 3)
   await call(page, 'set', { cine: null, paused: false })
-  await page.waitForFunction(() => window.__game.state().playerZone === 3)
+  await page.waitForFunction(() => window.__game.state().playerZone === 3 && window.__game.state().loading === 1)
   await call(page, 'teleportXZ', 5, 17, Math.PI)
   await page.waitForFunction(() => Math.abs(window.__game.live.pos[2] - 17) < 0.1)
   await page.keyboard.down('ArrowUp')
@@ -206,7 +207,7 @@ test('le chariot de la serre se pousse et garde sa position, les autres portes r
   // Save, reload the page and resume: the entrance must stay cleared.
   await call(page, 'goto', 2)
   await call(page, 'set', { cine: null, paused: false })
-  await page.waitForFunction(() => window.__game.state().playerZone === 2)
+  await page.waitForFunction(() => window.__game.state().playerZone === 2 && window.__game.state().loading === 1)
   await expect.poll(async () => (await state(page)).propPositions['serre-cart'][2]).toBeCloseTo(moved[2], 1)
   await page.waitForFunction((z) => {
     const saved = JSON.parse(localStorage.getItem('cosmotrap.save.v2.guest') || 'null')
@@ -215,7 +216,7 @@ test('le chariot de la serre se pousse et garde sa position, les autres portes r
   await page.reload()
   await enterAsGuest(page)
   await page.getByTestId('continue').first().click()
-  await page.waitForFunction(() => window.__game.state().playerZone === 2)
+  await page.waitForFunction(() => window.__game.state().playerZone === 2 && window.__game.state().loading === 1)
   expect((await state(page)).propPositions['serre-cart'][2]).toBeCloseTo(moved[2], 1)
   expect(errors).toEqual([])
 })

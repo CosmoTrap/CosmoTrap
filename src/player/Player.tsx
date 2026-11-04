@@ -3,7 +3,7 @@ import { CapsuleCollider, RigidBody, useRapier, type RapierRigidBody } from '@re
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { audio } from '../game/audio/audio'
-import { act, drinkPouch, entById, labelOf, toggleLamp, useBattery, useO2, useSlot } from '../game/logic'
+import { act, cycleItem, drinkPouch, entById, labelOf, toggleLamp, useBattery, useO2, useSelectedItem, useSlot } from '../game/logic'
 import { GRID_MAPS, roomAt, spawnOf } from '../game/maps'
 import { G, ability, live, toggleFullscreen, useGame } from '../game/state'
 import { QUALITY } from '../world/quality'
@@ -21,7 +21,7 @@ export const aim = { id: null as string | null, label: null as string | null }
 
 function overlayOpen() {
   const s = G()
-  return s.tabletOpen || !!s.puzzle || !!s.readNote || s.paused || s.settingsOpen
+  return s.loading < 1 || s.tabletOpen || s.inventoryOpen || !!s.puzzle || !!s.readNote || s.paused || s.settingsOpen
 }
 
 /** écoute clavier / souris (une seule fois) */
@@ -35,29 +35,42 @@ export function useInputListeners() {
         return
       }
       if (s.screen !== 'playing') return
+      if (s.loading < 1) return
       if ((window as any).__rebinding) return
+      const target = e.target as HTMLElement
+      if (target?.matches('input, textarea, select, [contenteditable="true"]')) return
       markKeyboard()
       const k = s.settings.keys
-      if (e.code === 'Tab' || e.code === 'Space') e.preventDefault()
+      if ((e.code === 'Tab' && !s.inventoryOpen) || e.code === 'Space') e.preventDefault()
       input.down.add(e.code)
       if (e.repeat) return
       if (s.cine && s.cine !== 'briefing') return
       if (matches(k, 'pause', e.code)) {
         if (s.puzzle || s.readNote) useGame.setState({ puzzle: null, readNote: null })
+        else if (s.inventoryOpen) closeInventory()
         else if (s.tabletOpen) closeTablet()
         else if (s.settingsOpen) useGame.setState({ settingsOpen: false })
         else useGame.setState({ paused: !s.paused })
         return
       }
-      // tablette, inventaire (onglet Sac) et indices (onglet Mission) partagent le même écran
-      const tabletTab = matches(k, 'tablet', e.code) ? s.tab : matches(k, 'inventory', e.code) ? 2 : matches(k, 'hint', e.code) ? 0 : null
-      if (tabletTab !== null) {
+      if (matches(k, 'inventory', e.code)) {
         e.preventDefault()
+        if (s.inventoryOpen) closeInventory()
+        else openInventory()
+        return
+      }
+      if (s.inventoryOpen) {
+        if (matches(k, 'useSelected', e.code)) useSelectedItem()
+        return
+      }
+      if (matches(k, 'hint', e.code)) {
+        e.preventDefault()
+        if (!overlayOpen()) { useGame.setState({ tab: 0 }); openTablet() }
+        return
+      }
+      if (matches(k, 'tablet', e.code)) {
         if (s.tabletOpen) closeTablet()
-        else if (!s.puzzle && !s.paused) {
-          useGame.setState({ tab: tabletTab })
-          openTablet()
-        }
+        else if (!overlayOpen()) openTablet()
         return
       }
       if (matches(k, 'jump', e.code)) {
@@ -65,12 +78,13 @@ export function useInputListeners() {
         if (!s.cine && !overlayOpen()) input.jumpRequested = true
         return
       }
-      if (s.paused || s.puzzle) return
+      if (s.paused || s.puzzle || s.settingsOpen) return
       if (s.readNote && matches(k, 'act', e.code)) {
         useGame.setState({ readNote: null })
         return
       }
-      if (matches(k, 'lamp', e.code)) toggleLamp()
+      if (matches(k, 'useSelected', e.code)) useSelectedItem()
+      else if (matches(k, 'lamp', e.code)) toggleLamp()
       else if (matches(k, 'o2', e.code)) useO2()
       else if (matches(k, 'battery', e.code)) useBattery()
       else if (matches(k, 'drink', e.code)) drinkPouch()
@@ -98,15 +112,32 @@ export function useInputListeners() {
       if (e.pointerType === 'mouse' && (e.target as HTMLElement)?.tagName === 'CANVAS' && !document.pointerLockElement) dragging = true
     }
     const pup = () => (dragging = false)
-    // pavé tactile : glisser à deux doigts pour regarder (molette : haut / bas)
+    // Wheel selects inventory; Alt + wheel preserves the trackpad camera gesture.
+    let wheelAmount = 0
+    let lastWheel = 0
     const wheel = (e: WheelEvent) => {
       const s = G()
-      if (s.screen !== 'playing' || !s.settings.trackpadLook || overlayOpen() || (s.cine && s.cine !== 'briefing')) return
-      if ((e.target as HTMLElement)?.tagName !== 'CANVAS') return
+      if (s.screen !== 'playing' || overlayOpen() || s.cine || e.ctrlKey || (window as any).__rebinding) return
+      const target = e.target as HTMLElement
+      if (target?.tagName !== 'CANVAS' && !target?.closest('[data-hotbar]') && !document.pointerLockElement) return
       e.preventDefault()
-      const k = e.deltaMode === 1 ? 16 : 1
-      input.look.dx += e.deltaX * k * 0.9
-      input.look.dy += e.deltaY * k * 0.9
+      markKeyboard()
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? window.innerHeight : 1
+      if (e.altKey && s.settings.trackpadLook) {
+        input.look.dx += e.deltaX * unit * 0.9
+        input.look.dy += e.deltaY * unit * 0.9
+        wheelAmount = 0
+        return
+      }
+      const delta = e.deltaY * unit
+      const now = performance.now()
+      if (now - lastWheel > 180 || Math.sign(delta) !== Math.sign(wheelAmount)) wheelAmount = 0
+      lastWheel = now
+      wheelAmount += delta
+      if (Math.abs(wheelAmount) >= 30) {
+        cycleItem(Math.sign(wheelAmount))
+        wheelAmount = 0
+      }
     }
     const blur = () => { input.down.clear(); input.jumpRequested = false }
     let lockedAt = 0
@@ -143,12 +174,30 @@ export function useInputListeners() {
 export const isTouch = () => window.matchMedia?.('(pointer: coarse)').matches
 
 export function openTablet() {
-  useGame.setState({ tabletOpen: true })
+  useGame.setState({ tabletOpen: true, inventoryOpen: false })
   audio.sfx('tablet_open')
   document.exitPointerLock?.()
 }
 export function closeTablet() {
   useGame.setState({ tabletOpen: false })
+  audio.sfx('tablet_close')
+  requestLock()
+}
+export function openInventory() {
+  const s = G()
+  if (s.screen !== 'playing' || s.loading < 1 || s.cine || s.paused || s.puzzle || s.readNote || s.settingsOpen) return
+  useGame.setState({ inventoryOpen: true, tabletOpen: false })
+  input.down.clear()
+  input.jumpRequested = false
+  input.joy.x = input.joy.y = 0
+  input.touchRun = false
+  audio.sfx('tablet_open')
+  document.exitPointerLock?.()
+}
+export function closeInventory() {
+  useGame.setState({ inventoryOpen: false })
+  input.down.clear()
+  input.jumpRequested = false
   audio.sfx('tablet_close')
   requestLock()
 }
@@ -170,7 +219,7 @@ export function Player() {
   const tp = useGame((s) => s.tp)
   const quality = useGame((s) => s.settings.quality)
   const q = QUALITY[quality]
-  const st = useRef({ vy: 0, grounded: false, phase: 0, lastStep: 0, roll: 0, lampYaw: 0, lampPitch: 0, flick: 1, breath: 0, prevAim: '', crouch: 0 })
+  const st = useRef({ vy: 0, grounded: false, phase: 0, lastStep: 0, roll: 0, lampYaw: 0, lampPitch: 0, flick: 1, breath: 0, prevAim: '', cinematic: false, crouch: 0 })
   const controller = useMemo(() => {
     const c = world.createCharacterController(0.02)
     c.enableAutostep(0.35, 0.25, false)
@@ -237,7 +286,7 @@ export function Player() {
     live.playerZone = zone
     const S = st.current
     const keys = s.settings.keys
-    const frozen = s.screen !== 'playing' || s.paused || !!s.cine || s.tabletOpen || !!s.puzzle || !!s.readNote || s.settingsOpen
+    const frozen = s.screen !== 'playing' || s.loading < 1 || s.paused || !!s.cine || s.tabletOpen || s.inventoryOpen || !!s.puzzle || !!s.readNote || s.settingsOpen
 
     // regard
     const sens = 0.0022 * s.settings.sensitivity
@@ -333,9 +382,10 @@ export function Player() {
     const pc = camera as THREE.PerspectiveCamera
     const fov = (s.cine ? live.camOverride?.fov : undefined) ?? s.settings.fov + (running && moving ? 4 : 0) + lowO2 * 3
     if (Math.abs(pc.fov - fov) > 0.05) {
-      pc.fov = THREE.MathUtils.damp(pc.fov, fov, 5, dt)
+      pc.fov = S.cinematic && !s.cine ? fov : THREE.MathUtils.damp(pc.fov, fov, 5, dt)
       pc.updateProjectionMatrix()
     }
+    S.cinematic = !!s.cine
 
     // lampe : suit la tête avec un léger retard
     S.lampYaw = THREE.MathUtils.damp(S.lampYaw, live.yaw, 14, dt)

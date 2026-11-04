@@ -9,6 +9,7 @@ import { isTouch } from './player/Player'
 import { detectPadType, startGamepadLoop } from './player/gamepad'
 import { setKeyLayout } from './player/input'
 import { Hud } from './ui/Hud'
+import { Inventory } from './ui/Inventory'
 import { MobileControls } from './ui/Mobile'
 import { End, NoteReader, Pause, Prologue, PuzzleHost, RotatePhone, SkipCine } from './ui/Screens/Screens'
 import { Launch } from './ui/Screens/Launch'
@@ -19,6 +20,7 @@ import { MainMenu } from './ui/Screens/Menu'
 import { SettingsPage } from './ui/Screens/SettingsPage'
 import { Tablet } from './ui/Tablet/Tablet'
 import { Scene } from './world/Scene'
+import { SceneLoading } from './ui/SceneLoading'
 
 /** si le rendu 3D plante, on affiche un message clair plutôt qu'un écran noir */
 class CrashGuard extends Component<{ children: ReactNode }, { err: string | null }> {
@@ -49,6 +51,7 @@ export default function App() {
   const screen = useGame((s) => s.screen)
   const paused = useGame((s) => s.paused)
   const tablet = useGame((s) => s.tabletOpen)
+  const inventory = useGame((s) => s.inventoryOpen)
   const settingsOpen = useGame((s) => s.settingsOpen)
   const cine = useGame((s) => s.cine)
   const vols = useGame((s) => s.settings)
@@ -110,7 +113,7 @@ export default function App() {
           gl.outputColorSpace = THREE.SRGBColorSpace
         }}
         onPointerDown={() => {
-          if (playing && !touch && !useGame.getState().locked && !paused && !tablet && !useGame.getState().puzzle && !useGame.getState().cine && !settingsOpen && !useGame.getState().readNote) {
+          if (playing && useGame.getState().loading === 1 && !touch && !useGame.getState().locked && !paused && !tablet && !inventory && !useGame.getState().puzzle && !useGame.getState().cine && !settingsOpen && !useGame.getState().readNote) {
             ;(document.querySelector('canvas') as any)?.requestPointerLock?.()?.catch?.(() => {})
           }
         }}
@@ -134,8 +137,10 @@ export default function App() {
       {playing && (
         <>
           <Hud />
-          {touch && !paused && (!cine || cine === 'briefing') && <MobileControls />}
+          <SceneLoading />
+          {touch && !paused && !inventory && !tablet && !settingsOpen && !useGame.getState().puzzle && !useGame.getState().readNote && (!cine || cine === 'briefing') && <MobileControls />}
           {tablet && <Tablet />}
+          {inventory && !cine && !paused && <Inventory />}
           <PuzzleHost />
           <NoteReader />
           <SkipCine />

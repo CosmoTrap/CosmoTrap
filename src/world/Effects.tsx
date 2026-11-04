@@ -85,12 +85,14 @@ const Grade = forwardRef<GradeEffect>(function Grade(_, ref) {
     r.value = THREE.MathUtils.lerp(r.value, lowO2 * 0.9, 0.05)
     const b = u.get('uBlur')!
     const breath = lowO2 > 0.6 ? (0.5 + 0.5 * Math.sin(clock.elapsedTime * 2.2)) * lowO2 : 0
-    b.value = Math.max(film.blur, THREE.MathUtils.lerp(b.value, Math.max(thirst * 0.85, breath * 0.8), 0.05))
-    // Preserve the subtle K12 grading alongside main's cinematic lens effects.
+    // Cinematic blur must disappear on the very first gameplay frame. Smoothing
+    // the previous film value left the image blurred for seconds on slower GPUs.
     const filmic = s.cine === 'tour' || s.cine === 'heli' || s.cine === 'launch' || s.screen === 'prologue'
+    b.value = Math.max(filmic ? film.blur : 0, thirst * 0.85, breath * 0.8)
+    // Preserve the subtle K12 grading alongside main's cinematic lens effects.
     u.get('uGrain')!.value = filmic ? 0.003 : 0.0015
     const l = u.get('uLens')!
-    l.value = THREE.MathUtils.lerp(l.value, filmic ? 1 : 0, 0.05)
+    l.value = filmic ? THREE.MathUtils.lerp(l.value, 1, 0.05) : 0
   })
   return <primitive ref={ref} object={effect} dispose={null} />
 })

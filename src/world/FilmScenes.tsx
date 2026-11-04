@@ -273,13 +273,13 @@ export function runScene(zone: number, t: number, first: boolean) {
 export function endScene() {
   actor.visible = false
   film.blur = 0
-  if (crash.active) {
-    crash.active = false
-    crash.k = 1
-    crash.fire = 0
-    audio.stopLoop('reentry')
-    useGame.setState({ shake: 0 })
-  }
+  crash.active = false
+  crash.k = 1
+  crash.fire = 0
+  crash.t = 0
+  crash.impact = -1
+  audio.stopLoop('reentry')
+  useGame.setState({ shake: 0 })
 }
 
 export function CineActor() {
@@ -358,6 +358,12 @@ export function CrashFx() {
   useFrame((_, dtRaw) => {
     const dt = Math.min(dtRaw, 0.05)
     const inZone = G().zone === 4
+    if (!inZone || (!crash.active && crash.impact < 0)) {
+      // Also discard particles already emitted before skipping the impact.
+      for (const s of sprites) s.visible = false
+      light.intensity = 0
+      return
+    }
     const sinceImpact = crash.impact > 0 ? (performance.now() - crash.impact) / 1000 : -1
     if (inZone && crash.active && crash.k < 1) {
       const p = capsulePos(crash.k)
@@ -402,9 +408,9 @@ export function CrashFx() {
   })
   return (
     <group>
-      {sprites.map((s, i) => (
+      <group name="crash-particles">{sprites.map((s, i) => (
         <primitive key={i} object={s} />
-      ))}
+      ))}</group>
       <primitive object={light} />
     </group>
   )

@@ -1,8 +1,7 @@
-import { act, drinkPouch, hotbarItems, toggleLamp, useBattery, useItem, useO2 } from '../game/logic'
+import { act, cycleItem, drinkPouch, toggleLamp, useBattery, useSelectedItem, useO2 } from '../game/logic'
 import { G, live, useGame } from '../game/state'
-import { audio } from '../game/audio/audio'
 import { skipCine } from '../world/Cinematics'
-import { aim, closeTablet, openTablet } from './Player'
+import { aim, closeInventory, closeTablet, openInventory, openTablet } from './Player'
 import { input, type PadType } from './input'
 
 // Manette (mapping standard Xbox / PlayStation), réaffectable dans Paramètres › Touches :
@@ -26,7 +25,7 @@ const dz = (v: number) => (Math.abs(v) < DZ ? 0 : Math.sign(v) * ((Math.abs(v) -
 
 function overlayOpen() {
   const s = G()
-  return s.screen !== 'playing' || s.tabletOpen || !!s.puzzle || !!s.readNote || s.paused || s.settingsOpen
+  return s.screen !== 'playing' || s.loading < 1 || s.tabletOpen || s.inventoryOpen || !!s.puzzle || !!s.readNote || s.paused || s.settingsOpen
 }
 
 /** déplacement du focus entre boutons visibles (menus, énigmes, tablette) */
@@ -91,6 +90,13 @@ export function pollGamepad(dt: number) {
   }
   const s = G()
   const menu = overlayOpen()
+  if (s.screen === 'playing' && s.loading < 1) {
+    pad.x = pad.y = 0
+    pad.run = false
+    if (pressed(8, b) && s.cine) skipCine()
+    prev = b.map((x) => x.pressed)
+    return
+  }
   // sticks
   pad.x = menu ? 0 : dz(ax[0] ?? 0)
   pad.y = menu ? 0 : dz(ax[1] ?? 0)
@@ -109,6 +115,7 @@ export function pollGamepad(dt: number) {
     if (s.screen === 'playing' && !s.cine) {
       if (s.puzzle || s.readNote) useGame.setState({ puzzle: null, readNote: null })
       else if (s.tabletOpen) closeTablet()
+      else if (s.inventoryOpen) closeInventory()
       else useGame.setState({ paused: !s.paused })
     }
   }
@@ -132,36 +139,27 @@ export function pollGamepad(dt: number) {
     if (pressed(0, b)) (document.activeElement as HTMLElement | null)?.click()
     if (pressed(1, b)) {
       if (s.tabletOpen) closeTablet()
+      else if (s.inventoryOpen) closeInventory()
       else if (s.puzzle || s.readNote) useGame.setState({ puzzle: null, readNote: null })
       else if (s.paused) useGame.setState({ paused: false })
       else if (s.settingsOpen) useGame.setState({ settingsOpen: false })
     }
+    if (pressed(P.inventory, b) && s.inventoryOpen) closeInventory()
     if ((pressed(P.tablet, b) || pressed(P.inventory, b) || pressed(P.hint, b)) && s.tabletOpen) closeTablet()
   } else if (s.screen === 'playing' && (!s.cine || s.cine === 'briefing')) {
     if (pressed(P.act, b) && aim.id && !s.cine) act(aim.id)
     if (pressed(P.jump, b) && !s.cine) input.jumpRequested = true
     if (pressed(P.lamp, b)) toggleLamp()
     if (pressed(P.tablet, b)) openTablet()
-    if (pressed(P.inventory, b)) {
-      useGame.setState({ tab: 2 })
-      openTablet()
-    }
-    if (pressed(P.hint, b)) {
-      useGame.setState({ tab: 0 })
-      openTablet()
-    }
+    if (pressed(P.inventory, b)) openInventory()
+    if (pressed(P.hint, b)) { useGame.setState({ tab: 0 }); openTablet() }
     if (pressed(P.o2, b)) useO2()
     if (pressed(P.battery, b)) useBattery()
     if ((b[P.drink]?.value ?? 0) > 0.5 && !prev[P.drink]) drinkPouch()
-    const items = hotbarItems()
-    if (items.length) {
-      if (pressed(14, b)) live.padSlot = (live.padSlot - 1 + items.length) % items.length
-      if (pressed(15, b)) live.padSlot = (live.padSlot + 1) % items.length
-      if (pressed(14, b) || pressed(15, b)) {
-        audio.sfx('click')
-        useGame.setState({ padSlotTick: Date.now() })
-      }
-      if (pressed(12, b)) useItem(items[Math.min(live.padSlot, items.length - 1)])
+    if (!s.cine) {
+      if (pressed(P.previousItem, b)) cycleItem(-1)
+      if (pressed(P.nextItem, b)) cycleItem(1)
+      if (pressed(P.useSelected, b)) useSelectedItem()
     }
   }
   prev = b.map((x, i) => (i === P.drink ? x.value > 0.5 : x.pressed))

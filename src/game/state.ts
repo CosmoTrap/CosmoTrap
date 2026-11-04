@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { FLAGS, type Flags, type ItemId, type PuzzleId, type ZoneId } from './types'
 import { DEFAULT_KEYS, DEFAULT_PAD, detectKeyLayout, type KeyLayout, type KeyMap, type PadMap, type PadType } from '../player/input'
 import { DIFFICULTY, type Difficulty } from './difficulty'
+import { LAYOUT_VERSION, migrateStationSave } from './maps/layoutMigration'
 
 export type Screen = 'launch' | 'login' | 'title' | 'prologue' | 'playing' | 'end' | 'settings' | 'achievements' | 'credits'
 /** carte choisie sur l'écran de lancement */
@@ -145,6 +146,7 @@ export function pressValveGrid(v: boolean[], r: number, c: number) {
 const emptyFlags = () => Object.fromEntries(FLAGS.map((f) => [f, false])) as Flags
 
 export interface GameData {
+  layoutVersion: number
   zone: ZoneId
   character: string
   map: MissionMap
@@ -165,6 +167,7 @@ export interface GameData {
   ended: boolean
   /** objet clé tenu en main (barre 1-9) */
   held: ItemId | null
+  selectedItem: ItemId | null
   /** secondes de pénalité (erreurs, indices) ajoutées au chrono */
   penalty: number
   errors: number
@@ -191,6 +194,7 @@ export interface GameData {
 }
 
 export const newGameData = (character = 'nova', difficulty: Difficulty = 'astronaut', map: MissionMap = 'base'): GameData => ({
+  layoutVersion: LAYOUT_VERSION,
   zone: 1,
   character,
   map,
@@ -210,6 +214,7 @@ export const newGameData = (character = 'nova', difficulty: Difficulty = 'astron
   briefed: false,
   ended: false,
   held: null,
+  selectedItem: null,
   penalty: 0,
   errors: 0,
   plan: [],
@@ -233,6 +238,7 @@ export interface GameState extends GameData {
   paused: boolean
   locked: boolean // pointer lock actif
   tabletOpen: boolean
+  inventoryOpen: boolean
   tab: number
   puzzle: PuzzleId | null
   readNote: string | null
@@ -329,8 +335,6 @@ function loadSettings(): Settings {
     const q = new URLSearchParams(location.search).get('quality') as Quality | null
     const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null')
     const out = { ...def, ...(s || {}), keys: { ...DEFAULT_KEYS, ...(s?.keys || {}) }, pad: { ...DEFAULT_PAD, ...(s?.pad || {}) } }
-    // Anciennes sauvegardes : Tab ouvrait la tablette ; c'est désormais l'inventaire, la tablette passe sur T.
-    if (s?.keys && !('inventory' in s.keys) && out.keys.tablet.includes('Tab')) out.keys.tablet = [...DEFAULT_KEYS.tablet]
     // Before jumping existed, Space was a second interaction key.
     if (s?.keys && !('jump' in s.keys)) {
       out.keys.act = out.keys.act.filter((code: string) => code !== 'Space')
@@ -359,6 +363,7 @@ export const useGame = create<GameState>((set) => ({
   paused: false,
   locked: false,
   tabletOpen: false,
+  inventoryOpen: false,
   tab: 0,
   puzzle: null,
   readNote: null,
@@ -409,7 +414,7 @@ export function has(item: ItemId) {
 }
 
 export function addItem(item: ItemId, n = 1) {
-  useGame.setState((s) => ({ inv: { ...s.inv, [item]: (s.inv[item] ?? 0) + n } }))
+  useGame.setState((s) => ({ inv: { ...s.inv, [item]: (s.inv[item] ?? 0) + n }, selectedItem: s.selectedItem ?? item }))
 }
 
 export function removeItem(item: ItemId, n = 1) {
@@ -418,7 +423,10 @@ export function removeItem(item: ItemId, n = 1) {
     const inv = { ...s.inv }
     if (c === 0) delete inv[item]
     else inv[item] = c
-    return { inv }
+    const items = Object.keys(inv) as ItemId[]
+    const previousIndex = Object.keys(s.inv).indexOf(item)
+    return { inv, held: c === 0 && s.held === item ? null : s.held,
+      selectedItem: c === 0 && s.selectedItem === item ? items[Math.min(previousIndex, items.length - 1)] ?? null : s.selectedItem }
   })
 }
 
@@ -481,7 +489,11 @@ export type SaveFile = GameData & { pos?: [number, number, number]; yaw?: number
 
 export function normalizeSave(d: any): SaveFile | null {
   if (!d || !d.zone) return null
-  return { ...newGameData(d.character), ...d, flags: { ...emptyFlags(), ...d.flags } }
+  const saved = { ...newGameData(d.character), ...d, flags: { ...emptyFlags(), ...d.flags } }
+  const items = (Object.keys(saved.inv) as ItemId[]).filter((it) => saved.inv[it] > 0)
+  if (!items.includes(saved.selectedItem)) saved.selectedItem = items[0] ?? null
+  if (!items.includes(saved.held)) saved.held = null
+  return migrateStationSave(saved, d.layoutVersion ?? 1)
 }
 
 export function loadSave(): SaveFile | null {

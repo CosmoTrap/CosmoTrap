@@ -87,15 +87,18 @@ et demandent une carte graphique plus puissante. Garder la résolution sur
 | Regarder | Souris | Glisser à droite |
 | Courir | Maj | Pousser le joystick à fond |
 | Sauter | Espace | — |
+| S’accroupir | Ctrl | — |
 | Agir | E | Bouton « Agir » |
 | Lampe | F | Bouton « Lampe » |
 | Oxygène, piles, boire | O, R, B | Tablette → Sac |
-| Barre d'inventaire | 1 à 9 : un consommable est utilisé, un objet clé est mis en main | Touche sur l'emplacement |
+| Inventaire complet | I (ou touche personnalisée), I / Échap pour fermer | Bouton Inventaire |
+| Sélection d’objet | Molette ou 1 à 9, sans consommer | Toucher une case / flèches de la barre |
+| Utiliser la sélection | X, ou bouton dans l’inventaire | Bouton d’utilisation |
 | Tablette | Tab | Bouton « Tablette » |
 | Pause | P ou Échap | Bouton « Pause » |
 | Passer une cinématique | Entrée ou bouton « Passer » | Bouton « Passer » |
 
-**Regard.** Il marche à la souris (clic pour la verrouiller), au glisser-cliquer, et au glisser à deux doigts sur le pavé tactile (réglage activé par défaut).
+**Regard.** Il marche à la souris (clic pour la verrouiller), au glisser-cliquer, et à Alt + glisser à deux doigts sur le pavé tactile (réglage activé par défaut).
 
 **Chariot de la serre (zone 2).** Avancer contre l'étagère à légumes sur roulettes
 pour la pousser et dégager l'entrée. Sa position est conservée dans la sauvegarde.
@@ -105,13 +108,16 @@ pour la pousser et dégager l'entrée. Sa position est conservée dans la sauveg
 | Action | Manette |
 |---|---|
 | Bouger / regarder | Stick gauche / stick droit |
-| Agir · retour | A (✕) · B (○) |
-| Lampe · tablette | X (□) · Y (△) |
-| Oxygène · piles · boire | LB · RB · RT |
+| Sauter · s’accroupir / retour | A (✕) · B (○) |
+| Agir · inventaire complet | X (□) · Y (△) |
+| Lampe · tablette · indice | LB (L1) · Vue (pavé tactile) · RB (R1) |
+| Oxygène · piles · boire | Croix ↓ · clic du stick droit · RT (R2) |
 | Courir | LT ou clic du stick gauche |
 | Barre d'objets | Croix ← → pour choisir, ↑ pour utiliser |
 | Pause · passer une cinématique | Start · Select |
 | Menus et énigmes | Croix ou stick pour se déplacer, A pour valider |
+
+Les commandes de jeu sont réaffectables dans Paramètres → Touches. La barre d’inventaire affiche les boutons configurés.
 
 ## Règles du jeu
 

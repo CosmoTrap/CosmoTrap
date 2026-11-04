@@ -11,8 +11,12 @@ export function installDevApi() {
       const s = G()
       return {
         screen: s.screen,
+        inventoryOpen: s.inventoryOpen,
+        selectedItem: s.selectedItem,
+        held: s.held,
         zone: s.zone,
         playerZone: live.playerZone,
+        loading: s.loading,
         flags: { ...s.flags },
         inv: { ...s.inv },
         res: { ...s.res },
@@ -74,7 +78,8 @@ export function installDevApi() {
     start(character = 'nova', skipIntro = true, difficulty: 'explorer' | 'astronaut' | 'survival' = 'astronaut', events = false) {
       live.explored.clear()
       live.noEvents = !events
-      useGame.setState({ ...newGameData(character, difficulty), screen: 'playing', briefed: skipIntro, cine: null, paused: false })
+      const loading = G().screen === 'playing' && G().zone === 1 ? G().loading : 0
+      useGame.setState({ ...newGameData(character, difficulty), screen: 'playing', loading, inventoryOpen: false, tabletOpen: false, briefed: skipIntro, cine: null, paused: false })
       const sp = spawnOf(1)
       useGame.setState({ tp: { pos: sp.pos, yaw: sp.yaw, n: Date.now() } })
     },

@@ -292,10 +292,10 @@ function Game() {
 const KEY_LEFT: Action[] = ['forward', 'back', 'left', 'right']
 const KEY_LEFT2: Action[] = ['jump', 'crouch']
 const KEY_RIGHT: Action[] = ['act', 'inventory', 'tablet', 'lamp', 'hint', 'pause']
-const KEY_MORE: Action[] = ['run', 'o2', 'battery', 'drink', 'fullscreen']
+const KEY_MORE: Action[] = ['run', 'useSelected', 'o2', 'battery', 'drink', 'fullscreen']
 const PAD_LEFT: PadAction[] = ['jump', 'crouch']
 const PAD_RIGHT: PadAction[] = ['act', 'inventory', 'tablet', 'lamp', 'hint', 'pause']
-const PAD_MORE: PadAction[] = ['run', 'o2', 'battery', 'drink']
+const PAD_MORE: PadAction[] = ['run', 'useSelected', 'previousItem', 'nextItem', 'o2', 'battery', 'drink']
 
 function KeyboardIcon() {
   return (
