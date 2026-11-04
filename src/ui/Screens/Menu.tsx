@@ -40,6 +40,12 @@ export async function startNewGame(character: string, d: Difficulty, map: Missio
   useGame.setState({ ...newGameData(character, d, map), screen: 'prologue', paused: false, tp: null, resume: null, tabletOpen: false, puzzle: null, readNote: null, lastResult: null })
 }
 
+/** supprime la partie en cours, sur cet appareil et dans le compte */
+export function deleteCurrentSave() {
+  clearSave()
+  return deleteCloudSave()
+}
+
 export async function resumeGame(save: SaveFile) {
   await audio.init()
   const { pos, yaw, savedAt, ...data } = save

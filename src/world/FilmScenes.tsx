@@ -68,7 +68,9 @@ function shotsFor(zone: number): Shot[] {
   const sp = spawnOf(z)
   const fwd: V3 = [-Math.sin(sp.yaw), 0, -Math.cos(sp.yaw)]
   const right: V3 = [Math.cos(sp.yaw), 0, -Math.sin(sp.yaw)]
-  const at = (f: number, r: number, y: number): V3 => [sp.pos[0] + fwd[0] * f + right[0] * r, y, sp.pos[2] + fwd[2] * f + right[2] * r]
+  // Floor 2 opens in the lift: the over-the-shoulder shot starts inside the cab, not behind its wall.
+  const start = z === 2 ? 2.2 : 0
+  const at = (f: number, r: number, y: number): V3 => [sp.pos[0] + fwd[0] * (f + start) + right[0] * r, y, sp.pos[2] + fwd[2] * (f + start) + right[2] * r]
   const standAt = (f: number, yaw = sp.yaw, walk = 0) => {
     actor.visible = true
     actor.pos = at(f, 0, 0)

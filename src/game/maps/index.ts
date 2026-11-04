@@ -77,6 +77,12 @@ export function spawnOf(zone: ZoneId): { pos: [number, number, number]; yaw: num
   return { pos: [x, 0, z], yaw: m.spawn.yaw }
 }
 
+/** Standing point inside the lift cab, looking at its door. */
+export function liftCab(zone: 1 | 2): { pos: [number, number, number]; yaw: number } {
+  const [x0, z0, x1, z1] = GRID_MAPS[zone].rooms.find((r) => r.id === 'couloir')!.rect
+  return { pos: [x0 + x1 + 1, 0, z0 + z1 + 1], yaw: -Math.PI / 2 }
+}
+
 export function roomAt(map: GridMap, x: number, z: number) {
   const tx = Math.floor(x / TILE)
   const tz = Math.floor(z / TILE)

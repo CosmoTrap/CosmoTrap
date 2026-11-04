@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { CEIL } from '../game/maps'
 import type { RoomDef } from '../game/types'
 import { ceilingMaterial, floorMaterial, useMats, wallMaterial } from './materials'
+import { Elevator } from './Elevator'
 import { Box, Cyl, Screen } from './props/models'
 
 type Surface = { p: number[]; n: number[]; uv: number[]; indices: number[] }
@@ -86,7 +87,7 @@ export function RoundHub({ room, shadows, zone }: { room: RoomDef; shadows: bool
   useEffect(() => () => { for (const g of [built.floor, built.ceiling, built.wall, built.glass, built.trim]) g.dispose() }, [built])
   const m = useMats()
   const frame = m.painted('#596168', 0.4, 0.7)
-  const destinations = zone === 1 ? ['INFIRMERIE / RESERVE', 'SAS / NIVEAU 02', 'REFECTOIRE', 'DORTOIR']
+  const destinations = zone === 1 ? ['INFIRMERIE / RESERVE', 'SAS', 'REFECTOIRE', 'DORTOIR']
     : ['MACHINERIE', 'ENERGIE', 'SERRE / LABORATOIRE', 'AMARRAGE']
   return <group name="round-hub" position={[cx, 0, cz]}>
     <mesh name="hub-floor" geometry={built.floor} material={floorMaterial('rubber', false, room.id)} receiveShadow castShadow={shadows} />
@@ -112,6 +113,7 @@ export function RoundHub({ room, shadows, zone }: { room: RoomDef; shadows: bool
     <mesh position={[0, CEIL - 0.04, 0]} rotation={[Math.PI / 2, 0, 0]} material={frame}>
       <torusGeometry args={[3.8, 0.05, 8, 96]} />
     </mesh>
+    <Elevator zone={zone} cx={cx} cz={cz} />
     <RigidBody type="fixed" colliders={false}>
       {built.colliders.map((c, i) => <CuboidCollider key={i} position={[c.x, CEIL / 2, c.z]} rotation={[0, c.angle, 0]} args={[c.half, CEIL / 2, 0.07]} />)}
       {[0, 1, 2, 3].map((i) => {
