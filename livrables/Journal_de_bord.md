@@ -98,20 +98,20 @@ Le daily de 9 h 15 dure 15 min ; le responsable qualité le résume ici avant 9 
 
 | Membre | Fait hier | Prévu aujourd’hui | Blocage (étape de déblocage atteinte) |
 | --- | --- | --- | --- |
-| Volle Clément  | L2 à compléter & backlog à corriger/refaire | | |
+| Volle Clément  | L2 à compléter & backlog à corriger/refaire | Correction des bugs du jeu, notamment celui des météorites qui traversent le vaisseau... | |
 | Leplat Simon | Fiche énigme à compléter (docx sur drive) & dév tache manquante |  |  |
-| Chaibrassou Hamza| Dév avec Simon et Kilian sur tâche manquante | | |
-| Angot-Chabanol Ethan | Finir maquette & compléter fiche IA | | |
-| Loïc Chauvelot | Journal de bord & L2 aussi | | |
-| Orsal Kilian | Dév avec Simon et Hamza sur tâche manquante | | |
+| Chaibrassou Hamza| Dév avec Simon et Kilian sur tâche manquante | Complexifier les énigmes qui étaient trop faciles | |
+| Angot-Chabanol Ethan | Finir maquette & compléter fiche IA | Finaliser l’intégration des maquettes à l’écran d’accueil et dans le jeu, améliorer les paramètres, ajouter la compatibilité avec les manettes et permettre la personnalisation des touches du clavier et des boutons de la manette | |
+| Loïc Chauvelot | Journal de bord & L2 aussi | Remplissage du journal de bord, testeur du jeu et speedrunner du jeu  | |
+| Orsal Kilian | Dév avec Simon et Hamza sur tâche manquante | Développement de toutes les textures, des alarmes, des portes, etc...  | |
 
 ### Bilan
 
 | | |
 | --- | --- |
-| **Décisions prises** | |
-| **Fin de journée : fait, reste à faire** | |
-| **Avancement du sprint (%)** | |
+| **Décisions prises** | Refaire les animations, corriger les bugs existants et améliorer la qualité globale du jeu  |
+| **Fin de journée : fait, reste à faire** | Finir de régler tous les bugs, les textures... |
+| **Avancement du sprint (%)** | 55 % |
 
 ---
 
