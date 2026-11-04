@@ -2,14 +2,21 @@ import { act, cycleItem, drinkPouch, toggleLamp, useBattery, useSelectedItem, us
 import { G, live, useGame } from '../game/state'
 import { skipCine } from '../world/Cinematics'
 import { aim, closeInventory, closeTablet, openInventory, openTablet } from './Player'
-import { input } from './input'
+import { input, type PadType } from './input'
 
-// Manette (mapping standard Xbox / PlayStation) :
-// stick gauche bouger · stick droit regarder · A agir · B retour · X lampe · Y tablette
-// LB oxygène · RB piles · RT boire · L3 ou LT courir · D-pad ←/→ choisir un objet, ↑ l'utiliser
-// Start pause · Select passer la cinématique. Dans les menus : D-pad / stick pour se déplacer, A valider.
+// Manette (mapping standard Xbox / PlayStation), réaffectable dans Paramètres › Touches :
+// stick gauche bouger · stick droit regarder · A sauter · B s'accroupir · X agir · Y inventaire
+// Vue tablette · LB lampe · RB indice · Menu pause · LT courir · RT boire · R3 piles · Croix ↓ oxygène
+// Croix ←/→ choisir un objet, ↑ l'utiliser. Hors jeu : Croix / stick pour se déplacer, A valider, B retour.
 
-export const pad = { x: 0, y: 0, run: false, connected: false }
+export const pad = { x: 0, y: 0, run: false, crouch: false, connected: false }
+
+/** marque de la manette d'après son identifiant */
+export function detectPadType(): PadType | null {
+  const gp = navigator.getGamepads?.().find((g) => g && g.connected)
+  if (!gp) return null
+  return /dualsense|dualshock|playstation|054c/i.test(gp.id) ? 'ps5' : 'xbox'
+}
 let prev: boolean[] = []
 let navCooldown = 0
 
@@ -65,9 +72,15 @@ export function pollGamepad(dt: number) {
   if (!gp) {
     pad.x = pad.y = 0
     pad.run = false
+    pad.crouch = false
     return
   }
   const b = gp.buttons
+  // pendant une réaffectation, c'est l'écran Touches qui lit les boutons
+  if ((window as any).__rebinding) {
+    prev = b.map((x) => x.pressed)
+    return
+  }
   const ax = gp.axes
   const any = b.some((x) => x.pressed) || ax.some((v) => Math.abs(v) > 0.4)
   if (any && live.device !== 'pad') {
@@ -94,9 +107,11 @@ export function pollGamepad(dt: number) {
     input.look.dx += Math.sign(rx) * rx * rx * k
     input.look.dy += Math.sign(ry) * ry * ry * k
   }
-  pad.run = !!b[10]?.pressed || (b[6]?.value ?? 0) > 0.4
+  const P = s.settings.pad
+  pad.run = !!b[P.run]?.pressed || (b[P.run]?.value ?? 0) > 0.4 || !!b[10]?.pressed
+  pad.crouch = !menu && !!b[P.crouch]?.pressed
 
-  if (pressed(9, b)) {
+  if (pressed(P.pause, b)) {
     if (s.screen === 'playing' && !s.cine) {
       if (s.puzzle || s.readNote) useGame.setState({ puzzle: null, readNote: null })
       else if (s.tabletOpen) closeTablet()
@@ -129,22 +144,25 @@ export function pollGamepad(dt: number) {
       else if (s.paused) useGame.setState({ paused: false })
       else if (s.settingsOpen) useGame.setState({ settingsOpen: false })
     }
-    if (pressed(3, b) && s.tabletOpen) closeTablet()
+    if (pressed(P.inventory, b) && s.inventoryOpen) closeInventory()
+    if ((pressed(P.tablet, b) || pressed(P.inventory, b) || pressed(P.hint, b)) && s.tabletOpen) closeTablet()
   } else if (s.screen === 'playing' && (!s.cine || s.cine === 'briefing')) {
-    if (pressed(0, b) && aim.id && !s.cine) act(aim.id)
-    if (pressed(2, b)) toggleLamp()
-    if (pressed(3, b)) openTablet()
-    if (pressed(4, b)) useO2()
-    if (pressed(5, b)) useBattery()
-    if ((b[7]?.value ?? 0) > 0.5 && !prev[7]) drinkPouch()
+    if (pressed(P.act, b) && aim.id && !s.cine) act(aim.id)
+    if (pressed(P.jump, b) && !s.cine) input.jumpRequested = true
+    if (pressed(P.lamp, b)) toggleLamp()
+    if (pressed(P.tablet, b)) openTablet()
+    if (pressed(P.inventory, b)) openInventory()
+    if (pressed(P.hint, b)) { useGame.setState({ tab: 0 }); openTablet() }
+    if (pressed(P.o2, b)) useO2()
+    if (pressed(P.battery, b)) useBattery()
+    if ((b[P.drink]?.value ?? 0) > 0.5 && !prev[P.drink]) drinkPouch()
     if (!s.cine) {
-      if (pressed(14, b)) cycleItem(-1)
-      if (pressed(15, b)) cycleItem(1)
-      if (pressed(12, b)) useSelectedItem()
-      if (pressed(13, b)) openInventory()
+      if (pressed(P.previousItem, b)) cycleItem(-1)
+      if (pressed(P.nextItem, b)) cycleItem(1)
+      if (pressed(P.useSelected, b)) useSelectedItem()
     }
   }
-  prev = b.map((x, i) => (i === 7 ? x.value > 0.5 : x.pressed))
+  prev = b.map((x, i) => (i === P.drink ? x.value > 0.5 : x.pressed))
 }
 
 /** boucle indépendante : la manette marche aussi dans les menus */

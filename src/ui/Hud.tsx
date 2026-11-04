@@ -4,7 +4,7 @@ import { stepsState } from '../game/logic'
 import { Hotbar } from './Inventory'
 import { timeLimit, live, useGame } from '../game/state'
 import { isTouch, requestLock } from '../player/Player'
-import { keyName } from '../player/input'
+import { keyName, padButtonName } from '../player/input'
 import { GaugeIcon } from './Icons'
 import { fmtTime } from '../game/api'
 import { gridMap } from '../game/maps'
@@ -183,6 +183,8 @@ export function Hud() {
   const overlay = useGame((s) => s.tabletOpen || s.inventoryOpen || !!s.puzzle || !!s.readNote || s.paused || s.settingsOpen)
   const keys = useGame((s) => s.settings.keys)
   const padActive = useGame((s) => s.padActive)
+  const padType = useGame((s) => s.settings.padType)
+  const padAct = useGame((s) => s.settings.pad.act)
   const character = useGame((s) => s.character)
   const briefer = character === 'ines' ? 'kenji' : 'ines'
   const showChrono = useGame((s) => s.settings.showChrono)
@@ -205,7 +207,7 @@ export function Hud() {
               <div className={`reticle ${label ? 'on' : ''}`} />
               {label && (
                 <div className="prompt">
-                  <span className={`key ${padActive ? 'pad-a' : ''}`}>{padActive ? 'A' : touch ? fr.hud.act : keyName(keys.act[0])}</span>
+                  <span className={`key ${padActive ? 'pad-a' : ''}`}>{padActive ? padButtonName(padType, padAct) : touch ? fr.hud.act : keyName(keys.act[0])}</span>
                   {label}
                 </div>
               )}

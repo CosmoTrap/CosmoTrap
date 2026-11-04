@@ -5,7 +5,7 @@ import { useGame } from '../game/state'
 import type { ItemId, ItemKind } from '../game/types'
 import { fr } from '../i18n/fr'
 import { closeInventory, openInventory } from '../player/Player'
-import { labelFor, matches } from '../player/input'
+import { labelFor, matches, padButtonName } from '../player/input'
 import { ItemIcon } from './Icons'
 import './inventory.css'
 
@@ -24,6 +24,8 @@ export function Hotbar() {
   const lampOn = useGame((s) => s.lampOn)
   const keys = useGame((s) => s.settings.keys)
   const pad = useGame((s) => s.padActive)
+  const padType = useGame((s) => s.settings.padType)
+  const padKeys = useGame((s) => s.settings.pad)
   const t = fr.inventory
   const items = hotbarItems()
   const selected = selectedInventoryItem()
@@ -49,11 +51,11 @@ export function Hotbar() {
         <button type="button" className="quick-arrow" aria-label={t.next} onClick={() => cycleItem(1)}>›</button>
       </div>}
       <div className="quick-actions">
-        <button type="button" onClick={openInventory} data-testid="open-inventory"><kbd>{pad ? '↓' : labelFor(keys, 'inventory')}</kbd> {t.title}</button>
+        <button type="button" onClick={openInventory} data-testid="open-inventory"><kbd>{pad ? padButtonName(padType, padKeys.inventory) : labelFor(keys, 'inventory')}</kbd> {t.title}</button>
         {selected && canUseItem(selected) && <button type="button" data-testid="hotbar-use" onClick={useSelectedItem}>
-          <kbd>{pad ? '↑' : labelFor(keys, 'useSelected')}</kbd> {actionLabel(selected, held, lampOn)}
+          <kbd>{pad ? padButtonName(padType, padKeys.useSelected) : labelFor(keys, 'useSelected')}</kbd> {actionLabel(selected, held, lampOn)}
         </button>}
-        <span className="quick-wheel">{pad ? '← →' : t.wheel}</span>
+        <span className="quick-wheel">{pad ? `${padButtonName(padType, padKeys.previousItem)} / ${padButtonName(padType, padKeys.nextItem)}` : t.wheel}</span>
       </div>
     </section>
   )

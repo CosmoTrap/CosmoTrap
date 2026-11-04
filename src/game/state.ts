@@ -1,10 +1,12 @@
 import { create } from 'zustand'
 import { FLAGS, type Flags, type ItemId, type PuzzleId, type ZoneId } from './types'
-import { DEFAULT_KEYS, type KeyMap } from '../player/input'
+import { DEFAULT_KEYS, DEFAULT_PAD, detectKeyLayout, type KeyLayout, type KeyMap, type PadMap, type PadType } from '../player/input'
 import { DIFFICULTY, type Difficulty } from './difficulty'
 import { LAYOUT_VERSION, migrateStationSave } from './maps/layoutMigration'
 
-export type Screen = 'login' | 'title' | 'charSelect' | 'prologue' | 'playing' | 'end' | 'leaderboard' | 'settings'
+export type Screen = 'launch' | 'login' | 'title' | 'prologue' | 'playing' | 'end' | 'settings' | 'achievements' | 'credits'
+/** carte choisie sur l'écran de lancement */
+export type MissionMap = 'base' | 'station'
 export type Quality = 'low' | 'medium' | 'high' | 'ultra'
 export type CineKind = 'briefing' | 'faint' | 'zoneCard' | 'tour' | 'launch' | 'heli' | 'fail' | null
 
@@ -35,9 +37,21 @@ export interface Settings {
   music: number
   sfx: number
   voice: number
+  /** ambiance spatiale (souffle, réacteurs, dépressurisation) */
+  ambience: number
+  audioOutput: 'headphones' | 'speakers'
+  spatialAudio: boolean
+  /** bip quand l'O₂ passe sous 20 % */
+  o2Alert: boolean
+  /** légendes « [alarme] », « [fuite d'air] »… */
+  soundCaptions: boolean
   fov: number
   colorblind: boolean
   keys: KeyMap
+  /** libellés affichés pour les touches (les touches restent physiques) */
+  keyLayout: KeyLayout
+  pad: PadMap
+  padType: PadType
   showFps: boolean
   /** afficher la réplique fantôme du record */
   ghost: boolean
@@ -45,6 +59,9 @@ export interface Settings {
   resolution: 'auto' | number
   /** personnage choisi dans le profil (invités : local) */
   character: string
+  /** carte et difficulté retenues sur l'écran de lancement */
+  map: MissionMap
+  difficulty: Difficulty
   /** niveau d'aide : fréquence et précision des indices */
   help: 'recrue' | 'pilote' | 'commandant'
   showChrono: boolean
@@ -132,6 +149,7 @@ export interface GameData {
   layoutVersion: number
   zone: ZoneId
   character: string
+  map: MissionMap
   flags: Flags
   inv: Partial<Record<ItemId, number>>
   res: { o2: number; lamp: number; water: number }
@@ -175,10 +193,11 @@ export interface GameData {
   splits: Record<string, number>
 }
 
-export const newGameData = (character = 'nova', difficulty: Difficulty = 'astronaut'): GameData => ({
+export const newGameData = (character = 'nova', difficulty: Difficulty = 'astronaut', map: MissionMap = 'base'): GameData => ({
   layoutVersion: LAYOUT_VERSION,
   zone: 1,
   character,
+  map,
   flags: emptyFlags(),
   inv: {},
   res: { o2: 100, lamp: 100, water: 100 },
@@ -214,6 +233,8 @@ export const newGameData = (character = 'nova', difficulty: Difficulty = 'astron
 
 export interface GameState extends GameData {
   screen: Screen
+  /** écran où revient la flèche des pages Paramètres, Succès et Crédits */
+  menuBack: Screen
   paused: boolean
   locked: boolean // pointer lock actif
   tabletOpen: boolean
@@ -280,17 +301,27 @@ function loadSettings(): Settings {
     quality: detectQuality(),
     sensitivity: 1,
     invertY: false,
-    master: 1,
-    music: 0.7,
-    sfx: 0.85,
+    master: 0.8,
+    music: 0.6,
+    sfx: 0.75,
     voice: 0.9,
+    ambience: 0.5,
+    audioOutput: 'headphones',
+    spatialAudio: true,
+    o2Alert: true,
+    soundCaptions: true,
     fov: 72,
     colorblind: false,
     keys: DEFAULT_KEYS,
+    keyLayout: detectKeyLayout(),
+    pad: DEFAULT_PAD,
+    padType: 'xbox',
     showFps: false,
     ghost: true,
     resolution: 'auto',
     character: 'nova',
+    map: 'base',
+    difficulty: 'astronaut',
     help: 'pilote',
     showChrono: true,
     subtitles: true,
@@ -303,7 +334,7 @@ function loadSettings(): Settings {
   try {
     const q = new URLSearchParams(location.search).get('quality') as Quality | null
     const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null')
-    const out = { ...def, ...(s || {}), keys: { ...DEFAULT_KEYS, ...(s?.keys || {}) } }
+    const out = { ...def, ...(s || {}), keys: { ...DEFAULT_KEYS, ...(s?.keys || {}) }, pad: { ...DEFAULT_PAD, ...(s?.pad || {}) } }
     // Before jumping existed, Space was a second interaction key.
     if (s?.keys && !('jump' in s.keys)) {
       out.keys.act = out.keys.act.filter((code: string) => code !== 'Space')
@@ -326,7 +357,9 @@ export function saveSettings(s: Settings) {
 
 export const useGame = create<GameState>((set) => ({
   ...newGameData(),
-  screen: 'login',
+  // un lien de réinitialisation de mot de passe ouvre directement la connexion
+  screen: typeof location !== 'undefined' && new URLSearchParams(location.search).has('reset') ? 'login' : 'launch',
+  menuBack: 'launch',
   paused: false,
   locked: false,
   tabletOpen: false,
