@@ -4,16 +4,20 @@ import * as THREE from 'three'
 import { live, useGame } from '../game/state'
 import type { ItemId } from '../game/types'
 import { photoSurface } from '../world/photomaterials'
+import { skinOf } from '../world/skins'
 
 // Vue à la 1re personne : gants + tablette 3D qui s'anime à l'ouverture, objet tenu en main.
 
 function Glove({ side }: { side: 1 | -1 }) {
+  // manches et mains aux couleurs du skin choisi (fourrure, feuillage, métal…)
+  const character = useGame((s) => s.character)
+  const look = skinOf(character)
   const mat = useMemo(() => {
     const s = photoSurface('fabric', 3)
-    return new THREE.MeshStandardMaterial({ color: '#e6e2d8', roughness: 0.85, normalMap: s.normalMap,
+    return new THREE.MeshStandardMaterial({ color: look.suit, roughness: 0.85, normalMap: s.normalMap,
       normalScale: new THREE.Vector2(0.22, 0.22), roughnessMap: s.roughnessMap })
-  }, [])
-  const dark = useMemo(() => new THREE.MeshStandardMaterial({ color: '#2a2c30', roughness: 0.7 }), [])
+  }, [look])
+  const dark = useMemo(() => new THREE.MeshStandardMaterial({ color: look.body, roughness: 0.7, metalness: character === 'kenji' ? 0.6 : 0 }), [look, character])
   const accent = useMemo(() => new THREE.MeshStandardMaterial({ color: '#d9673a', roughness: 0.6 }), [])
   return (
     <group>

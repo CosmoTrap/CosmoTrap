@@ -49,9 +49,15 @@ export function useInputListeners() {
         else useGame.setState({ paused: !s.paused })
         return
       }
-      if (matches(k, 'tablet', e.code)) {
+      // tablette, inventaire (onglet Sac) et indices (onglet Mission) partagent le même écran
+      const tabletTab = matches(k, 'tablet', e.code) ? s.tab : matches(k, 'inventory', e.code) ? 2 : matches(k, 'hint', e.code) ? 0 : null
+      if (tabletTab !== null) {
+        e.preventDefault()
         if (s.tabletOpen) closeTablet()
-        else if (!s.puzzle && !s.paused) openTablet()
+        else if (!s.puzzle && !s.paused) {
+          useGame.setState({ tab: tabletTab })
+          openTablet()
+        }
         return
       }
       if (matches(k, 'jump', e.code)) {
@@ -74,6 +80,11 @@ export function useInputListeners() {
       } else if (/^(Digit|Numpad)[1-9]$/.test(e.code)) useSlot(Number(e.code.slice(-1)) - 1)
     }
     const up = (e: KeyboardEvent) => input.down.delete(e.code)
+    // Ctrl (s'accroupir) + W (avancer en QWERTY) ferme l'onglet : le navigateur demande confirmation en partie
+    const guardLeave = (e: BeforeUnloadEvent) => {
+      if (G().screen === 'playing' && input.down.has('ControlLeft')) e.preventDefault()
+    }
+    window.addEventListener('beforeunload', guardLeave)
     // souris verrouillée (souris ou pavé tactile) ; sinon glisser-cliquer sur la vue
     let dragging = false
     const move = (e: MouseEvent) => {
@@ -123,6 +134,7 @@ export function useInputListeners() {
       window.removeEventListener('pointerup', pup)
       window.removeEventListener('wheel', wheel)
       window.removeEventListener('blur', blur)
+      window.removeEventListener('beforeunload', guardLeave)
       document.removeEventListener('pointerlockchange', plc)
     }
   }, [])
@@ -158,7 +170,7 @@ export function Player() {
   const tp = useGame((s) => s.tp)
   const quality = useGame((s) => s.settings.quality)
   const q = QUALITY[quality]
-  const st = useRef({ vy: 0, grounded: false, phase: 0, lastStep: 0, roll: 0, lampYaw: 0, lampPitch: 0, flick: 1, breath: 0, prevAim: '' })
+  const st = useRef({ vy: 0, grounded: false, phase: 0, lastStep: 0, roll: 0, lampYaw: 0, lampPitch: 0, flick: 1, breath: 0, prevAim: '', crouch: 0 })
   const controller = useMemo(() => {
     const c = world.createCharacterController(0.02)
     c.enableAutostep(0.35, 0.25, false)
@@ -254,7 +266,10 @@ export function Player() {
       iz /= len
     }
     const running = !frozen && (isDown(keys, 'run') || input.touchRun || pad.run || Math.hypot(input.joy.x, input.joy.y) > 0.95)
-    let speed = (running ? 4.4 : 2.5) * ability().speed
+    // s'accroupir : vue abaissée et marche lente (la capsule de collision ne change pas)
+    const crouching = !frozen && (isDown(keys, 'crouch') || pad.crouch)
+    S.crouch = THREE.MathUtils.damp(S.crouch, crouching ? 1 : 0, 10, dt)
+    let speed = (running && !crouching ? 4.4 : crouching ? 1.4 : 2.5) * ability().speed
     if (s.res.water <= 0) speed *= 0.55
     if (s.zone < 4 && s.res.o2 < 10) speed *= 0.8
     fwd.set(-Math.sin(live.yaw), 0, -Math.cos(live.yaw))
@@ -312,7 +327,7 @@ export function Player() {
       camera.position.set(...live.camOverride.pos)
       camera.lookAt(...live.camOverride.look)
     } else {
-      camera.position.set(nx + right.x * bobX + sx, ny + EYE + bobY + breathY + sy, nz + right.z * bobX)
+      camera.position.set(nx + right.x * bobX + sx, ny + EYE - S.crouch * 0.55 + bobY + breathY + sy, nz + right.z * bobX)
       camera.rotation.set(live.pitch + sy * 0.5, live.yaw + sx * 0.3, S.roll, 'YXZ')
     }
     const pc = camera as THREE.PerspectiveCamera

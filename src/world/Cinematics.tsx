@@ -281,7 +281,7 @@ export function EndAvatar() {
   })
   return (
     <group ref={g} visible={false}>
-      <Astronaut ref={ref} accent={fr.characters[character]?.color ?? '#d9673a'} />
+      <Astronaut ref={ref} skin={character} accent={fr.characters[character]?.color ?? '#d9673a'} />
     </group>
   )
 }

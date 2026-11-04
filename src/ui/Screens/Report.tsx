@@ -8,7 +8,8 @@ import { fr } from '../../i18n/fr'
 import { requestLock } from '../../player/Player'
 import { Avatar, startNewGame } from './Menu'
 import { update } from './Settings'
-import { Range, Row, Toggle } from './SettingsPage'
+import { Range, Row, SensitivityRange, Toggle } from './SettingsPage'
+import { Stage } from './Stage'
 
 // Écrans « Mission accomplie », « Temps écoulé » et « Mission en pause » (maquettes) :
 // progression énigme par énigme avec le temps passé, classement ou réglages rapides.
@@ -77,7 +78,7 @@ function Progress({ mode, steps }: { mode: Mode; steps: Step[] }) {
   const cur = steps.find((x) => x.status === 'current')
   const s = G()
   return (
-    <section className="mm-panel rp-progress">
+    <section className={`x-panel rp-progress ${steps.length > 6 ? 'dense' : ''}`}>
       <header>
         <h2>{mode === 'win' ? R.perPuzzle : R.progress}</h2>
         <span className={`rp-count ${mode}`}>{R.solved(done.length, steps.length)}</span>
@@ -103,14 +104,8 @@ function Progress({ mode, steps }: { mode: Mode; steps: Step[] }) {
           )
         })}
       </ol>
-      <footer className="rp-foot">
-        <span className={mode}>
-          {mode === 'win' ? `${R.longest} · ${longest?.name ?? '—'}` : `${mode === 'fail' ? R.blocking : R.currentPuzzle} · ${cur?.name ?? '—'}`}
-        </span>
-        <span className="rp-mini">
-          {R.hints} {s.hintsUsed} · {R.errors} {s.errors} · {R.faints} {s.faints}
-          {mode === 'win' ? ` · ${R.score} ${computeScore()}` : ''}
-        </span>
+      <footer className="rp-foot" title={`${R.hints} ${s.hintsUsed} · ${R.errors} ${s.errors} · ${R.faints} ${s.faints}${mode === 'win' ? ` · ${R.score} ${computeScore()}` : ''}`}>
+        {mode === 'win' ? `${R.longest} · ${longest?.name ?? '—'}` : `${mode === 'fail' ? R.blocking : R.currentPuzzle} · ${cur?.name ?? '—'}`}
       </footer>
     </section>
   )
@@ -133,57 +128,57 @@ function Head({ mode, kicker, title, sub, clockLabel, clock, testId }: { mode: M
   )
 }
 
-function Board({ mode, rank, prevRank }: { mode: 'win' | 'fail'; rank: number | null; prevRank: number | null }) {
+function Board({ mode, rank, prevRank, submitted }: { mode: 'win' | 'fail'; rank: number | null; prevRank: number | null; submitted: boolean }) {
   const [rows, setRows] = useState<BoardRow[] | null>(null)
   const user = useGame((s) => s.user)
   const character = useGame((s) => s.character)
   useEffect(() => {
     // en cas de victoire, on attend l'enregistrement du score pour s'y voir
-    if (mode === 'win' && user && rank == null) return
+    if (mode === 'win' && user && !submitted) return
     leaderboard('all', 'all')
       .then((r) => setRows(r.rows))
       .catch(() => setRows([]))
-  }, [mode, rank, user])
+  }, [mode, submitted, user])
   const top = (rows ?? []).slice(0, 7)
   const meIdx = (rows ?? []).findIndex((r) => r.me)
   const up = rank && prevRank && prevRank > rank ? prevRank - rank : 0
   return (
-    <section className="mm-panel rp-board">
+    <section className="x-panel rp-board">
       <header>
         <h2>{R.board}</h2>
         <span className={`rp-chip ${mode}`}>{mode === 'win' && rank ? `${R.youAre(rank)}${up ? ` · ↑ ${up}` : ''}` : R.unranked}</span>
       </header>
-      <div className="mm-rows">
-        {rows && !rows.length && <p className="mm-empty">{user ? fr.board.empty : fr.board.offline}</p>}
+      <div className="x-rows">
+        {rows && !rows.length && <p className="x-empty">{user ? fr.board.empty : fr.board.offline}</p>}
         {top.map((r, i) => (
-          <div key={i} className={`mm-row ${r.me && mode === 'win' && i === meIdx ? 'me win' : ''}`}>
-            <span className={`mm-rank ${i < 3 ? 'top' : ''}`}>{String(i + 1).padStart(2, '0')}</span>
+          <div key={i} className={`x-row ${r.me && mode === 'win' && i === meIdx ? 'me win' : ''}`}>
+            <span className={`x-rank r${i + 1}`}>{String(i + 1).padStart(2, '0')}</span>
             <Avatar charId={r.avatar ?? r.character} />
-            <span className="mm-name">
+            <span className="x-name">
               {r.pseudo}
               {r.me && mode === 'win' && i === meIdx ? ` ${R.you}` : ''}
             </span>
-            <span className="mm-time">{hms(r.timeMs / 1000)}</span>
+            <span className="x-time">{hms(r.timeMs / 1000)}</span>
           </div>
         ))}
         {mode === 'win' && meIdx >= 7 && rows && (
-          <div className="mm-row me win">
-            <span className="mm-rank">{String(meIdx + 1).padStart(2, '0')}</span>
+          <div className="x-row me win">
+            <span className="x-rank">{String(meIdx + 1).padStart(2, '0')}</span>
             <Avatar charId={character} />
-            <span className="mm-name">
+            <span className="x-name">
               {rows[meIdx].pseudo} {R.you}
             </span>
-            <span className="mm-time">{hms(rows[meIdx].timeMs / 1000)}</span>
+            <span className="x-time">{hms(rows[meIdx].timeMs / 1000)}</span>
           </div>
         )}
         {mode === 'fail' && (
-          <div className="mm-row me fail">
-            <span className="mm-rank">—</span>
-            <Avatar charId={character} />
-            <span className="mm-name">
+          <div className="x-row me fail">
+            <span className="x-rank">—</span>
+            <Avatar charId={character} me />
+            <span className="x-name">
               {user?.pseudo ?? fr.menu2.guest} {R.you}
             </span>
-            <span className="mm-time">{R.failed.toUpperCase()}</span>
+            <span className="x-time">{R.failed.toUpperCase()}</span>
           </div>
         )}
       </div>
@@ -197,61 +192,58 @@ export function End() {
   const mode: 'win' | 'fail' = fail ? 'fail' : 'win'
   const total = s.playTime + s.penalty
   const [rank, setRank] = useState<number | null>(null)
+  const [submitted, setSubmitted] = useState(false)
   const [prevRank] = useState(() => G().myRank ?? null)
   const [unlocked, setUnlocked] = useState<string[]>([])
   const steps = missionSteps(s)
   useEffect(() => {
     if (fail) return
     setUnlocked(checkEndAchievements())
-    submitScore({ timeMs: Math.round(total * 1000), hints: s.hintsUsed, errors: s.errors, score: computeScore(), character: s.character, ending: s.choice === 'keep' ? 'rescue_keep' : 'rescue', difficulty: s.difficulty, ghost: s.track }).then((r) => {
-      setRank(r)
+    submitScore({ timeMs: Math.round(total * 1000), hints: s.hintsUsed, errors: s.errors, score: computeScore(), character: s.character, ending: s.choice === 'keep' ? 'rescue_keep' : 'rescue', difficulty: s.difficulty, ghost: s.track, map: s.map }).then((r) => {
+      setRank(r ?? null)
+      setSubmitted(true)
       if (r) useGame.setState({ myRank: r })
     })
   }, [])
   const earth = s.zone >= 4
-  const ep = fr.story.epilogue
   const again = () => {
     useGame.setState({ ended: false })
-    startNewGame(s.character, s.difficulty)
+    startNewGame(s.character, s.difficulty, s.map)
   }
   return (
-    <div className={`rp ${mode}`} data-testid="end">
+    <Stage tint={mode} testId="end">
       <Head
         mode={mode}
         kicker={fail ? (earth ? R.failKickerEarth : R.failKicker) : R.winKicker}
         title={fail ? R.failTitle : R.winTitle}
-        sub={fail ? (earth ? R.failSubEarth : R.failSub) : `${R.winSub} ${s.choice === 'keep' ? ep.keep : ep.drop}`}
+        sub={fail ? (earth ? R.failSubEarth : R.failSub) : R.winSub}
         clockLabel={fail ? R.limit : R.total}
         clock={fail ? '00:00:00' : hms(total)}
         testId="end-time"
       />
+      <Progress mode={mode} steps={steps} />
+      <Board mode={mode} rank={rank} prevRank={prevRank} submitted={submitted} />
       {unlocked.length > 0 && (
-        <div className="ach-row rp-ach">
+        <div className="rp-ach">
           {unlocked.map((c) => {
             const a = ACHIEVEMENTS.find((x) => x.code === c)!
             return (
-              <span key={c} className="ach-chip" title={a.desc}>
+              <span key={c} title={a.desc}>
                 {a.icon} {a.name}
               </span>
             )
           })}
         </div>
       )}
-      <div className="rp-grid">
-        <Progress mode={mode} steps={steps} />
-        <div className="rp-right">
-          <Board mode={mode} rank={rank} prevRank={prevRank} />
-          <div className="rp-actions">
-            <button className="rp-ghost" onClick={() => useGame.setState({ screen: 'title', ended: false })}>
-              {R.menu}
-            </button>
-            <button className="au-submit" data-testid="again" onClick={again}>
-              {fail ? R.retry : R.replay}
-            </button>
-          </div>
-        </div>
+      <div className="rp-actions">
+        <button type="button" className="x-ghost" onClick={() => useGame.setState({ screen: 'title', ended: false })}>
+          {R.menu}
+        </button>
+        <button type="button" className="x-primary" data-testid="again" onClick={again}>
+          {fail ? R.retry : R.replay}
+        </button>
       </div>
-    </div>
+    </Stage>
   )
 }
 
@@ -269,15 +261,13 @@ export function Pause() {
     useGame.setState({ screen: 'title', paused: false, cine: null, subtitle: null })
   }
   return (
-    <div className="rp pause" data-testid="pause">
-      <Head mode="pause" kicker={`${R.pauseKicker} · ${fr.zones[s.zone].sub}`} title={R.pauseTitle} sub={R.pauseSub} clockLabel={R.remaining} clock={hms(timeLimit() - s.playTime - s.penalty)} />
-      <div className="rp-grid">
-        <Progress mode="pause" steps={steps} />
-        <div className="rp-right">
-          <section className="mm-panel rp-quick">
+    <Stage tint="pause" testId="pause">
+      <Head mode="pause" kicker={R.pauseKicker} title={R.pauseTitle} sub={R.pauseSub} clockLabel={R.remaining} clock={hms(timeLimit() - s.playTime - s.penalty)} />
+      <Progress mode="pause" steps={steps} />
+      <section className="x-panel rp-quick">
             <header>
               <h2>{R.quick}</h2>
-              <button className="rp-chip pause" onClick={() => useGame.setState({ settingsOpen: true, settingsTab: 1 })}>
+              <button type="button" className="rp-chip pause" onClick={() => useGame.setState({ settingsOpen: true, settingsTab: 1 })}>
                 {R.allSettings} →
               </button>
             </header>
@@ -285,10 +275,10 @@ export function Pause() {
               <Range value={st.master} min={0} max={1} step={0.01} onChange={(v) => update({ master: v })} />
             </Row>
             <Row title={fr.settings2.brightness} desc={R.brightnessDesc}>
-              <Range value={st.brightness} min={0.6} max={1.6} step={0.02} onChange={(v) => update({ brightness: v })} />
+              <Range value={st.brightness} min={0.4} max={1.4} step={0.02} onChange={(v) => update({ brightness: v })} />
             </Row>
             <Row title={fr.settings2.sensitivity} desc={R.sensDesc}>
-              <Range value={st.sensitivity} min={0.2} max={3} step={0.05} onChange={(v) => update({ sensitivity: v })} />
+              <SensitivityRange />
             </Row>
             <Row title={fr.settings2.chrono} desc={fr.settings2.chronoDesc}>
               <Toggle on={st.showChrono} onChange={(v) => update({ showChrono: v })} />
@@ -296,17 +286,15 @@ export function Pause() {
             <Row title={fr.settings2.subs} desc={fr.settings2.subsDesc}>
               <Toggle on={st.subtitles} onChange={(v) => update({ subtitles: v })} />
             </Row>
-          </section>
-          <div className="rp-actions">
-            <button className="rp-ghost" onClick={quit}>
-              {R.quit}
-            </button>
-            <button className="au-submit" data-testid="resume" onClick={resume}>
-              {R.resume}
-            </button>
-          </div>
-        </div>
+      </section>
+      <div className="rp-actions">
+        <button type="button" className="x-ghost" onClick={quit}>
+          {R.quit}
+        </button>
+        <button type="button" className="x-primary" data-testid="resume" onClick={resume}>
+          {R.resume}
+        </button>
       </div>
-    </div>
+    </Stage>
   )
 }

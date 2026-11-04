@@ -36,6 +36,7 @@ export function installDevApi() {
         aimed: live.aimed,
         propPositions: { ...s.propPositions },
         character: s.character,
+        map: s.map,
         settings: { character: s.settings.character, lang: s.settings.lang, help: s.settings.help },
       }
     },
