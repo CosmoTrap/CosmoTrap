@@ -107,11 +107,11 @@ function Batteries() {
   const m = useMats()
   return (
     <group position={[0, 0.03, 0.12]}>
-      <Box s={[0.16, 0.012, 0.11]} p={[0, -0.02, 0]} m={m.plastic('#1d2a6b', 0.4)} />
+      <Box s={[0.22, 0.016, 0.14]} p={[0, -0.02, 0]} m={m.plastic('#1d2a6b', 0.4)} />
       {[0, 1, 2, 3].map((i) => (
-        <group key={i} position={[-0.054 + i * 0.036, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <Cyl a={[0.016, 0.016, 0.1]} m={m.metal('#cf7a2a', 0.35)} seg={12} />
-          <Cyl a={[0.0165, 0.0165, 0.035]} p={[0, -0.034, 0]} m={m.metal('#222', 0.35)} seg={12} />
+        <group key={i} position={[-0.075 + i * 0.05, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <Cyl a={[0.022, 0.022, 0.12]} m={m.metal('#cf7a2a', 0.35)} seg={12} />
+          <Cyl a={[0.023, 0.023, 0.04]} p={[0, -0.04, 0]} m={m.metal('#222', 0.35)} seg={12} />
         </group>
       ))}
     </group>
@@ -194,19 +194,92 @@ function Cell() {
   )
 }
 
-function SmallItem({ color, shape = 'box' }: { color: string; shape?: 'box' | 'cyl' | 'torus' | 'flat' | 'foil' }) {
+function MultiTool() {
   const m = useMats()
   return (
-    <group position={[0, 0.03, 0.14]}>
-      {shape === 'box' && <Box s={[0.14, 0.06, 0.1]} m={m.plastic(color, 0.4)} />}
-      {shape === 'cyl' && <Cyl a={[0.04, 0.04, 0.04]} m={m.plastic(color, 0.35)} />}
-      {shape === 'torus' && (
-        <mesh rotation={[Math.PI / 2, 0, 0]} material={m.plastic(color, 0.6)} castShadow>
-          <torusGeometry args={[0.04, 0.02, 10, 20]} />
-        </mesh>
-      )}
-      {shape === 'flat' && <Box s={[0.1, 0.008, 0.07]} m={m.metal(color, 0.05)} />}
-      {shape === 'foil' && <Box s={[0.16, 0.03, 0.12]} m={m.metal(color, 0.25)} />}
+    <group position={[0, 0.045, 0.16]} rotation={[0, 0.4, 0.2]}>
+      <Box s={[0.16, 0.045, 0.028]} m={m.plastic('#c5302a', 0.45)} />
+      <Box s={[0.07, 0.012, 0.012]} p={[0.1, 0.01, 0]} m={m.metal('#d5d8dc', 0.25)} />
+      <Box s={[0.035, 0.012, 0.02]} p={[0.14, 0.01, 0]} m={m.metal('#d5d8dc', 0.25)} />
+      <Cyl a={[0.012, 0.012, 0.05]} p={[-0.05, 0.02, 0]} r={[0, 0, Math.PI / 2]} m={m.metal('#8d9196')} seg={8} />
+    </group>
+  )
+}
+
+function Purifier() {
+  const m = useMats()
+  return (
+    <group position={[0, 0.02, 0.16]}>
+      <Cyl a={[0.055, 0.06, 0.16]} p={[0, 0.08, 0]} m={m.plastic('#1d4e89', 0.35)} seg={16} />
+      <Cyl a={[0.04, 0.04, 0.03]} p={[0, 0.175, 0]} m={m.plastic('#d8dce2', 0.3)} seg={12} />
+      <Cyl a={[0.012, 0.012, 0.04]} p={[0.04, 0.12, 0]} r={[0, 0, Math.PI / 2]} m={m.plastic('#7ec8ff', 0.2)} seg={8} />
+    </group>
+  )
+}
+
+function TapeRoll() {
+  const m = useMats()
+  return (
+    <group position={[0, 0.06, 0.16]} rotation={[0.4, 0, 0.6]}>
+      <mesh rotation={[Math.PI / 2, 0, 0]} material={m.plastic('#c8ccd0', 0.45)} castShadow>
+        <torusGeometry args={[0.055, 0.022, 10, 22]} />
+      </mesh>
+      <mesh rotation={[Math.PI / 2, 0, 0]} material={m.plastic('#8a9096', 0.6)}>
+        <cylinderGeometry args={[0.028, 0.028, 0.03, 12]} />
+      </mesh>
+    </group>
+  )
+}
+
+function CompassItem() {
+  const m = useMats()
+  return (
+    <group position={[0, 0.02, 0.15]}>
+      <Cyl a={[0.055, 0.055, 0.02]} m={m.metal('#b08d3e', 0.35)} seg={20} />
+      <Cyl a={[0.04, 0.04, 0.008]} p={[0, 0.012, 0]} m={m.plastic('#f4f1e8', 0.3)} seg={16} />
+      <Box s={[0.004, 0.03, 0.028]} p={[0, 0.02, 0]} m={m.plastic('#c5302a', 0.4)} />
+    </group>
+  )
+}
+
+function WhistleItem() {
+  const m = useMats()
+  return (
+    <group position={[0, 0.03, 0.15]} rotation={[0, 0.5, 0]}>
+      <Cyl a={[0.018, 0.022, 0.09]} r={[0, 0, Math.PI / 2]} m={m.plastic('#ff6b35', 0.4)} seg={12} />
+      <Cyl a={[0.02, 0.012, 0.04]} p={[0.04, 0, 0.02]} r={[0.8, 0, 0]} m={m.plastic('#ff6b35', 0.4)} seg={10} />
+    </group>
+  )
+}
+
+function MirrorItem() {
+  const m = useMats()
+  return (
+    <group position={[0, 0.09, 0.14]}>
+      <Box s={[0.14, 0.18, 0.012]} m={m.plastic('#2a2c30', 0.4)} />
+      <Box s={[0.11, 0.15, 0.006]} p={[0, 0, 0.008]} m={m.metal('#e8eef2', 0.05)} />
+    </group>
+  )
+}
+
+function RationPack() {
+  const m = useMats()
+  return (
+    <group position={[0, 0.025, 0.15]} rotation={[0, 0.2, 0]}>
+      <Box s={[0.2, 0.045, 0.14]} m={m.metal('#d5d0c4', 0.3)} />
+      <Box s={[0.12, 0.008, 0.04]} p={[0, 0.026, 0.02]} m={m.plastic('#c45a28', 0.4)} />
+    </group>
+  )
+}
+
+function BlanketPack() {
+  const m = useMats()
+  return (
+    <group>
+      <Box s={[0.46, 0.03, 0.3]} p={[0, 0.018, 0]} m={m.fabric('#c9843a')} />
+      <Box s={[0.2, 0.012, 0.16]} p={[0.08, 0.036, 0.02]} r={[0.04, 0.35, 0.08]} m={m.metal('#f3e7b2', 0.18)} />
+      <Box s={[0.24, 0.01, 0.14]} p={[-0.06, 0.034, -0.03]} r={[-0.05, -0.5, -0.06]} m={m.metal('#efe6c2', 0.15)} />
+      <Box s={[0.44, 0.008, 0.025]} p={[0, 0.034, 0.04]} m={m.fabric('#6b3a22')} />
     </group>
   )
 }
@@ -628,15 +701,15 @@ export const ENT_MODELS: Record<string, (e: Ent) => ReactNode> = {
   fuse: () => <Fuse />,
   wrench: () => <Wrench />,
   cell: () => <Cell />,
-  ration: () => <SmallItem color="#c0c4c8" shape="foil" />,
+  ration: () => <RationPack />,
   medkit: () => <Medkit />,
-  blanket: () => <SmallItem color="#d4a63a" shape="foil" />,
-  multitool: () => <SmallItem color="#c5302a" shape="box" />,
-  purifier: () => <SmallItem color="#2a7fd0" shape="cyl" />,
-  tape: () => <SmallItem color="#8d9196" shape="torus" />,
-  compass: () => <SmallItem color="#3a3d42" shape="cyl" />,
-  whistle: () => <SmallItem color="#ff6b35" shape="box" />,
-  mirror: () => <SmallItem color="#e8ecf0" shape="flat" />,
+  blanket: () => <BlanketPack />,
+  multitool: () => <MultiTool />,
+  purifier: () => <Purifier />,
+  tape: () => <TapeRoll />,
+  compass: () => <CompassItem />,
+  whistle: () => <WhistleItem />,
+  mirror: () => <MirrorItem />,
   holo: () => <Hologram />,
   locker: () => <Locker />,
   postit: () => <Postit />,
@@ -668,14 +741,16 @@ function EntNode({ e, zone }: { e: Ent; zone: ZoneId }) {
   const room = map ? roomAt(map, p[0] + (e.wall ? Math.sin(r) * 0.3 : 0), p[2] + (e.wall ? Math.cos(r) * 0.3 : 0)) : null
   const model = ENT_MODELS[e.model]
   const keepWhenDone = !e.item
-  if (!active && !keepWhenDone) return null
+  // L'étagère fait partie du nœud ramassable : elle doit rester quand l'objet part.
+  const shelf = !!(e.item && e.wall && (e.y ?? 0) > 0.3 && WALL_BRACKET.has(e.model))
+  if (!active && !keepWhenDone && !shelf) return null
   return (
     <RoomCtx.Provider value={{ id: room?.id ?? '', dark: !!room?.dark }}>
       <group position={p} rotation={[0, r, 0]}>
-        {model ? model(e) : null}
+        {active && model ? model(e) : null}
         {!e.item && <SolidProp model={e.model} />}
-        {e.item && e.wall && (e.y ?? 0) > 0.3 && WALL_BRACKET.has(e.model) && <Bracket />}
-        {e.item && <Glint resource={ITEM_KIND[e.item] === 'resource'} />}
+        {shelf && <Bracket />}
+        {active && e.item && <Glint resource={ITEM_KIND[e.item] === 'resource'} />}
         {active && <Hitbox e={e} />}
       </group>
     </RoomCtx.Provider>
