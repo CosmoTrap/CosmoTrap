@@ -13,8 +13,7 @@ const g = <T = any>(page: Page, fn: string, ...args: unknown[]) => page.evaluate
 const st = (page: Page) => page.evaluate(() => window.__game.state())
 
 async function waitIdle(page: Page, zone: number) {
-  await page.waitForFunction((z) => window.__game.state().zone === z && !window.__game.state().cine, zone, { timeout: 120000 })
-  await page.waitForTimeout(600)
+  await page.waitForFunction((z) => window.__game.state().zone === z && !window.__game.state().cine && window.__game.state().loading === 1, zone, { timeout: 120000 })
 }
 
 async function act(page: Page, id: string) {
@@ -46,8 +45,7 @@ async function signedInPage(page: Page, request: any) {
 async function startGame(page: Page) {
   await g(page, 'start', 'nova', true)
   await g(page, 'set', { toured: [1, 2, 3, 4] })
-  await page.waitForFunction(() => window.__game.state().screen === 'playing')
-  await page.waitForTimeout(2500)
+  await page.waitForFunction(() => window.__game.state().screen === 'playing' && window.__game.state().loading === 1)
 }
 
 test('partie complète, de la station à la Terre', async ({ page, request }) => {

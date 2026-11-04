@@ -389,7 +389,7 @@ export function act(id: string) {
       }
       removeItem('flareGun')
       audio.sfx('flare')
-      useGame.setState({ cine: 'heli', cineT0: performance.now(), tabletOpen: false, puzzle: null })
+      useGame.setState({ cine: 'heli', cineT0: performance.now(), tabletOpen: false, inventoryOpen: false, puzzle: null })
       return true
   }
   return false
@@ -418,7 +418,7 @@ export function computeScore() {
 }
 
 function openPuzzle(p: 'keypad' | 'valves' | 'power' | 'sequence' | 'radio' | 'algo' | 'plan' | 'dilemma') {
-  useGame.setState({ puzzle: p, tabletOpen: false })
+  useGame.setState({ puzzle: p, tabletOpen: false, inventoryOpen: false })
   document.exitPointerLock?.()
 }
 
@@ -645,20 +645,51 @@ export function toggleLamp() {
   audio.sfx(s.lampOn ? 'lamp_off' : 'lamp_on')
 }
 
-/** barre d'inventaire : objets dans l'ordre d'acquisition */
+/** Tous les objets possédés, dans l'ordre d'acquisition, sans limite de cases. */
 export function hotbarItems(): ItemId[] {
   const inv = G().inv
-  return (Object.keys(inv) as ItemId[]).filter((k) => (inv[k] ?? 0) > 0 && ITEM_KIND[k] !== 'survival').slice(0, 9)
+  return (Object.keys(inv) as ItemId[]).filter((k) => (inv[k] ?? 0) > 0 && k in ITEM_KIND)
 }
 
-/** utiliser l'emplacement n (touches 1 à 9) */
+export function selectedInventoryItem(): ItemId | null {
+  const items = hotbarItems()
+  return items.find((it) => it === G().selectedItem) ?? items[0] ?? null
+}
+
+export function selectItem(item: ItemId) {
+  if (!has(item)) return
+  useGame.setState({ selectedItem: item })
+}
+
+export function cycleItem(direction: number) {
+  const items = hotbarItems()
+  if (!items.length) return
+  const current = items.indexOf(selectedInventoryItem()!)
+  selectItem(items[(current + Math.sign(direction) + items.length) % items.length])
+}
+
+export function useSelectedItem() {
+  const s = G()
+  if (s.screen !== 'playing' || s.loading < 1 || s.cine || s.paused || s.settingsOpen || s.puzzle || s.readNote || s.tabletOpen) return
+  const item = selectedInventoryItem()
+  if (item) useItem(item)
+}
+
+export function canUseItem(item: ItemId) {
+  return ITEM_KIND[item] !== 'survival' || item === 'tape' || item === 'map'
+}
+
+/** Sélection directe : les touches 1 à 9 ne consomment jamais un objet. */
 export function useSlot(n: number) {
   const item = hotbarItems()[n]
   if (!item) return
-  useItem(item)
+  selectItem(item)
 }
 
 export function useItem(item: ItemId) {
+  if (!has(item)) return false
+  selectItem(item)
+  if (!canUseItem(item)) return false
   if (item === 'o2') return useO2()
   if (item === 'battery') return useBattery()
   if (item === 'water') return drinkPouch()
@@ -667,7 +698,7 @@ export function useItem(item: ItemId) {
   const s = G()
   useGame.setState({ held: s.held === item ? null : item })
   audio.sfx('click')
-  if (item === 'manual' || item === 'map') useGame.setState({ readNote: item === 'manual' ? 'manual' : 'sign' })
+  if (item === 'manual' || item === 'map') useGame.setState({ readNote: item === 'manual' ? 'manual' : 'sign', inventoryOpen: false, tabletOpen: false })
 }
 
 // ——— boucle des ressources ———
@@ -754,7 +785,7 @@ export function celebrate(id: string) {
 }
 export function tick(dt: number) {
   const s = G()
-  if (s.screen !== 'playing' || s.paused || s.cine) return
+  if (s.screen !== 'playing' || s.loading < 1 || s.paused || s.cine) return
   const f = s.flags
   const res = { ...s.res }
   const D = diff()
@@ -790,7 +821,7 @@ export function tick(dt: number) {
   res.water = Math.max(0, res.water - 0.11 * D.drain * ability().water * dt)
   useGame.setState({ res, lampOn, playTime: s.playTime + dt })
   if (s.playTime + dt + s.penalty >= timeLimit()) {
-    useGame.setState({ cine: 'fail', cineT0: performance.now(), tabletOpen: false, puzzle: null, readNote: null })
+    useGame.setState({ cine: 'fail', cineT0: performance.now(), tabletOpen: false, inventoryOpen: false, puzzle: null, readNote: null })
     return
   }
 
@@ -836,7 +867,7 @@ export function tick(dt: number) {
 export function faint() {
   const s = G()
   audio.sfx('faint')
-  useGame.setState({ cine: 'faint', cineT0: performance.now(), faints: s.faints + 1, tabletOpen: false, puzzle: null })
+  useGame.setState({ cine: 'faint', cineT0: performance.now(), faints: s.faints + 1, tabletOpen: false, inventoryOpen: false, puzzle: null })
 }
 
 export function respawnAfterFaint() {
@@ -851,10 +882,14 @@ export let pendingZone: ZoneId | null = null
 export function transitionTo(z: ZoneId) {
   pendingZone = z
   audio.sfx('airlock')
-  useGame.setState({ cine: 'zoneCard', cineT0: performance.now(), tabletOpen: false, puzzle: null })
+  useGame.setState({ cine: 'zoneCard', cineT0: performance.now(), tabletOpen: false, inventoryOpen: false, puzzle: null })
 }
 
 export function enterZone(z: ZoneId) {
+  if (G().zone !== z) {
+    live.playerZone = null
+    useGame.setState({ loading: 0 })
+  }
   if (z === 3) checkCartographer([1, 2].map((zone) => ({ zone, grid: GRID_MAPS[zone as 1 | 2].grid })))
   pendingZone = null
   urgentWarned = false

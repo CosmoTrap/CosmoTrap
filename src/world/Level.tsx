@@ -11,6 +11,8 @@ import { LightShafts } from './LightShafts'
 import { RoomCtx, ceilingMaterial, floorMaterial, setRoomLit, useMats, wallMaterial } from './materials'
 import { EntModels } from './props/EntModels'
 import { Props } from './props/Props'
+import { EmergencyLights } from './EmergencyLights'
+import { roomPowerCut } from './roomPower'
 
 export const WIN_R = 0.42
 export const WIN_Y = 1.5
@@ -246,16 +248,6 @@ function Canopy({ w }: { w: WindowDef }) {
   )
 }
 
-/** intensité courante de chaque pièce (0..1), partagée entre la lumière et ses néons */
-const roomLevel = new Map<string, number>()
-
-function flickerAt(t: number, seed: number) {
-  // grésillement irrégulier avec de courtes coupures
-  const a = Math.sin(t * 13.1 + seed) * Math.sin(t * 7.7 + seed * 2.3)
-  const cut = Math.sin(t * 0.9 + seed) > 0.82 ? (Math.sin(t * 40) > 0 ? 0.05 : 0.6) : 1
-  return Math.max(0.05, (0.82 + 0.18 * a) * cut)
-}
-
 /** plafonniers émissifs (bloom) */
 function Fixtures({ room, lit }: { room: RoomDef; lit: boolean }) {
   const ref = useRef<THREE.InstancedMesh>(null)
@@ -290,16 +282,16 @@ function Fixtures({ room, lit }: { room: RoomDef; lit: boolean }) {
   const color = room.light ?? '#ffffff'
   const mat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#111', emissive: color, emissiveIntensity: 0 }), [color])
   useFrame(() => {
-    const k = lit ? (roomLevel.get(room.id) ?? 1) : 0
+    const k = lit && !roomPowerCut(room) ? 1 : 0
     mat.emissiveIntensity = 4.2 * k
-    mat.color.set(lit ? '#1a1a1a' : '#0a0a0a')
+    mat.color.set(k ? '#1a1a1a' : '#0a0a0a')
   })
   return (
     <group>
       <instancedMesh ref={housing} args={[undefined, undefined, tiles.length]} material={materials.painted('#454b50', 0.4, 0.6)} receiveShadow>
         <boxGeometry args={[1.45, 0.09, 0.32]} />
       </instancedMesh>
-      <instancedMesh ref={ref} args={[undefined, undefined, tiles.length]} material={mat}>
+      <instancedMesh name={`ceiling-light:${room.id}`} ref={ref} args={[undefined, undefined, tiles.length]} material={mat}>
         <boxGeometry args={[1.3, 0.025, 0.2]} />
       </instancedMesh>
     </group>
@@ -307,24 +299,20 @@ function Fixtures({ room, lit }: { room: RoomDef; lit: boolean }) {
 }
 
 /** lumière dynamique d'une pièce (nombre constant : on change l'intensité, pas le nombre) */
-function RoomLight({ room, on, flicker }: { room: RoomDef; on: boolean; flicker?: boolean }) {
+function RoomLight({ room, on }: { room: RoomDef; on: boolean }) {
   const ref = useRef<THREE.PointLight>(null)
   const [x0, z0, x1, z1] = room.rect
   const cx = ((x0 + x1 + 1) * TILE) / 2
   const cz = ((z0 + z1 + 1) * TILE) / 2
   const reach = Math.hypot((x1 - x0 + 1) * TILE, (z1 - z0 + 1) * TILE) * 0.55 + 1.5
   const base = (room.intensity ?? 8) * 2.3
-  useFrame(({ clock }) => {
+  useFrame((_, dt) => {
     if (!ref.current) return
-    let k = on ? 1 : 0
-    if (on && flicker) k = flickerAt(clock.elapsedTime, room.rect[0] * 3.1 + room.rect[1])
-    // coupure de courant : quelques sursauts puis le noir
-    if (G().event?.kind === 'blackout') k *= Math.sin(clock.elapsedTime * 31) > 0.97 ? 0.4 : 0.02
-    roomLevel.set(room.id, k)
-    k *= diff().light
-    ref.current.intensity = flicker || G().event ? base * k : THREE.MathUtils.lerp(ref.current.intensity, base * k, 0.15)
+    // The normal circuit really goes dark. Red light comes from the beacons.
+    ref.current.intensity = !on || roomPowerCut(room) ? 0
+      : THREE.MathUtils.damp(ref.current.intensity, base * diff().light, 10, Math.min(dt, 0.1))
   })
-  return <pointLight ref={ref} position={[cx, CEIL - 0.45, cz]} color={room.light} intensity={on ? base : 0} distance={reach} decay={1.5} />
+  return <pointLight name={`room-light:${room.id}`} ref={ref} position={[cx, CEIL - 0.45, cz]} color={room.light} intensity={on ? base : 0} distance={reach} decay={1.5} />
 }
 
 export function Level({ map, shadows }: { map: GridMap; shadows: boolean }) {
@@ -349,7 +337,7 @@ export function Level({ map, shadows }: { map: GridMap; shadows: boolean }) {
           <RoomCtx.Provider key={room.id} value={{ id: room.id, dark: !!room.dark }}>
             <RoomMeshes room={room} geo={geo} shadows={shadows} />
             <Fixtures room={room} lit={lit} />
-            {!room.noDynLight && <RoomLight room={room} on={lit} flicker={!!room.flicker || (room.id === 'sas' && map.zone === 1 && !flags.pressurized)} />}
+            {!room.noDynLight && <RoomLight room={room} on={lit} />}
           </RoomCtx.Provider>
         )
       })}
@@ -370,6 +358,7 @@ export function Level({ map, shadows }: { map: GridMap; shadows: boolean }) {
         ))}
       </RigidBody>
       <Props map={map} />
+      <EmergencyLights map={map} />
       <EntModels zone={map.zone} />
     </group>
   )

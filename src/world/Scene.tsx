@@ -19,6 +19,7 @@ import { TitleScene } from './TitleScene'
 import { LunarScene } from './LunarScene'
 import { Zone4 } from './zone4/Zone4'
 import { Ghost, useLoadGhost } from './Ghost'
+import { SceneGate, SceneReady } from './SceneReady'
 
 /** soleil pour les intérieurs : n'entre que par les hublots (ombres) */
 function InteriorSun({ map }: { map: GridMap }) {
@@ -111,6 +112,7 @@ function PhysicsWorld() {
       <CineActor />
       <Player key={zone} />
       <Ghost />
+      <SceneReady zone={zone} />
     </Physics>
   )
 }
@@ -160,12 +162,14 @@ function AdaptiveDpr() {
 
 export function Scene() {
   const screen = useGame((s) => s.screen)
+  const zone = useGame((s) => s.zone)
   useInputListeners()
   useLoadGhost()
   return (
     <>
       <AdaptiveDpr />
       {screen === 'playing' ? (
+        <SceneGate key={zone}>
         <Suspense fallback={null}>
           <PhysicsWorld />
           <Hands />
@@ -173,6 +177,7 @@ export function Scene() {
           <CineDirector />
           <ZoneAudioWatcher />
         </Suspense>
+        </SceneGate>
       ) : screen === 'prologue' ? (
         <TitleScene />
       ) : (

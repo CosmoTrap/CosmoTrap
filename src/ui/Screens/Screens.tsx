@@ -75,7 +75,7 @@ export function Title() {
     const { pos, yaw, savedAt, ...data } = d
     void savedAt
     loadExplored(data.explored)
-    useGame.setState({ ...data, screen: 'playing', paused: false, cine: null, resume: pos ? { pos, yaw: yaw ?? 0 } : null, tp: null, tabletOpen: false, puzzle: null, readNote: null })
+    useGame.setState({ ...data, screen: 'playing', loading: 0, paused: false, cine: null, resume: pos ? { pos, yaw: yaw ?? 0 } : null, tp: null, tabletOpen: false, inventoryOpen: false, puzzle: null, readNote: null })
     requestLock()
   }
   return (
@@ -240,7 +240,7 @@ export function CharSelect() {
     clearSave()
     deleteCloudSave()
     loadExplored([])
-    useGame.setState({ ...newGameData(sel, diffSel), screen: 'prologue', paused: false, tp: null, resume: null, tabletOpen: false, puzzle: null, readNote: null, lastResult: null })
+    useGame.setState({ ...newGameData(sel, diffSel), screen: 'prologue', paused: false, tp: null, resume: null, tabletOpen: false, inventoryOpen: false, puzzle: null, readNote: null, lastResult: null })
   }
   return (
     <div className="screen-full" data-testid="charselect">
@@ -430,7 +430,7 @@ function finish(skip = false) {
   setTimeout(() => (finished = false), 1000)
   audio.stopSpeech()
   live.flash = 0
-  useGame.setState({ screen: 'playing', paused: false })
+  useGame.setState({ screen: 'playing', loading: 0, paused: false })
   transitionTo(1)
   if (skip) skipCine()
   requestLock()

@@ -14,6 +14,8 @@ export type Action =
   | 'battery'
   | 'drink'
   | 'tablet'
+  | 'inventory'
+  | 'useSelected'
   | 'pause'
   | 'fullscreen'
 
@@ -32,11 +34,13 @@ export const DEFAULT_KEYS: KeyMap = {
   battery: ['KeyR'],
   drink: ['KeyB'],
   tablet: ['Tab'],
+  inventory: ['KeyI'],
+  useSelected: ['KeyX'],
   pause: ['KeyP', 'Escape'],
   fullscreen: ['F11', 'KeyG'],
 }
 
-export const ACTION_ORDER: Action[] = ['forward', 'back', 'left', 'right', 'run', 'jump', 'act', 'lamp', 'o2', 'battery', 'drink', 'tablet', 'pause', 'fullscreen']
+export const ACTION_ORDER: Action[] = ['forward', 'back', 'left', 'right', 'run', 'jump', 'act', 'inventory', 'useSelected', 'lamp', 'o2', 'battery', 'drink', 'tablet', 'pause', 'fullscreen']
 
 let layout: Map<string, string> | null = null
 ;(navigator as any).keyboard

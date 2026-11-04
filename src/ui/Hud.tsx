@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { fr } from '../i18n/fr'
-import { hotbarItems, stepsState, useItem } from '../game/logic'
+import { stepsState } from '../game/logic'
+import { Hotbar } from './Inventory'
 import { timeLimit, live, useGame } from '../game/state'
 import { isTouch, requestLock } from '../player/Player'
 import { keyName } from '../player/input'
-import { GaugeIcon, ItemIcon } from './Icons'
+import { GaugeIcon } from './Icons'
 import { fmtTime } from '../game/api'
 
 function Gauge({ kind, value, color, label }: { kind: 'o2' | 'lamp' | 'water'; value: number; color: string; label: string }) {
@@ -40,42 +41,6 @@ function Objective() {
       {cur && <span>{cur.text}</span>}
       {room && <div className="room">{fr.rooms[room] ?? ''}</div>}
     </div>
-  )
-}
-
-function Hotbar() {
-  const inv = useGame((s) => s.inv)
-  const held = useGame((s) => s.held)
-  const lampOn = useGame((s) => s.lampOn)
-  const padActive = useGame((s) => s.padActive)
-  useGame((s) => s.padSlotTick)
-  void inv
-  const items = hotbarItems()
-  if (!items.length) return null
-  return (
-    <>
-      {held && <div className="held-name">{fr.items[held].name}</div>}
-      <div className="hotbar">
-        {items.map((it, i) => (
-          <button
-            key={it}
-            className={`slot ${held === it || (it === 'lamp' && lampOn) ? 'held' : ''} ${padActive && i === Math.min(live.padSlot, items.length - 1) ? 'pad-cursor' : ''}`}
-            onClick={(e) => {
-              e.stopPropagation()
-              useItem(it)
-            }}
-          >
-            <span className="num">{padActive ? '' : i + 1}</span>
-            <ItemIcon item={it} />
-            {(inv[it] ?? 0) > 1 && <span className="cnt">×{inv[it]}</span>}
-            <span className="tip">
-              {fr.items[it].name}
-              {fr.items[it].action ? ` · ${fr.items[it].action}` : ''}
-            </span>
-          </button>
-        ))}
-      </div>
-    </>
   )
 }
 
@@ -214,7 +179,7 @@ export function Hud() {
   const subtitle = useGame((s) => s.subtitle)
   const cine = useGame((s) => s.cine)
   const locked = useGame((s) => s.locked)
-  const overlay = useGame((s) => s.tabletOpen || !!s.puzzle || !!s.readNote || s.paused || s.settingsOpen)
+  const overlay = useGame((s) => s.tabletOpen || s.inventoryOpen || !!s.puzzle || !!s.readNote || s.paused || s.settingsOpen)
   const keys = useGame((s) => s.settings.keys)
   const padActive = useGame((s) => s.padActive)
   const character = useGame((s) => s.character)

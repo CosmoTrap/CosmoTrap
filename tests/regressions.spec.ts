@@ -14,6 +14,7 @@ async function guest(page: Page, legacyKeys = false) {
 }
 async function playable(page: Page) {
   await expect.poll(async () => (await state(page)).cine).toBeNull()
+  await expect.poll(async () => (await state(page)).loading).toBe(1)
   expect(await page.evaluate(() => ({ camera: window.__game.live.camOverride, fade: window.__game.live.fade,
     flash: window.__game.live.flash, card: window.__game.live.card, countdown: window.__game.live.countdown })))
     .toEqual({ camera: null, fade: 0, flash: 0, card: null, countdown: null })
@@ -105,7 +106,7 @@ test('passer visite, briefing, transition, decollage et sauvetage', async ({ pag
   await expect.poll(async () => (await state(page)).zone).toBe(4)
   await expect.poll(async () => (await state(page)).cine).toBeNull()
   // Main's crash scene must release its actor, blur and falling capsule when skipped.
-  await page.waitForFunction(() => window.__game.state().playerZone === 4)
+  await page.waitForFunction(() => window.__game.state().playerZone === 4 && window.__game.state().loading === 1)
   await page.evaluate(() => window.__game.set({ cine: 'tour', cineT0: performance.now() - 3000 }))
   await page.waitForFunction(() => !!window.__game.live.camOverride)
   await page.getByTestId('skip').click()
@@ -141,7 +142,7 @@ test('tables, lits, meubles et caisses bloquent la marche sans bloquer les passa
     await test.step(c.label, async () => {
       await call(page, 'goto', c.zone)
       await call(page, 'set', { cine: null, paused: false })
-      await page.waitForFunction((z) => window.__game.state().playerZone === z, c.zone)
+      await page.waitForFunction((z) => window.__game.state().playerZone === z && window.__game.state().loading === 1, c.zone)
       await call(page, 'teleportXZ', c.x, c.z, c.yaw)
       await expect.poll(async () => Math.hypot((await state(page)).pos[0] - c.x, (await state(page)).pos[2] - c.z)).toBeLessThan(0.1)
       await page.keyboard.down('ArrowUp')
@@ -166,7 +167,7 @@ test('le chariot de la serre se pousse et garde sa position, les autres portes r
   page.on('pageerror', (e) => errors.push(e.message))
   await call(page, 'goto', 2)
   await call(page, 'set', { cine: null, paused: false, toured: [1, 2, 3, 4] })
-  await page.waitForFunction(() => window.__game.state().playerZone === 2 && !!window.__game.state().propPositions['serre-cart'])
+  await page.waitForFunction(() => window.__game.state().playerZone === 2 && window.__game.state().loading === 1 && !!window.__game.state().propPositions['serre-cart'])
   await call(page, 'teleportXZ', 25, 11, 0)
   await page.waitForFunction(() => Math.abs(window.__game.live.pos[0] - 25) < 0.05 && window.__game.live.pos[1] < 0.021)
   const initial = (await state(page)).propPositions['serre-cart']
@@ -191,7 +192,7 @@ test('le chariot de la serre se pousse et garde sa position, les autres portes r
   finally { await page.keyboard.up('ArrowDown') }
   await call(page, 'goto', 3)
   await call(page, 'set', { cine: null, paused: false })
-  await page.waitForFunction(() => window.__game.state().playerZone === 3)
+  await page.waitForFunction(() => window.__game.state().playerZone === 3 && window.__game.state().loading === 1)
   await call(page, 'teleportXZ', 5, 17, Math.PI)
   await page.waitForFunction(() => Math.abs(window.__game.live.pos[2] - 17) < 0.1)
   await page.keyboard.down('ArrowUp')
@@ -201,7 +202,7 @@ test('le chariot de la serre se pousse et garde sa position, les autres portes r
   // Save, reload the page and resume: the entrance must stay cleared.
   await call(page, 'goto', 2)
   await call(page, 'set', { cine: null, paused: false })
-  await page.waitForFunction(() => window.__game.state().playerZone === 2)
+  await page.waitForFunction(() => window.__game.state().playerZone === 2 && window.__game.state().loading === 1)
   await expect.poll(async () => (await state(page)).propPositions['serre-cart'][2]).toBeCloseTo(moved[2], 1)
   await page.waitForFunction((z) => {
     const saved = JSON.parse(localStorage.getItem('cosmotrap.save.v2.guest') || 'null')
@@ -210,7 +211,7 @@ test('le chariot de la serre se pousse et garde sa position, les autres portes r
   await page.reload()
   await page.getByTestId('guest').click()
   await page.getByTestId('continue').first().click()
-  await page.waitForFunction(() => window.__game.state().playerZone === 2)
+  await page.waitForFunction(() => window.__game.state().playerZone === 2 && window.__game.state().loading === 1)
   expect((await state(page)).propPositions['serre-cart'][2]).toBeCloseTo(moved[2], 1)
   expect(errors).toEqual([])
 })

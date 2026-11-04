@@ -147,6 +147,7 @@ export interface GameData {
   ended: boolean
   /** objet clé tenu en main (barre 1-9) */
   held: ItemId | null
+  selectedItem: ItemId | null
   /** secondes de pénalité (erreurs, indices) ajoutées au chrono */
   penalty: number
   errors: number
@@ -191,6 +192,7 @@ export const newGameData = (character = 'nova', difficulty: Difficulty = 'astron
   briefed: false,
   ended: false,
   held: null,
+  selectedItem: null,
   penalty: 0,
   errors: 0,
   plan: [],
@@ -212,6 +214,7 @@ export interface GameState extends GameData {
   paused: boolean
   locked: boolean // pointer lock actif
   tabletOpen: boolean
+  inventoryOpen: boolean
   tab: number
   puzzle: PuzzleId | null
   readNote: string | null
@@ -324,6 +327,7 @@ export const useGame = create<GameState>((set) => ({
   paused: false,
   locked: false,
   tabletOpen: false,
+  inventoryOpen: false,
   tab: 0,
   puzzle: null,
   readNote: null,
@@ -374,7 +378,7 @@ export function has(item: ItemId) {
 }
 
 export function addItem(item: ItemId, n = 1) {
-  useGame.setState((s) => ({ inv: { ...s.inv, [item]: (s.inv[item] ?? 0) + n } }))
+  useGame.setState((s) => ({ inv: { ...s.inv, [item]: (s.inv[item] ?? 0) + n }, selectedItem: s.selectedItem ?? item }))
 }
 
 export function removeItem(item: ItemId, n = 1) {
@@ -383,7 +387,10 @@ export function removeItem(item: ItemId, n = 1) {
     const inv = { ...s.inv }
     if (c === 0) delete inv[item]
     else inv[item] = c
-    return { inv }
+    const items = Object.keys(inv) as ItemId[]
+    const previousIndex = Object.keys(s.inv).indexOf(item)
+    return { inv, held: c === 0 && s.held === item ? null : s.held,
+      selectedItem: c === 0 && s.selectedItem === item ? items[Math.min(previousIndex, items.length - 1)] ?? null : s.selectedItem }
   })
 }
 
@@ -446,7 +453,11 @@ export type SaveFile = GameData & { pos?: [number, number, number]; yaw?: number
 
 export function normalizeSave(d: any): SaveFile | null {
   if (!d || !d.zone) return null
-  return { ...newGameData(d.character), ...d, flags: { ...emptyFlags(), ...d.flags } }
+  const saved = { ...newGameData(d.character), ...d, flags: { ...emptyFlags(), ...d.flags } }
+  const items = (Object.keys(saved.inv) as ItemId[]).filter((it) => saved.inv[it] > 0)
+  if (!items.includes(saved.selectedItem)) saved.selectedItem = items[0] ?? null
+  if (!items.includes(saved.held)) saved.held = null
+  return saved
 }
 
 export function loadSave(): SaveFile | null {

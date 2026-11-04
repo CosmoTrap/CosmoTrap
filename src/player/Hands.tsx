@@ -1,130 +1,82 @@
 import { useFrame } from '@react-three/fiber'
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { live, useGame } from '../game/state'
-import type { ItemId } from '../game/types'
-import { photoSurface } from '../world/photomaterials'
+import { G, live, useGame } from '../game/state'
+import { preloadModels } from '../world/assets'
+import { useMats } from '../world/materials'
+import { Box, Cyl } from '../world/props/models'
+import { textTexture } from '../world/textures'
+import { HeldItem } from './HandheldModels'
+import { handFabric } from './handMaterials'
 
-// Vue à la 1re personne : gants + tablette 3D qui s'anime à l'ouverture, objet tenu en main.
+type V3 = [number, number, number]
 
-function Glove({ side }: { side: 1 | -1 }) {
-  const mat = useMemo(() => {
-    const s = photoSurface('fabric', 3)
-    return new THREE.MeshStandardMaterial({ color: '#e6e2d8', roughness: 0.85, normalMap: s.normalMap,
-      normalScale: new THREE.Vector2(0.22, 0.22), roughnessMap: s.roughnessMap })
-  }, [])
-  const dark = useMemo(() => new THREE.MeshStandardMaterial({ color: '#2a2c30', roughness: 0.7 }), [])
-  const accent = useMemo(() => new THREE.MeshStandardMaterial({ color: '#d9673a', roughness: 0.6 }), [])
-  return (
-    <group>
-      <mesh material={mat}>
-        <capsuleGeometry args={[0.055, 0.32, 6, 12]} />
-      </mesh>
-      <mesh position={[0, 0.2, 0]} material={accent}>
-        <cylinderGeometry args={[0.062, 0.062, 0.04, 14]} />
-      </mesh>
-      <mesh position={[0, 0.27, 0.01]} scale={[1, 0.8, 0.55]} material={dark}>
-        <sphereGeometry args={[0.07, 14, 10]} />
-      </mesh>
-      <mesh position={[side * -0.045, 0.31, 0.03]} rotation={[0, 0, side * 0.6]} material={dark}>
-        <capsuleGeometry args={[0.018, 0.05, 4, 8]} />
-      </mesh>
-      {[0, 1, 2, 3].map((i) => (
-        <mesh key={i} position={[side * (0.03 - i * 0.02), 0.34, 0.035]} rotation={[0.4, 0, 0]} material={dark}>
-          <capsuleGeometry args={[0.012, 0.04, 4, 6]} />
-        </mesh>
-      ))}
-    </group>
-  )
+function Stitch({ points, radius = 0.001, material }: { points: V3[]; radius?: number; material: THREE.Material }) {
+  const geometry = useMemo(() => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points.map((p) => new THREE.Vector3(...p))), 24, radius, 8, false), [JSON.stringify(points), radius])
+  useEffect(() => () => geometry.dispose(), [geometry])
+  return <mesh geometry={geometry} material={material} receiveShadow />
 }
 
-function HeldItem({ item }: { item: ItemId }) {
-  const m = useMemo(
-    () => ({
-      steel: new THREE.MeshStandardMaterial({ color: '#a9adb2', metalness: 1, roughness: 0.3 }),
-      red: new THREE.MeshStandardMaterial({ color: '#c5302a', roughness: 0.5 }),
-      orange: new THREE.MeshStandardMaterial({ color: '#ff6b1a', roughness: 0.4 }),
-      blue: new THREE.MeshStandardMaterial({ color: '#3d7bff', roughness: 0.3 }),
-      rope: new THREE.MeshStandardMaterial({ color: '#b8a27a', roughness: 0.95 }),
-      dark: new THREE.MeshStandardMaterial({ color: '#2a2c30', roughness: 0.6 }),
-      paper: new THREE.MeshStandardMaterial({ color: '#efe6cf', roughness: 0.9 }),
-      glow: new THREE.MeshStandardMaterial({ color: '#000', emissive: '#3ad7ff', emissiveIntensity: 4 }),
-      fuse: new THREE.MeshStandardMaterial({ color: '#e8e2d0', roughness: 0.5 }),
-    }),
-    [],
-  )
-  switch (item) {
-    case 'wrench':
-      return (
-        <group rotation={[0.2, 0, -0.3]}>
-          <mesh material={m.steel} position={[0, 0.12, 0]}>
-            <boxGeometry args={[0.035, 0.28, 0.012]} />
-          </mesh>
-          <mesh material={m.steel} position={[0, 0.28, 0]}>
-            <boxGeometry args={[0.08, 0.05, 0.016]} />
-          </mesh>
-          <mesh material={m.red} position={[0, -0.02, 0]}>
-            <boxGeometry args={[0.04, 0.12, 0.02]} />
-          </mesh>
-        </group>
-      )
-    case 'flareGun':
-      return (
-        <group rotation={[0, Math.PI / 2, 0]}>
-          <mesh material={m.orange} position={[0.06, 0.06, 0]}>
-            <boxGeometry args={[0.22, 0.06, 0.05]} />
-          </mesh>
-          <mesh material={m.orange} position={[0, 0, 0]} rotation={[0, 0, 0.3]}>
-            <boxGeometry args={[0.05, 0.12, 0.04]} />
-          </mesh>
-        </group>
-      )
-    case 'badge':
-      return (
-        <mesh material={m.blue} rotation={[0.3, 0, 0]}>
-          <boxGeometry args={[0.09, 0.06, 0.004]} />
+/** Closed EVA glove, centered on the grip rather than floating below the tool. */
+function Glove({ side = 1 }: { side?: 1 | -1 }) {
+  const m = useMats()
+  const cloth = handFabric('#aaa99a')
+  const leather = handFabric('#626b62', true)
+  const rubber = m.rubber('#303a39')
+  const seam = m.fabric('#c3c1b0')
+  return <group scale={[side, 1, 1]} name="eva-glove">
+    <group position={[0.012, -0.20, 0.11]} rotation={[-0.34, 0, -0.06]}>
+      <mesh material={cloth} receiveShadow><cylinderGeometry args={[0.048, 0.064, 0.26, 24]} /></mesh>
+      {[-0.085, -0.057, -0.025].map((y) => <mesh key={y} position={[0, y, 0]} material={cloth} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.053, 0.004, 8, 32]} />
+      </mesh>)}
+      <Box s={[0.055, 0.09, 0.005]} p={[0, 0.012, 0.05]} m={leather} />
+      <Stitch points={[[-0.028, -0.03, 0.051], [-0.028, 0.055, 0.051], [0.028, 0.055, 0.051], [0.028, -0.03, 0.051]]} material={seam} />
+    </group>
+    <group position={[0.006, -0.079, 0.063]} rotation={[-0.25, 0, 0]}>
+      <Cyl a={[0.048, 0.05, 0.025]} m={rubber} seg={32} />
+      <Cyl a={[0.05, 0.05, 0.005]} p={[0, -0.007, 0]} m={m.painted('#8b5235', 0.65, 0.15)} seg={32} />
+      <Box s={[0.032, 0.019, 0.008]} p={[0, 0, 0.05]} m={m.metal('#707976', 0.45)} />
+    </group>
+    <Box s={[0.08, 0.095, 0.046]} p={[0.009, -0.013, 0.047]} r={[-0.12, 0.08, -0.04]} m={cloth} />
+    <mesh position={[0.012, -0.012, 0.071]} rotation={[-0.12, 0.08, -0.04]} scale={[0.033, 0.04, 0.008]} material={leather}>
+      <sphereGeometry args={[1, 24, 16]} />
+    </mesh>
+    <Stitch points={[[-0.018, -0.04, 0.078], [-0.022, 0.015, 0.075], [0.035, 0.02, 0.071], [0.039, -0.038, 0.078]]} material={seam} />
+    {[0, 1, 2, 3].map((i) => {
+      const y = 0.03 - i * 0.021
+      const r = i === 3 ? 0.0085 : 0.0102
+      return <group key={i}>
+        <Stitch radius={r} points={[[0.038, y - 0.008, 0.047], [0.05, y, 0.023], [0.039, y + 0.004, -0.006], [0.012, y + 0.003, -0.025], [-0.019, y, -0.015]]} material={cloth} />
+        <mesh position={[0.045, y + 0.003, 0.016]} rotation={[0, 0.4, 0]} scale={[0.9, 0.7, 1.5]} material={rubber}>
+          <sphereGeometry args={[r, 16, 12]} />
         </mesh>
-      )
-    case 'rope':
-      return (
-        <mesh material={m.rope} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[0.07, 0.03, 8, 20]} />
-        </mesh>
-      )
-    case 'cell':
-      return (
-        <mesh material={m.glow}>
-          <cylinderGeometry args={[0.05, 0.05, 0.2, 14]} />
-        </mesh>
-      )
-    case 'fuse':
-      return (
-        <mesh material={m.fuse} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.025, 0.025, 0.12, 12]} />
-        </mesh>
-      )
-    case 'antenna':
-      return (
-        <mesh material={m.steel} rotation={[0.6, 0, 0]} position={[0, 0.3, 0]}>
-          <cylinderGeometry args={[0.008, 0.015, 0.8, 8]} />
-        </mesh>
-      )
-    case 'carBattery':
-      return (
-        <mesh material={m.dark}>
-          <boxGeometry args={[0.2, 0.14, 0.12]} />
-        </mesh>
-      )
-    case 'manual':
-    case 'map':
-      return (
-        <mesh material={m.paper} rotation={[0.9, 0, 0]}>
-          <boxGeometry args={[0.16, 0.22, 0.01]} />
-        </mesh>
-      )
-    default:
-      return null
-  }
+        <mesh position={[-0.016, y, -0.015]} scale={[1.1, 0.8, 1]} material={leather}><sphereGeometry args={[r, 16, 12]} /></mesh>
+      </group>
+    })}
+    <Stitch points={[[-0.026, -0.04, 0.047], [-0.048, -0.012, 0.025], [-0.044, 0.031, -0.002], [-0.012, 0.049, -0.025]]} radius={0.013} material={cloth} />
+    <mesh position={[-0.012, 0.049, -0.025]} scale={[1.15, 0.85, 0.75]} material={leather}><sphereGeometry args={[0.014, 16, 12]} /></mesh>
+  </group>
+}
+
+function TabletModel() {
+  const m = useMats()
+  const screen = useMemo(() => {
+    const map = textTexture(['SELENE-7  /  FIELD TERMINAL', 'MISSION CONTROL', 'SYSTEMS • ONLINE', 'O2 / POWER / NAVIGATION'],
+      { w: 1024, h: 640, size: 48, bg: '#101d24', fg: '#8eafb2', pad: 50 })
+    return new THREE.MeshStandardMaterial({ map, emissiveMap: map, emissive: '#8eb7b9', emissiveIntensity: 0.45, roughness: 0.26, metalness: 0.05 })
+  }, [])
+  useEffect(() => () => { screen.map?.dispose(); screen.dispose() }, [screen])
+  return <group>
+    <Box s={[0.425, 0.285, 0.021]} m={m.metal('#474f51', 0.4)} />
+    <Box s={[0.409, 0.269, 0.025]} m={m.rubber()} />
+    <Box s={[0.365, 0.233, 0.003]} p={[0, 0, 0.013]} m={m.plastic('#111c20')} />
+    <mesh position={[0, 0, 0.015]} material={screen}><planeGeometry args={[0.355, 0.223]} /></mesh>
+    {[-1, 1].flatMap((x) => [-1, 1].map((y) => <Cyl key={`${x}:${y}`} a={[0.003, 0.003, 0.002]} p={[x * 0.199, y * 0.124, 0.014]} r={[Math.PI / 2, 0, 0]} m={m.metal('#979a92')} seg={12} />))}
+    <Cyl a={[0.003, 0.003, 0.002]} p={[0.19, 0.105, 0.015]} r={[Math.PI / 2, 0, 0]} m={m.glow('#89bfb1', 0.6)} seg={12} />
+    <group position={[-0.211, -0.075, 0.018]} rotation={[0, 0, -0.12]}><Glove side={-1} /></group>
+    <group position={[0.211, -0.075, 0.018]} rotation={[0, 0, 0.12]}><Glove /></group>
+  </group>
 }
 
 export function Hands() {
@@ -134,52 +86,42 @@ export function Hands() {
   const open = useGame((s) => s.tabletOpen)
   const item = useGame((s) => s.held)
   const k = useRef(0)
-  const screen = useMemo(() => new THREE.MeshStandardMaterial({ color: '#000', emissive: '#1b6f8a', emissiveIntensity: 1.6, roughness: 0.2 }), [])
-  useFrame(({ camera, clock }, dt) => {
+  const raise = useRef(0)
+  useEffect(() => { preloadModels(['adjustable_wrench']) }, [])
+  useEffect(() => { raise.current = 0 }, [item])
+  useFrame(({ camera, clock }, rawDt) => {
     if (!g.current) return
+    const s = G()
+    const dt = Math.min(rawDt, 0.05)
     g.current.position.copy(camera.position)
     g.current.quaternion.copy(camera.quaternion)
-    k.current = THREE.MathUtils.damp(k.current, open ? 1 : 0, 7, dt)
+    const blocked = s.loading < 1 || !!s.cine || !!live.camOverride
+    g.current.visible = !blocked
+    k.current = THREE.MathUtils.damp(k.current, open ? 1 : 0, 9, dt)
     const e = THREE.MathUtils.smootherstep(k.current, 0, 1)
     if (tablet.current) {
       tablet.current.visible = k.current > 0.01
-      tablet.current.position.set(0, -0.55 + e * 0.43, -0.45)
-      tablet.current.rotation.set(-0.9 + e * 0.62, 0, (1 - e) * 0.3)
+      tablet.current.position.set(0, -0.57 + e * 0.42, -0.51)
+      tablet.current.rotation.set(-0.55 + e * 0.35, 0, (1 - e) * 0.15)
     }
     if (held.current) {
-      const sw = Math.sin(clock.elapsedTime * 1.2) * 0.004 + Math.sin(live.bob) * 0.002
-      held.current.visible = !!item && !open && !live.camOverride
-      held.current.position.set(0.24, -0.27 + sw, -0.42)
+      raise.current = THREE.MathUtils.damp(raise.current, 1, 12, dt)
+      const wide = item === 'carBattery' || item === 'manual' || item === 'map'
+      const motion = Math.min(live.speed / 2.5, 1)
+      const sway = Math.sin(clock.elapsedTime * 1.5) * 0.002 + Math.sin(clock.elapsedTime * 7) * 0.003 * motion
+      held.current.visible = !!item && !open && !s.inventoryOpen
+      held.current.position.set(wide ? 0.12 : 0.23, -0.20 + sway - (1 - raise.current) * 0.18, wide ? -0.47 : -0.43)
+      held.current.rotation.set((1 - raise.current) * 0.25, Math.sin(clock.elapsedTime * 1.1) * 0.009, sway * 1.4)
     }
-    screen.emissiveIntensity = 1.2 + Math.sin(clock.elapsedTime * 3) * 0.05
   })
-  return (
-    <group ref={g}>
-      <group ref={tablet} visible={false}>
-        <mesh>
-          <boxGeometry args={[0.42, 0.29, 0.018]} />
-          <meshStandardMaterial color="#2b2e33" metalness={0.6} roughness={0.35} />
-        </mesh>
-        <mesh position={[0, 0, 0.0095]} material={screen}>
-          <planeGeometry args={[0.39, 0.25]} />
-        </mesh>
-        <mesh position={[0.2, 0.13, 0.01]}>
-          <boxGeometry args={[0.03, 0.01, 0.004]} />
-          <meshStandardMaterial color="#000" emissive="#ff6b35" emissiveIntensity={3} />
-        </mesh>
-        <group position={[-0.23, -0.12, 0.02]} rotation={[0.4, 0.2, -0.5]}>
-          <Glove side={-1} />
-        </group>
-        <group position={[0.23, -0.12, 0.02]} rotation={[0.4, -0.2, 0.5]}>
-          <Glove side={1} />
-        </group>
-      </group>
-      <group ref={held} visible={false}>
-        <group rotation={[0.5, -0.2, 0.2]} position={[0.02, -0.2, 0.05]}>
-          <Glove side={1} />
-        </group>
-        {item && <HeldItem item={item} />}
-      </group>
+  const right: V3 = item === 'carBattery' ? [0.115, 0.015, 0] : item === 'badge' ? [0.042, 0.008, 0]
+    : item === 'manual' || item === 'map' ? [0.075, 0.03, 0] : [0, 0, 0]
+  return <group ref={g} name="first-person-hands">
+    <group ref={tablet} visible={false}><TabletModel /></group>
+    <group ref={held} visible={false} name="held-item">
+      <group position={right}><Glove /></group>
+      {(item === 'carBattery' || item === 'manual' || item === 'map') && <group position={[-right[0], right[1], 0]}><Glove side={-1} /></group>}
+      {item && <HeldItem item={item} />}
     </group>
-  )
+  </group>
 }

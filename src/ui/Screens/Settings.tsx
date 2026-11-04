@@ -18,6 +18,8 @@ export const ACTION_LABEL: Record<Action, string> = {
   battery: 'Changer les piles',
   drink: 'Boire',
   tablet: 'Tablette',
+  inventory: 'Inventaire',
+  useSelected: 'Utiliser l’objet sélectionné',
   pause: 'Pause',
   fullscreen: 'Plein écran',
 }
@@ -182,7 +184,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
               <span>
                 Regarder avec le pavé tactile
                 <br />
-                <small style={{ color: 'var(--muted)' }}>Glisser à deux doigts (ou la molette) tourne la caméra, en plus de la souris.</small>
+                <small style={{ color: 'var(--muted)' }}>Alt + glisser à deux doigts tourne la caméra. La molette sélectionne les objets.</small>
               </span>
               <div className="seg">
                 <button className={!s.trackpadLook ? 'on' : ''} onClick={() => update({ trackpadLook: false })}>
@@ -258,7 +260,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
         {tab === 'keys' && (
           <>
             <p className="sub" style={{ marginTop: 0 }}>
-              Clique sur une case puis appuie sur la nouvelle touche. Les touches 1 à 9 utilisent les objets de la barre d’inventaire.
+              Clique sur une case puis appuie sur la nouvelle touche. Les touches 1 à 9 sélectionnent les objets sans les consommer.
             </p>
             {ACTION_ORDER.map((a) => (
               <KeyRow key={a} a={a} />
