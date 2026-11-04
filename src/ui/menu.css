@@ -1478,6 +1478,10 @@
   letter-spacing: 0.2em;
   color: var(--x-orange);
 }
+.sp-viewer {
+  position: absolute;
+  inset: 4px 4px 30px;
+}
 .sp-grid {
   display: grid;
   grid-template-columns: repeat(3, 194px);

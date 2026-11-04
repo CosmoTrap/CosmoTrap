@@ -7,6 +7,7 @@ import { setLanguage } from '../../i18n'
 import { detectPadType } from '../../player/gamepad'
 import { DEFAULT_KEYS, DEFAULT_PAD, detectKeyLayout, keyName, padButtonName, type Action, type PadAction, type PadType } from '../../player/input'
 import { update } from './Settings'
+import { SkinViewer } from './SkinViewer'
 import { closePage, PageHead, Skin, Stage } from './Stage'
 
 // Page « Configuration du terminal » : Profil, Jeu, Touches, Audio (maquettes 04a à 04d).
@@ -126,7 +127,7 @@ function Profile() {
       {firstRun && <div className="sp-banner">{S.firstRun}</div>}
       <div className="sp-chars">
         <div className="sp-preview" data-testid="char-preview">
-          <Skin id={current} />
+          <SkinViewer id={current} />
           <b>{c.name.toUpperCase()}</b>
         </div>
         <div className="sp-grid">
