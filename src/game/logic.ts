@@ -834,7 +834,7 @@ export function tick(dt: number) {
   if (low) {
     alarmT -= dt
     if (alarmT <= 0) {
-      audio.sfx('alarm_o2', { vol: 0.8 })
+      if (s.settings.o2Alert && res.o2 < 20) audio.sfx('alarm_o2', { vol: 0.8 })
       alarmT = 2.5
     }
     if (!lowO2On) {

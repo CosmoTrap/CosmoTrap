@@ -87,6 +87,7 @@ et demandent une carte graphique plus puissante. Garder la résolution sur
 | Regarder | Souris | Glisser à droite |
 | Courir | Maj | Pousser le joystick à fond |
 | Sauter | Espace | — |
+| S’accroupir | Ctrl | — |
 | Agir | E | Bouton « Agir » |
 | Lampe | F | Bouton « Lampe » |
 | Oxygène, piles, boire | O, R, B | Tablette → Sac |
@@ -107,13 +108,16 @@ pour la pousser et dégager l'entrée. Sa position est conservée dans la sauveg
 | Action | Manette |
 |---|---|
 | Bouger / regarder | Stick gauche / stick droit |
-| Agir · retour | A (✕) · B (○) |
-| Lampe · tablette | X (□) · Y (△) |
-| Oxygène · piles · boire | LB · RB · RT |
+| Sauter · s’accroupir / retour | A (✕) · B (○) |
+| Agir · inventaire complet | X (□) · Y (△) |
+| Lampe · tablette · indice | LB (L1) · Vue (pavé tactile) · RB (R1) |
+| Oxygène · piles · boire | Croix ↓ · clic du stick droit · RT (R2) |
 | Courir | LT ou clic du stick gauche |
-| Barre d'objets | Croix ← → pour choisir, ↑ pour utiliser, ↓ pour ouvrir l’inventaire |
+| Barre d'objets | Croix ← → pour choisir, ↑ pour utiliser |
 | Pause · passer une cinématique | Start · Select |
 | Menus et énigmes | Croix ou stick pour se déplacer, A pour valider |
+
+Les commandes de jeu sont réaffectables dans Paramètres → Touches. La barre d’inventaire affiche les boutons configurés.
 
 ## Règles du jeu
 
@@ -132,7 +136,7 @@ Le classement est séparé par difficulté.
 
 ### Imprévus (zones 1 à 3)
 
-- **Coupure de courant** (22 s) : la station plonge dans le noir, il faut la lampe.
+- **Coupure de courant** (32 s) : l’éclairage normal s’éteint et les gyrophares rouges prennent le relais. Les coupures locales des couloirs durent 16 s ; la lampe reste utilisable.
 - **Micro-fuite** (28 s) : l'O₂ baisse 2,2 fois plus vite. Le ruban adhésif (objet de survie, Tablette → Sac → Colmater) l'arrête tout de suite.
 
 ### Succès et réplique fantôme

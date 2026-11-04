@@ -8,6 +8,7 @@ import { Box, Cyl } from '../world/props/models'
 import { textTexture } from '../world/textures'
 import { HeldItem } from './HandheldModels'
 import { handFabric } from './handMaterials'
+import { skinOf } from '../world/skins'
 
 type V3 = [number, number, number]
 
@@ -20,8 +21,10 @@ function Stitch({ points, radius = 0.001, material }: { points: V3[]; radius?: n
 /** Closed EVA glove, centered on the grip rather than floating below the tool. */
 function Glove({ side = 1 }: { side?: 1 | -1 }) {
   const m = useMats()
-  const cloth = handFabric('#aaa99a')
-  const leather = handFabric('#626b62', true)
+  const character = useGame((s) => s.character)
+  const look = skinOf(character)
+  const cloth = handFabric(look.suit)
+  const leather = handFabric(look.body, true)
   const rubber = m.rubber('#303a39')
   const seam = m.fabric('#c3c1b0')
   return <group scale={[side, 1, 1]} name="eva-glove">

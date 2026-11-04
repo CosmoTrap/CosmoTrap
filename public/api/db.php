@@ -85,7 +85,7 @@ function db(): PDO {
     user_id INTEGER NOT NULL,
     expires_at INTEGER NOT NULL
   )");
-  foreach (["ALTER TABLE scores ADD COLUMN difficulty $text NOT NULL DEFAULT 'astronaut'", "ALTER TABLE scores ADD COLUMN ghost $long", "ALTER TABLE users ADD COLUMN character_id $text NOT NULL DEFAULT 'nova'"] as $sql) {
+  foreach (["ALTER TABLE scores ADD COLUMN difficulty $text NOT NULL DEFAULT 'astronaut'", "ALTER TABLE scores ADD COLUMN ghost $long", "ALTER TABLE users ADD COLUMN character_id $text NOT NULL DEFAULT 'nova'", "ALTER TABLE scores ADD COLUMN map_id $text NOT NULL DEFAULT 'base'"] as $sql) {
     try { $pdo->exec($sql); } catch (Throwable $e) { /* colonne déjà présente */ }
   }
   return $pdo;

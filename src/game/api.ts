@@ -152,8 +152,8 @@ export interface Row {
   difficulty?: string
 }
 
-export const leaderboard = (difficulty = 'astronaut', period: 'all' | 'week' = 'all') =>
-  req<{ rows: Row[]; myRank: number | null }>(`leaderboard.php?difficulty=${difficulty}&period=${period}`)
+export const leaderboard = (difficulty = 'astronaut', period: 'all' | 'week' = 'all', map?: 'base' | 'station') =>
+  req<{ rows: Row[]; myRank: number | null }>(`leaderboard.php?difficulty=${difficulty}&period=${period}${map ? `&map=${map}` : ''}`)
 
 export async function fetchGhost(difficulty: string) {
   try {
@@ -183,7 +183,7 @@ export async function pushAchievements(codes: string[]) {
   }
 }
 
-export async function submitScore(p: { timeMs: number; hints: number; errors: number; score: number; character: string; ending: string; difficulty: string; ghost?: number[] }) {
+export async function submitScore(p: { timeMs: number; hints: number; errors: number; score: number; character: string; ending: string; difficulty: string; ghost?: number[]; map?: string }) {
   if (!G().user) return null
   try {
     const r = await req<{ rank: number }>('leaderboard.php', { method: 'POST', body: JSON.stringify(p) })

@@ -3,13 +3,18 @@ import { setLanguage } from './i18n'
 import { Component, useEffect, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { audio } from './game/audio/audio'
-import { useGame } from './game/state'
+import { toast, useGame } from './game/state'
+import { fr } from './i18n/fr'
 import { isTouch } from './player/Player'
-import { startGamepadLoop } from './player/gamepad'
+import { detectPadType, startGamepadLoop } from './player/gamepad'
+import { setKeyLayout } from './player/input'
 import { Hud } from './ui/Hud'
 import { Inventory } from './ui/Inventory'
 import { MobileControls } from './ui/Mobile'
-import { CharSelect, End, Leaderboard, NoteReader, Pause, Prologue, PuzzleHost, RotatePhone, SkipCine, Title } from './ui/Screens/Screens'
+import { End, NoteReader, Pause, Prologue, PuzzleHost, RotatePhone, SkipCine } from './ui/Screens/Screens'
+import { Launch } from './ui/Screens/Launch'
+import { Achievements } from './ui/Screens/Achievements'
+import { Credits } from './ui/Screens/Credits'
 import { Login } from './ui/Screens/Login'
 import { MainMenu } from './ui/Screens/Menu'
 import { SettingsPage } from './ui/Screens/SettingsPage'
@@ -55,8 +60,19 @@ export default function App() {
     audio.female = ['nova', 'ines', 'maya'].includes(character)
   }, [character])
   useEffect(() => {
-    audio.setVolumes({ music: vols.music * vols.master, sfx: vols.sfx * vols.master, voice: vols.voice * vols.master })
-  }, [vols.master, vols.music, vols.sfx, vols.voice])
+    audio.setVolumes({ music: vols.music * vols.master, sfx: vols.sfx * vols.master, voice: vols.voice * vols.master, ambience: vols.ambience })
+  }, [vols.master, vols.music, vols.sfx, vols.voice, vols.ambience])
+  useEffect(() => {
+    audio.spatial = vols.spatialAudio
+    audio.output = vols.audioOutput
+    setKeyLayout(vols.keyLayout)
+    audio.onCaption = vols.soundCaptions
+      ? (name) => {
+          const text = fr.soundCaptions[name]
+          if (text && useGame.getState().screen === 'playing') toast(text, 'info', 2000)
+        }
+      : null
+  }, [vols.spatialAudio, vols.audioOutput, vols.keyLayout, vols.soundCaptions])
   useEffect(() => {
     audio.browserVoice = vols.browserVoice
     audio.lang = vols.lang
@@ -71,6 +87,9 @@ export default function App() {
     const padOn = () => {
       audio.init()
       document.body.classList.add('pad')
+      // symboles de la manette branchée
+      const type = detectPadType()
+      if (type) useGame.setState((s) => ({ settings: { ...s.settings, padType: type } }))
     }
     window.addEventListener('gamepadconnected', padOn)
     return () => {
@@ -86,6 +105,7 @@ export default function App() {
       <Canvas
         shadows={{ type: THREE.PCFSoftShadowMap }}
         dpr={1}
+        frameloop={playing || screen === 'prologue' ? 'always' : 'demand'}
         gl={{ antialias: false, powerPreference: 'high-performance', stencil: false, preserveDrawingBuffer: false }}
         camera={{ fov: 72, near: 0.05, far: 12000, position: [0, 1.6, 0] }}
         onCreated={({ gl }) => {
@@ -102,11 +122,12 @@ export default function App() {
       </Canvas>
       </CrashGuard>
       <div key={vols.lang} style={{ display: 'contents' }}>
+      {screen === 'launch' && <Launch />}
       {screen === 'login' && <Login />}
       {screen === 'title' && <MainMenu />}
       {screen === 'settings' && <SettingsPage />}
-      {screen === 'leaderboard' && <Leaderboard />}
-      {screen === 'charSelect' && <CharSelect />}
+      {screen === 'achievements' && <Achievements />}
+      {screen === 'credits' && <Credits />}
       {screen === 'end' && <End />}
       {screen === 'prologue' && <Prologue />}
       <div className={`film-bars ${screen === 'prologue' || (playing && (cine === 'tour' || cine === 'launch' || cine === 'heli' || cine === 'fail')) ? 'on' : ''}`} aria-hidden>

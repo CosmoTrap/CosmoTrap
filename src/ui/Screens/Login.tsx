@@ -3,15 +3,15 @@ import { ApiError, forgotPassword, googleLogin, login, me, register, resetPasswo
 import { audio } from '../../game/audio/audio'
 import { useGame } from '../../game/state'
 import { fr } from '../../i18n/fr'
+import { Stage } from './Stage'
 
-// Écrans de connexion / inscription (maquettes « Accès équipage » et « Nouvelle recrue »).
-// Le fond est la scène 3D de la base lunaire (LunarScene), rendue derrière.
+// Écrans de connexion / inscription (maquettes 01 « Accès équipage » et 02 « Nouvelle recrue »).
 const A = fr.auth
 const GOOGLE_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined
 
 function GoogleG() {
   return (
-    <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden>
+    <svg width="22" height="22" viewBox="0 0 48 48" aria-hidden>
       <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
       <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
       <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z" />
@@ -32,13 +32,13 @@ function strength(p: string) {
 
 function Field({ label, aside, children, hint }: { label: string; aside?: React.ReactNode; children: React.ReactNode; hint?: string }) {
   return (
-    <div className="au-field">
-      <div className="au-label">
+    <div className="x-field">
+      <div className="x-label">
         <span>{label}</span>
         {aside}
       </div>
       {children}
-      {hint && <div className="au-hint">{hint}</div>}
+      {hint && <div className="x-hint">{hint}</div>}
     </div>
   )
 }
@@ -113,7 +113,7 @@ export function Login() {
         await register(email, pseudo, pass)
         audio.init()
         // étape 02 : choisir son personnage
-        useGame.setState({ screen: 'settings', settingsTab: 0, firstRun: true })
+        useGame.setState({ screen: 'settings', menuBack: 'title', settingsTab: 0, firstRun: true })
       } else if (mode === 'forgot') {
         await forgotPassword(email)
         setInfo(A.forgotSent)
@@ -136,28 +136,31 @@ export function Login() {
   const st = strength(pass)
 
   return (
-    <div className="au" data-testid="login">
-      <div className="au-left">
+    <Stage testId="login">
+      <div className={`au-side ${reg ? 'reg' : ''}`}>
         {reg || mode === 'forgot' || mode === 'reset' ? (
           <button type="button" className="au-back" onClick={() => go('login')}>
-            ← {A.backToLogin}
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M11 6l-6 6 6 6" />
+            </svg>
+            {A.backToLogin}
           </button>
         ) : (
-          <div className="au-mono au-top">{A.secure}</div>
+          <div className="au-secure">{A.secure}</div>
         )}
-        <img className={`au-logo ${reg ? 'small' : ''}`} src="/logo/badge-dark.png" alt="Cosmotrap" />
+        <img className="au-logo" src="/logo/badge-dark.png" alt="Cosmotrap" />
         {reg ? (
           <>
             <h1 className="au-title">{A.registerTitle}</h1>
             <ol className="au-steps">
-              {A.steps.map((s, i) => (
-                <li key={s} className={i === 0 ? 'on' : ''}>
+              {A.steps.map((step, i) => (
+                <li key={step} className={i === 0 ? 'on' : ''}>
                   <span>{String(i + 1).padStart(2, '0')}</span>
-                  {s}
+                  {step}
                 </li>
               ))}
             </ol>
-            <div className="au-mono au-bottom">{A.matricule}</div>
+            <div className="au-bottom">{A.matricule}</div>
           </>
         ) : (
           <>
@@ -167,7 +170,7 @@ export function Login() {
               <em>{A.heroB}</em>
             </h1>
             <p className="au-sub">{A.heroSub}</p>
-            <div className="au-mono au-bottom au-stats">
+            <div className="au-bottom au-stats">
               <span>{A.statO2}</span>
               <span>{A.statT}</span>
               <span>{A.statG}</span>
@@ -176,8 +179,8 @@ export function Login() {
         )}
       </div>
 
-      <form className="au-card" onSubmit={submit}>
-        <div className="au-kicker">{reg ? A.kickerRegister : mode === 'login' ? A.kickerLogin : A.kickerForgot}</div>
+      <form className={`x-panel au-card ${mode}`} onSubmit={submit}>
+        <div className="x-kicker">{reg ? A.kickerRegister : mode === 'login' ? A.kickerLogin : A.kickerForgot}</div>
         <h2>{reg ? A.register : mode === 'login' ? A.login : mode === 'forgot' ? A.forgotTitle : A.resetTitle}</h2>
 
         {mode === 'login' &&
@@ -196,12 +199,12 @@ export function Login() {
 
         {reg && (
           <Field label={A.pseudo} hint={A.pseudoHint}>
-            <input data-testid="pseudo" className="au-input" placeholder="Astro" value={pseudo} onChange={(e) => setPseudo(e.target.value)} required minLength={3} maxLength={16} autoComplete="nickname" />
+            <input data-testid="pseudo" className="x-input" placeholder="Astro" value={pseudo} onChange={(e) => setPseudo(e.target.value)} required minLength={3} maxLength={16} autoComplete="nickname" />
           </Field>
         )}
         {mode !== 'reset' && (
           <Field label={mode === 'login' ? A.emailOrPseudo : A.email}>
-            <input data-testid="email" className="au-input" type={mode === 'login' ? 'text' : 'email'} placeholder="astro@cosmotrap.fr" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete={mode === 'login' ? 'username' : 'email'} />
+            <input data-testid="email" className="x-input" type={mode === 'login' ? 'text' : 'email'} placeholder="astro@cosmotrap.fr" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete={mode === 'login' ? 'username' : 'email'} />
           </Field>
         )}
         {mode !== 'forgot' && (
@@ -215,7 +218,7 @@ export function Login() {
               )
             }
           >
-            <input data-testid="password" className="au-input" type="password" placeholder={reg || mode === 'reset' ? A.passwordMin : '••••••••'} value={pass} onChange={(e) => setPass(e.target.value)} required minLength={reg || mode === 'reset' ? 8 : 1} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} />
+            <input data-testid="password" className="x-input" type="password" placeholder={reg || mode === 'reset' ? A.passwordMin : '••••••••'} value={pass} onChange={(e) => setPass(e.target.value)} required minLength={reg || mode === 'reset' ? 8 : 1} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} />
             {(reg || mode === 'reset') && (
               <div className="au-strength">
                 {[0, 1, 2, 3].map((i) => (
@@ -227,13 +230,13 @@ export function Login() {
         )}
         {(reg || mode === 'reset') && (
           <Field label={A.confirm}>
-            <input data-testid="password2" className="au-input" type="password" placeholder={A.confirmPh} value={pass2} onChange={(e) => setPass2(e.target.value)} required minLength={8} autoComplete="new-password" />
+            <input data-testid="password2" className="x-input" type="password" placeholder={A.confirmPh} value={pass2} onChange={(e) => setPass2(e.target.value)} required minLength={8} autoComplete="new-password" />
           </Field>
         )}
 
-        {err && <div className="au-err">{err}</div>}
-        {info && <div className="au-info">{info}</div>}
-        <button className="au-submit" data-testid="submit" disabled={busy}>
+        {err && <div className="x-err">{err}</div>}
+        {info && <div className="x-info">{info}</div>}
+        <button className="x-primary au-submit" data-testid="submit" disabled={busy}>
           {busy ? '…' : reg ? A.registerBtn : mode === 'login' ? A.loginBtn : mode === 'forgot' ? A.forgotBtn : A.resetBtn} <span aria-hidden>→</span>
         </button>
         {mode !== 'forgot' && mode !== 'reset' && (
@@ -258,6 +261,6 @@ export function Login() {
           </button>
         )}
       </form>
-    </div>
+    </Stage>
   )
 }

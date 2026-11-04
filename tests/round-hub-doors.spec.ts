@@ -5,6 +5,8 @@ async function start(page: Page) {
   await page.route('**/api/auth.php?action=me', (r) => r.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
   await page.addInitScript(() => localStorage.setItem('cosmotrap.settings.v1', JSON.stringify({ quality: 'low', music: 0, voice: 0, sfx: 0 })))
   await page.goto('/?quality=low')
+  await expect(page.getByTestId('launch')).toBeVisible()
+  await page.keyboard.press('Space')
   await page.getByTestId('guest').click()
   await page.evaluate(() => { window.__game.start(); window.__game.set({ toured: [1, 2, 3, 4] }) })
   await page.waitForFunction(() => window.__game.state().playerZone === 1 && window.__game.state().loading === 1)

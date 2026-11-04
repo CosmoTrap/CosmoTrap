@@ -21,6 +21,11 @@ if ($method === 'GET') {
   $all = ($_GET['difficulty'] ?? '') === 'all';
   $where = $all ? 's2.created_at >= ?' : 's2.difficulty = ? AND s2.created_at >= ?';
   $args = $all ? [$since] : [$diff, $since];
+  // carte : base lunaire ou station spatiale (toutes si non précisée)
+  if (in_array($_GET['map'] ?? '', ['base', 'station'], true)) {
+    $where .= ' AND s2.map_id = ?';
+    $args[] = $_GET['map'];
+  }
   $st = db()->prepare("SELECT s.user_id, u.pseudo, u.character_id AS avatar, s.difficulty, s.time_ms, s.hints, s.errors, s.score, s.character_id, s.ending, s.created_at
     FROM scores s JOIN users u ON u.id = s.user_id
     WHERE s.id = (SELECT s2.id FROM scores s2 WHERE s2.user_id = s.user_id AND $where ORDER BY s2.time_ms ASC, s2.id ASC LIMIT 1)
@@ -57,12 +62,13 @@ if ($method === 'POST') {
   $char = preg_replace('/[^a-z]/', '', (string)($b['character'] ?? 'nova')) ?: 'nova';
   $ending = preg_replace('/[^a-z_]/', '', (string)($b['ending'] ?? 'rescue')) ?: 'rescue';
   $d = in_array($b['difficulty'] ?? '', $diffs, true) ? $b['difficulty'] : 'astronaut';
+  $map = in_array($b['map'] ?? '', ['base', 'station'], true) ? $b['map'] : 'base';
   $ghost = null;
   if (isset($b['ghost']) && is_array($b['ghost']) && count($b['ghost']) <= 40000) {
     $ghost = json_encode(array_map(fn($v) => is_numeric($v) ? $v + 0 : 0, $b['ghost']));
   }
-  db()->prepare('INSERT INTO scores (user_id, time_ms, hints, errors, score, character_id, ending, created_at, difficulty, ghost) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-    ->execute([$u['id'], $t, $hints, $errors, $score, $char, $ending, time(), $d, $ghost]);
+  db()->prepare('INSERT INTO scores (user_id, time_ms, hints, errors, score, character_id, ending, created_at, difficulty, ghost, map_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    ->execute([$u['id'], $t, $hints, $errors, $score, $char, $ending, time(), $d, $ghost, $map]);
   $st = db()->prepare('SELECT COUNT(DISTINCT user_id) AS r FROM scores WHERE difficulty = ? AND time_ms < ?');
   $st->execute([$d, $t]);
   out(['ok' => true, 'rank' => (int)$st->fetch()['r'] + 1]);

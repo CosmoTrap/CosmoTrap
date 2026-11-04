@@ -16,7 +16,6 @@ import { Exterior } from './Exterior'
 import { Level } from './Level'
 import { QUALITY } from './quality'
 import { TitleScene } from './TitleScene'
-import { LunarScene } from './LunarScene'
 import { Zone4 } from './zone4/Zone4'
 import { Ghost, useLoadGhost } from './Ghost'
 import { SceneGate, SceneReady } from './SceneReady'
@@ -180,12 +179,8 @@ export function Scene() {
         </SceneGate>
       ) : screen === 'prologue' ? (
         <TitleScene />
-      ) : (
-        <Suspense fallback={null}>
-          <LunarScene />
-        </Suspense>
-      )}
-      <Effects />
+      ) : null}
+      {(screen === 'playing' || screen === 'prologue') && <Effects />}
     </>
   )
 }

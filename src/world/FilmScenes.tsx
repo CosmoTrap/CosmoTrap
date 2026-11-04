@@ -307,7 +307,7 @@ export function CineActor() {
   return (
     <group ref={g} visible={false}>
       <group ref={body}>
-        <Astronaut ref={ref} accent={fr.characters[character]?.color ?? '#d9673a'} />
+        <Astronaut ref={ref} skin={character} accent={fr.characters[character]?.color ?? '#d9673a'} />
       </group>
     </group>
   )

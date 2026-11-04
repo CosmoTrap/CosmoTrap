@@ -605,7 +605,7 @@ function Hologram() {
   const briefer = character === 'ines' ? 'kenji' : 'ines'
   return (
     <group ref={g} position={[0, 0.1, 0]} scale={0.95}>
-      <Astronaut override={mat} castShadow={false} accent={fr.characters[briefer].color} />
+      <Astronaut override={mat} castShadow={false} skin={briefer} accent={fr.characters[briefer].color} />
       <pointLight color="#59c8ff" intensity={cine === 'briefing' ? 3 : 0.8} distance={4} position={[0, 1.2, 0.3]} />
     </group>
   )

@@ -9,6 +9,12 @@ async function guest(page: Page, legacyKeys = false) {
   await page.addInitScript((legacy) => localStorage.setItem('cosmotrap.settings.v1', JSON.stringify({ quality: 'low', music: 0, voice: 0, sfx: 0,
     ...(legacy ? { keys: { act: ['KeyE', 'Space'] } } : {}) })), legacyKeys)
   await page.goto('/?quality=low')
+  await enterAsGuest(page)
+}
+/** écran de lancement → connexion → invité (serveur injoignable) */
+async function enterAsGuest(page: Page) {
+  await expect(page.getByTestId('launch')).toBeVisible()
+  await page.keyboard.press('Space')
   await page.getByTestId('guest').click()
   await expect(page.getByTestId('title')).toBeVisible()
 }
@@ -34,8 +40,7 @@ test('passer le prologue rend directement les commandes', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
   await guest(page)
-  await page.getByTestId('new-game').first().click()
-  await page.getByTestId('start').click()
+  await page.getByTestId('launch-mission').click()
   await page.getByTestId('skip-prologue').click()
   await playable(page)
   expect(errors).toEqual([])
@@ -209,7 +214,7 @@ test('le chariot de la serre se pousse et garde sa position, les autres portes r
     return saved?.zone === 2 && Math.abs(saved.propPositions?.['serre-cart']?.[2] - z) < 0.1
   }, moved[2])
   await page.reload()
-  await page.getByTestId('guest').click()
+  await enterAsGuest(page)
   await page.getByTestId('continue').first().click()
   await page.waitForFunction(() => window.__game.state().playerZone === 2 && window.__game.state().loading === 1)
   expect((await state(page)).propPositions['serre-cart'][2]).toBeCloseTo(moved[2], 1)
