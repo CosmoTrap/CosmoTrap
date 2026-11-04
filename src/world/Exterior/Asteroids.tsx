@@ -211,7 +211,8 @@ function Meteor({ keepOut }: { keepOut: KeepOut }) {
       new THREE.ShaderMaterial({
         uniforms: { uA: { value: 1 } },
         vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
-        fragmentShader: `uniform float uA; varying vec2 vUv; void main(){ float a = pow(1.0 - vUv.y, 2.5); gl_FragColor = vec4(vec3(1.0, 0.55, 0.2) * a * 8.0 * uA, 1.0); }`,
+        // Keep the fractional power finite at interpolated UV edges, as for sunlight shafts.
+        fragmentShader: `uniform float uA; varying vec2 vUv; void main(){ float a = pow(1.0 - clamp(vUv.y, 0.0, 1.0), 2.5); gl_FragColor = vec4(vec3(1.0, 0.55, 0.2) * a * 8.0 * uA, 1.0); }`,
         transparent: true,
         blending: THREE.AdditiveBlending,
         depthWrite: false,

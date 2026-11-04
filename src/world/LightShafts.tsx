@@ -37,7 +37,9 @@ float n3(vec3 p){
              mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z);
 }
 void main() {
-  float t = vUv.y;
+  // Interpolation at the cylinder rim can slightly exceed [0, 1]. A negative
+  // base in pow(..., 1.8) yields NaN, which bloom spreads across the whole frame.
+  float t = clamp(vUv.y, 0.0, 1.0);
   float fade = pow(1.0 - t, 1.8) * smoothstep(0.0, 0.06, t);
   float edge = pow(abs(dot(vN, vV)), 2.2);
   float dust = 0.7 + 0.6 * n3(vW * 2.5 + vec3(0.0, uTime * 0.08, uTime * 0.05));
