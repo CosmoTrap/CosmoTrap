@@ -57,7 +57,7 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
 
   // ——— Zone 1 ———
   await waitIdle(page, 1)
-  expect(await g(page, 'interact', 'hatch')).toBe(false) // la trappe reste fermée avant la pressurisation
+  expect(await g(page, 'interact', 'lift')).toBe(false) // l'ascenseur reste verrouillé avant la pressurisation
   expect((await st(page)).zone).toBe(1)
   await act(page, 'lamp')
   await page.keyboard.press('f')
@@ -84,7 +84,9 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
   await expect.poll(async () => (await st(page)).flags.pressurized).toBe(true)
   await page.waitForTimeout(1500)
   await page.screenshot({ path: 'test-results/zone1.png' })
-  await act(page, 'hatch')
+  await g(page, 'teleportXZ', 41, 41, -Math.PI / 2)
+  await page.waitForTimeout(250)
+  await g(page, 'interact', 'lift')
 
   // ——— Zone 2 ———
   await waitIdle(page, 2)

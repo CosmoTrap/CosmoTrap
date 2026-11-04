@@ -3,7 +3,7 @@ import type { GridMap } from '../types'
 import { zone1 } from './zone1'
 import { zone2 } from './zone2'
 
-export const LAYOUT_VERSION = 2
+export const LAYOUT_VERSION = 3
 
 // Rectangles before the station was split into four wings. Room contents retain
 // their local coordinates, so a saved position inside a room can follow it.
@@ -16,10 +16,23 @@ function onFloor(map: GridMap, x: number, z: number) {
   return ['.', 'D'].includes(map.grid[Math.floor(z / 2)]?.[Math.floor(x / 2)] ?? ' ')
 }
 
+/** The lift now stands at the hub's centre: a saved position there moves just outside it. */
+function outsideLift(map: GridMap, pos: [number, number, number]): [number, number, number] {
+  const [x0, z0, x1, z1] = map.rooms.find((r) => r.id === 'couloir')!.rect
+  const cx = x0 + x1 + 1, cz = z0 + z1 + 1
+  const dx = pos[0] - cx, dz = pos[2] - cz, r = Math.hypot(dx, dz)
+  if (r >= 2.2) return pos
+  return r < 0.01 ? [cx + 2.6, 0, cz] : [cx + dx / r * 2.6, 0, cz + dz / r * 2.6]
+}
+
 /** Migrate geometry only; inventory, locks, puzzles and elapsed time are kept. */
 export function migrateStationSave(saved: SaveFile, version: number): SaveFile {
   if (version >= LAYOUT_VERSION) return saved
   const out = { ...saved, layoutVersion: LAYOUT_VERSION, propPositions: { ...saved.propPositions } }
+  if (version >= 2) {
+    if ((saved.zone === 1 || saved.zone === 2) && saved.pos?.every(Number.isFinite)) out.pos = outsideLift(saved.zone === 1 ? zone1 : zone2, saved.pos)
+    return out
+  }
   if (saved.zone === 1 || saved.zone === 2) {
     const map = saved.zone === 1 ? zone1 : zone2
     const hub = map.rooms.find((r) => r.id === 'couloir')!
@@ -35,7 +48,7 @@ export function migrateStationSave(saved: SaveFile, version: number): SaveFile {
         if (onFloor(map, x, z)) pos = [x, 0, z]
       }
     }
-    out.pos = pos
+    out.pos = outsideLift(map, pos)
   }
   const cart = out.propPositions['serre-cart']
   if (cart) {

@@ -429,28 +429,6 @@ function ValvePanel() {
   )
 }
 
-function Hatch() {
-  const m = useMats()
-  const ok = useGame((s) => s.flags.pressurized)
-  return (
-    <group>
-      <Cyl a={[0.75, 0.75, 0.06]} p={[0, 0.03, 0]} m={m.painted('#4a4e54', 0.4, 0.7)} seg={40} />
-      <Cyl a={[0.6, 0.6, 0.02]} p={[0, 0.07, 0]} m={m.painted('#7d8288', 0.45, 0.6)} seg={40} />
-      <mesh position={[0, 0.09, 0]} rotation={[Math.PI / 2, 0, 0]} material={m.metal('#c0c4c8', 0.25)}>
-        <torusGeometry args={[0.25, 0.025, 8, 30]} />
-      </mesh>
-      {[0, 1].map((k) => (
-        <Box key={k} s={[0.5, 0.03, 0.04]} p={[0, 0.09, 0]} r={[0, k * 1.57, 0]} m={m.metal('#c0c4c8', 0.25)} />
-      ))}
-      {[0, 1, 2, 3].map((k) => (
-        <mesh key={k} position={[Math.cos(k * 1.57) * 0.68, 0.065, Math.sin(k * 1.57) * 0.68]} material={m.glow(ok ? '#38ff7a' : '#ff2a1a', 3)}>
-          <boxGeometry args={[0.06, 0.02, 0.06]} />
-        </mesh>
-      ))}
-    </group>
-  )
-}
-
 function Datapad({ lines }: { lines: string[] }) {
   const m = useMats()
   const mat = useMemo(() => {
@@ -717,7 +695,6 @@ export const ENT_MODELS: Record<string, (e: Ent) => ReactNode> = {
   plate: () => <Plate />,
   dispenser: () => <Dispenser />,
   valvePanel: () => <ValvePanel />,
-  hatch: () => <Hatch />,
   datapad: (e) => <Datapad lines={DATAPADS[e.id] ?? ['NOTE']} />,
   tag: () => <Tag />,
   steamValve: () => <SteamValve />,

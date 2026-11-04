@@ -1,6 +1,6 @@
 import type { GridMap, RoomDef, DoorDef } from '../types'
 import { modularGrid } from './modularGrid'
-import { atHub, hubDecor } from './hubDecor'
+import { hubDecor, liftEnts } from './hubDecor'
 
 // Niveau 2 : quatre ailes autour d'un nœud central. Toutes les énigmes et tous les objets sont conservés.
 const rooms: RoomDef[] = [
@@ -29,10 +29,11 @@ export const zone2: GridMap = {
   rooms,
   doors,
   grid: modularGrid(rooms, doors, [[11, 4, 'W'], [15, 4, 'W'], [9, 6, 'W'], [19, 4, 'W'], [20, 4, 'W'], [21, 4, 'W'], [22, 4, 'W'], [23, 4, 'W'], [38, 18, 'W'], [17, 32, 'W'], [25, 32, 'W'], [12, 17, 'W'], [5, 20, 'W'], [6, 20, 'W']], 'couloir'),
-  spawn: { tile: [21, 18], yaw: 0 },
+  spawn: { tile: [21, 18], yaw: -Math.PI / 2 },
   sun: [-0.6, 0.35, -0.7],
   exterior: 'asteroids',
   ents: [
+    ...liftEnts(rooms.find((r) => r.id === 'couloir')!),
     { id: 'fuse', model: 'fuse', tile: [11, 5], wall: 'N', y: 0.97, item: 'fuse', dot: 'key' },
     { id: 'labNote', model: 'datapad', tile: [14, 5], wall: 'N', y: 0.95, dot: 'exam' },
     { id: 'o2_a', model: 'o2', tile: [16, 5], wall: 'E', item: 'o2', dot: 'res' },
@@ -70,7 +71,6 @@ export const zone2: GridMap = {
     { model: 'plantRack', tile: [19, 7], wall: 'S' },
     { model: 'plantRack', tile: [21, 7], wall: 'S', off: [0, 0.18], pushable: 'serre-cart' },
     { model: 'plant', tile: [24, 7], off: [0.4, 0.3] },
-    atHub(rooms.find((r) => r.id === 'couloir')!, 'ladder', 286, 6.92),
     { model: 'pipes', tile: [13, 18], scale: 5 },
     { model: 'brokenPipe', tile: [28, 18] },
     { model: 'extinguisher', tile: [15, 18], wall: 'N' },
