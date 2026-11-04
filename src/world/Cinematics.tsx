@@ -235,7 +235,7 @@ function resumePlaying(briefed = G().briefed) {
   resetCineView()
   const s = G()
   useGame.setState({ cine: null, subtitle: null, briefed, paused: false, shake: 0,
-    tabletOpen: false, inventoryOpen: false, puzzle: null, readNote: null, settingsOpen: false,
+    tabletOpen: false, puzzle: null, readNote: null, settingsOpen: false,
     toured: s.toured.includes(s.zone) ? s.toured : [...s.toured, s.zone] })
 }
 

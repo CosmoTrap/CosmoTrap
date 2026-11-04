@@ -17,6 +17,7 @@ import {
   saveGame,
   setFlag,
   toast,
+  recordMessage,
   useGame,
   diff,
   timeLimit,
@@ -66,9 +67,9 @@ export function canSeeInDark() {
 }
 
 /** l'entité est-elle visible / active (pas encore ramassée, etc.) */
-export function entActive(e: Ent) {
+export function entActive(e: Ent, zone = G().zone) {
   const s = G()
-  if (e.item && isTaken(e.id)) return false
+  if (e.item && isTaken(e.id, zone)) return false
   if (LOCKED_DOORS[e.id]) return !doorUnlocked(e.id)
   switch (e.id) {
     case 'steam':
@@ -389,7 +390,7 @@ export function act(id: string) {
       }
       removeItem('flareGun')
       audio.sfx('flare')
-      useGame.setState({ cine: 'heli', cineT0: performance.now(), tabletOpen: false, inventoryOpen: false, puzzle: null })
+      useGame.setState({ cine: 'heli', cineT0: performance.now(), tabletOpen: false, puzzle: null })
       return true
   }
   return false
@@ -418,7 +419,7 @@ export function computeScore() {
 }
 
 function openPuzzle(p: 'keypad' | 'valves' | 'power' | 'sequence' | 'radio' | 'algo' | 'plan' | 'dilemma') {
-  useGame.setState({ puzzle: p, tabletOpen: false, inventoryOpen: false })
+  useGame.setState({ puzzle: p, tabletOpen: false })
   document.exitPointerLock?.()
 }
 
@@ -670,7 +671,7 @@ export function cycleItem(direction: number) {
 
 export function useSelectedItem() {
   const s = G()
-  if (s.screen !== 'playing' || s.loading < 1 || s.cine || s.paused || s.settingsOpen || s.puzzle || s.readNote || s.tabletOpen) return
+  if (s.screen !== 'playing' || s.loading < 1 || s.cine || s.paused || s.settingsOpen || s.puzzle || s.readNote || (s.tabletOpen && (!s.tabletReady || s.tab !== 3))) return
   const item = selectedInventoryItem()
   if (item) useItem(item)
 }
@@ -698,7 +699,7 @@ export function useItem(item: ItemId) {
   const s = G()
   useGame.setState({ held: s.held === item ? null : item })
   audio.sfx('click')
-  if (item === 'manual' || item === 'map') useGame.setState({ readNote: item === 'manual' ? 'manual' : 'sign', inventoryOpen: false, tabletOpen: false })
+  if (item === 'manual' || item === 'map') useGame.setState({ readNote: item === 'manual' ? 'manual' : 'sign', tabletOpen: false })
 }
 
 // ——— boucle des ressources ———
@@ -821,7 +822,7 @@ export function tick(dt: number) {
   res.water = Math.max(0, res.water - 0.11 * D.drain * ability().water * dt)
   useGame.setState({ res, lampOn, playTime: s.playTime + dt })
   if (s.playTime + dt + s.penalty >= timeLimit()) {
-    useGame.setState({ cine: 'fail', cineT0: performance.now(), tabletOpen: false, inventoryOpen: false, puzzle: null, readNote: null })
+    useGame.setState({ cine: 'fail', cineT0: performance.now(), tabletOpen: false, puzzle: null, readNote: null })
     return
   }
 
@@ -867,7 +868,7 @@ export function tick(dt: number) {
 export function faint() {
   const s = G()
   audio.sfx('faint')
-  useGame.setState({ cine: 'faint', cineT0: performance.now(), faints: s.faints + 1, tabletOpen: false, inventoryOpen: false, puzzle: null })
+  useGame.setState({ cine: 'faint', cineT0: performance.now(), faints: s.faints + 1, tabletOpen: false, puzzle: null })
 }
 
 export function respawnAfterFaint() {
@@ -882,7 +883,7 @@ export let pendingZone: ZoneId | null = null
 export function transitionTo(z: ZoneId) {
   pendingZone = z
   audio.sfx('airlock')
-  useGame.setState({ cine: 'zoneCard', cineT0: performance.now(), tabletOpen: false, inventoryOpen: false, puzzle: null })
+  useGame.setState({ cine: 'zoneCard', cineT0: performance.now(), tabletOpen: false, puzzle: null })
 }
 
 export function enterZone(z: ZoneId) {
@@ -905,7 +906,7 @@ export function enterZone(z: ZoneId) {
 export function stepsState(zone: ZoneId) {
   const s = G()
   const f = s.flags
-  const zDone = s.zone > zone || s.ended
+  const zDone = s.zone > zone || (s.ended && s.ending === 'rescue')
   const done: Record<string, boolean> = {
     lamp: has('lamp'),
     board: f.read_board,
@@ -930,8 +931,8 @@ export function stepsState(zone: ZoneId) {
     antenna: has('antenna') || f.beacon,
     bridge: f.bridge,
     beacon: f.beacon,
-    flare: has('flareGun') || s.ended,
-    helipad: s.ended,
+    flare: has('flareGun') || s.ending === 'rescue',
+    helipad: s.ending === 'rescue',
   }
   const steps = fr.steps[zone]
   const firstTodo = steps.findIndex((st) => !(zDone || done[st.id]))
@@ -984,7 +985,9 @@ export function requestHint(level: 1 | 2 = 1) {
     const cost = help === 'recrue' ? (level === 1 ? 0 : 30) : help === 'commandant' ? (level === 1 ? 60 : 120) : level === 1 ? 30 : 60
     if (cost) penalize(cost, false)
   }
-  return hintFor(level)
+  const message = hintFor(level)
+  if (message) recordMessage(message)
+  return message
 }
 
 export function puzzleStatus(p: { id: string; zone: number }) {
