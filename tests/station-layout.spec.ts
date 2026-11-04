@@ -97,7 +97,7 @@ test('circuler physiquement entre le nœud, les salles et les compartiments des 
       grid.forEach((row, z) => [...row].forEach((_, x) => g.live.explored.add(`${g.state().zone}:${x},${z}`)))
       g.set({ tabletOpen: true })
     }, zone === 1 ? zone1.grid : zone2.grid)
-    await page.getByTestId('tab-4').click()
+    await page.getByTestId('tab-0').click()
     await expect(page.getByTestId('minimap')).toBeVisible()
     await page.screenshot({ path: `test-results/station-plan-${zone}.png` })
     await page.evaluate(() => window.__game.set({ tabletOpen: false }))

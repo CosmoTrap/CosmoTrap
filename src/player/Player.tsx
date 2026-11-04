@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { audio } from '../game/audio/audio'
 import { act, cycleItem, drinkPouch, entById, labelOf, toggleLamp, useBattery, useO2, useSelectedItem, useSlot } from '../game/logic'
 import { GRID_MAPS, roomAt, spawnOf } from '../game/maps'
-import { G, ability, live, toggleFullscreen, useGame } from '../game/state'
+import { G, ability, live, toggleFullscreen, useGame, type TabletTab } from '../game/state'
 import { QUALITY } from '../world/quality'
 import { hitboxes } from '../world/props/EntModels'
 import { lampCookie } from '../world/textures'
@@ -21,7 +21,7 @@ export const aim = { id: null as string | null, label: null as string | null }
 
 function overlayOpen() {
   const s = G()
-  return s.loading < 1 || s.tabletOpen || s.inventoryOpen || !!s.puzzle || !!s.readNote || s.paused || s.settingsOpen
+  return s.loading < 1 || s.tabletOpen || !!s.puzzle || !!s.readNote || s.paused || s.settingsOpen
 }
 
 /** écoute clavier / souris (une seule fois) */
@@ -41,13 +41,12 @@ export function useInputListeners() {
       if (target?.matches('input, textarea, select, [contenteditable="true"]')) return
       markKeyboard()
       const k = s.settings.keys
-      if ((e.code === 'Tab' && !s.inventoryOpen) || e.code === 'Space') e.preventDefault()
+      if (!s.tabletOpen && (e.code === 'Tab' || e.code === 'Space')) e.preventDefault()
       input.down.add(e.code)
       if (e.repeat) return
       if (s.cine && s.cine !== 'briefing') return
       if (matches(k, 'pause', e.code)) {
         if (s.puzzle || s.readNote) useGame.setState({ puzzle: null, readNote: null })
-        else if (s.inventoryOpen) closeInventory()
         else if (s.tabletOpen) closeTablet()
         else if (s.settingsOpen) useGame.setState({ settingsOpen: false })
         else useGame.setState({ paused: !s.paused })
@@ -55,22 +54,23 @@ export function useInputListeners() {
       }
       if (matches(k, 'inventory', e.code)) {
         e.preventDefault()
-        if (s.inventoryOpen) closeInventory()
+        if (s.tabletOpen) closeTablet()
         else openInventory()
-        return
-      }
-      if (s.inventoryOpen) {
-        if (matches(k, 'useSelected', e.code)) useSelectedItem()
         return
       }
       if (matches(k, 'hint', e.code)) {
         e.preventDefault()
-        if (!overlayOpen()) { useGame.setState({ tab: 0 }); openTablet() }
+        if (!overlayOpen() || s.tabletOpen) openTablet(1)
         return
       }
       if (matches(k, 'tablet', e.code)) {
+        e.preventDefault()
         if (s.tabletOpen) closeTablet()
         else if (!overlayOpen()) openTablet()
+        return
+      }
+      if (s.tabletOpen) {
+        if (s.tabletReady && s.tab === 3 && matches(k, 'useSelected', e.code)) useSelectedItem()
         return
       }
       if (matches(k, 'jump', e.code)) {
@@ -173,34 +173,30 @@ export function useInputListeners() {
 
 export const isTouch = () => window.matchMedia?.('(pointer: coarse)').matches
 
-export function openTablet() {
-  useGame.setState({ tabletOpen: true, inventoryOpen: false })
-  audio.sfx('tablet_open')
-  document.exitPointerLock?.()
-}
-export function closeTablet() {
-  useGame.setState({ tabletOpen: false })
-  audio.sfx('tablet_close')
-  requestLock()
-}
-export function openInventory() {
+export function openTablet(tab: TabletTab = 0) {
   const s = G()
   if (s.screen !== 'playing' || s.loading < 1 || s.cine || s.paused || s.puzzle || s.readNote || s.settingsOpen) return
-  useGame.setState({ inventoryOpen: true, tabletOpen: false })
+  if (s.tabletOpen) { useGame.setState({ tab }); return }
+  useGame.setState({ tabletOpen: true, tabletReady: false, tabletOpenedAt: performance.now(), tab })
   input.down.clear()
   input.jumpRequested = false
   input.joy.x = input.joy.y = 0
   input.touchRun = false
+  input.look.dx = input.look.dy = 0
   audio.sfx('tablet_open')
   document.exitPointerLock?.()
 }
-export function closeInventory() {
-  useGame.setState({ inventoryOpen: false })
+export function closeTablet() {
+  useGame.setState({ tabletOpen: false, tabletReady: false })
   input.down.clear()
   input.jumpRequested = false
   audio.sfx('tablet_close')
   requestLock()
 }
+export function openInventory() {
+  openTablet(3)
+}
+export const closeInventory = closeTablet
 export function requestLock() {
   if (isTouch() || G().screen !== 'playing' || G().cine || overlayOpen()) return
   const c = document.querySelector('canvas')
@@ -286,7 +282,7 @@ export function Player() {
     live.playerZone = zone
     const S = st.current
     const keys = s.settings.keys
-    const frozen = s.screen !== 'playing' || s.loading < 1 || s.paused || !!s.cine || s.tabletOpen || s.inventoryOpen || !!s.puzzle || !!s.readNote || s.settingsOpen
+    const frozen = s.screen !== 'playing' || s.loading < 1 || s.paused || !!s.cine || s.tabletOpen || !!s.puzzle || !!s.readNote || s.settingsOpen
 
     // regard
     const sens = 0.0022 * s.settings.sensitivity

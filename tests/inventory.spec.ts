@@ -97,7 +97,7 @@ test('inventaire agrandi : ouverture, détails, défilement sans sélection, doc
   await page.keyboard.press('KeyI')
   await page.setViewportSize({ width: 844, height: 390 })
   await expect(page.getByTestId('inventory-use')).toBeInViewport()
-  await expect(page.getByTestId('close-inventory')).toBeInViewport()
+  await expect(page.getByTestId('close-tablet')).toBeInViewport()
   await page.screenshot({ path: 'test-results/inventory-small.png' })
   expect(errors).toEqual([])
 })
