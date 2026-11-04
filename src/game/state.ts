@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { FLAGS, type Flags, type ItemId, type PuzzleId, type ZoneId } from './types'
 import { DEFAULT_KEYS, type KeyMap } from '../player/input'
 import { DIFFICULTY, type Difficulty } from './difficulty'
+import { LAYOUT_VERSION, migrateStationSave } from './maps/layoutMigration'
 
 export type Screen = 'login' | 'title' | 'charSelect' | 'prologue' | 'playing' | 'end' | 'leaderboard' | 'settings'
 export type Quality = 'low' | 'medium' | 'high' | 'ultra'
@@ -128,6 +129,7 @@ export function pressValveGrid(v: boolean[], r: number, c: number) {
 const emptyFlags = () => Object.fromEntries(FLAGS.map((f) => [f, false])) as Flags
 
 export interface GameData {
+  layoutVersion: number
   zone: ZoneId
   character: string
   flags: Flags
@@ -174,6 +176,7 @@ export interface GameData {
 }
 
 export const newGameData = (character = 'nova', difficulty: Difficulty = 'astronaut'): GameData => ({
+  layoutVersion: LAYOUT_VERSION,
   zone: 1,
   character,
   flags: emptyFlags(),
@@ -457,7 +460,7 @@ export function normalizeSave(d: any): SaveFile | null {
   const items = (Object.keys(saved.inv) as ItemId[]).filter((it) => saved.inv[it] > 0)
   if (!items.includes(saved.selectedItem)) saved.selectedItem = items[0] ?? null
   if (!items.includes(saved.held)) saved.held = null
-  return saved
+  return migrateStationSave(saved, d.layoutVersion ?? 1)
 }
 
 export function loadSave(): SaveFile | null {

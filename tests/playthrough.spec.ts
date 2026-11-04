@@ -86,12 +86,12 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
   // ——— Zone 2 ———
   await waitIdle(page, 2)
   // le disjoncteur est inaccessible avant la vanne : la vapeur bloque le couloir
-  await g(page, 'teleportXZ', 35, 11, -Math.PI / 2)
+  await g(page, 'teleportXZ', 51, 37, -Math.PI / 2)
   await page.waitForTimeout(600)
   await holdKey(page, 'w', 2500)
-  // Steam starts at x=40; capsule radius 0.30 + controller skin 0.02.
-  expect((await st(page)).pos[0]).toBeLessThan(39.75)
-  expect((await st(page)).pos[0]).toBeGreaterThan(35.3)
+  // Steam starts at x=56; capsule radius 0.30 + controller skin 0.02.
+  expect((await st(page)).pos[0]).toBeLessThan(55.75)
+  expect((await st(page)).pos[0]).toBeGreaterThan(51.3)
   await act(page, 'fuse')
   await act(page, 'wrench')
   await act(page, 'steamValve')
