@@ -3,6 +3,9 @@ import { FLAGS, type Flags, type ItemId, type PuzzleId, type ZoneId } from './ty
 import { DEFAULT_KEYS, DEFAULT_PAD, detectKeyLayout, type KeyLayout, type KeyMap, type PadMap, type PadType } from '../player/input'
 import { DIFFICULTY, type Difficulty } from './difficulty'
 import { LAYOUT_VERSION, migrateStationSave } from './maps/layoutMigration'
+import { initialValves } from './valves'
+
+export { pressValveGrid } from './valves'
 
 export type Screen = 'launch' | 'login' | 'title' | 'prologue' | 'playing' | 'end' | 'settings' | 'achievements' | 'credits'
 /** carte choisie sur l'écran de lancement */
@@ -119,30 +122,6 @@ export const live = {
   ghost: null as null | { pseudo: string; timeMs: number; track: number[] },
 }
 
-function initialValves() {
-  // départ : tout vert, puis appuis (0,0), (1,1), (2,2)
-  const v = Array(9).fill(true)
-  for (const [r, c] of [
-    [0, 0],
-    [1, 1],
-    [2, 2],
-  ])
-    pressValveGrid(v, r, c)
-  return v
-}
-
-export function pressValveGrid(v: boolean[], r: number, c: number) {
-  const flip = (rr: number, cc: number) => {
-    if (rr < 0 || rr > 2 || cc < 0 || cc > 2) return
-    v[rr * 3 + cc] = !v[rr * 3 + cc]
-  }
-  flip(r, c)
-  flip(r - 1, c)
-  flip(r + 1, c)
-  flip(r, c - 1)
-  flip(r, c + 1)
-}
-
 const emptyFlags = () => Object.fromEntries(FLAGS.map((f) => [f, false])) as Flags
 
 export interface GameData {
@@ -162,6 +141,8 @@ export interface GameData {
   faints: number
   playTime: number
   valves: boolean[]
+  /** grille de départ de cette partie, pour le bouton Réinitialiser */
+  valveStart: boolean[]
   seq: string[]
   briefed: boolean
   ended: boolean
@@ -193,7 +174,9 @@ export interface GameData {
   splits: Record<string, number>
 }
 
-export const newGameData = (character = 'nova', difficulty: Difficulty = 'astronaut', map: MissionMap = 'base'): GameData => ({
+export const newGameData = (character = 'nova', difficulty: Difficulty = 'astronaut', map: MissionMap = 'base'): GameData => {
+  const valves = initialValves()
+  return {
   layoutVersion: LAYOUT_VERSION,
   zone: 1,
   character,
@@ -209,7 +192,8 @@ export const newGameData = (character = 'nova', difficulty: Difficulty = 'astron
   hintsShown: [],
   faints: 0,
   playTime: 0,
-  valves: initialValves(),
+  valves,
+  valveStart: [...valves],
   seq: [],
   briefed: false,
   ended: false,
@@ -229,7 +213,8 @@ export const newGameData = (character = 'nova', difficulty: Difficulty = 'astron
   nextEventAt: DIFFICULTY[difficulty].events * 0.7,
   propPositions: {},
   splits: {},
-})
+  }
+}
 
 export interface GameState extends GameData {
   screen: Screen
@@ -490,6 +475,8 @@ export type SaveFile = GameData & { pos?: [number, number, number]; yaw?: number
 export function normalizeSave(d: any): SaveFile | null {
   if (!d || !d.zone) return null
   const saved = { ...newGameData(d.character), ...d, flags: { ...emptyFlags(), ...d.flags } }
+  if (!Array.isArray(d.valveStart) || d.valveStart.length !== 9)
+    saved.valveStart = Array.isArray(saved.valves) && saved.valves.length === 9 ? [...saved.valves] : [...saved.valveStart]
   const items = (Object.keys(saved.inv) as ItemId[]).filter((it) => saved.inv[it] > 0)
   if (!items.includes(saved.selectedItem)) saved.selectedItem = items[0] ?? null
   if (!items.includes(saved.held)) saved.held = null

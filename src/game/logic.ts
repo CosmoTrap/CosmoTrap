@@ -22,6 +22,7 @@ import {
   timeLimit,
 } from './state'
 import { SURVIVAL_ITEMS } from './items'
+import { valveHint } from './valves'
 import { checkCartographer, checkCollector, unlock } from './achievements'
 import type { Ent, Flag, ItemId, ZoneId } from './types'
 
@@ -457,20 +458,22 @@ export function pressValve(i: number) {
 }
 
 export function resetValves() {
-  const v = Array(9).fill(true)
-  for (const [r, c] of [
-    [0, 0],
-    [1, 1],
-    [2, 2],
-  ])
-    pressValveGrid(v, r, c)
-  useGame.setState({ valves: v })
+  useGame.setState({ valves: [...G().valveStart] })
 }
 
 export const POWER_SYSTEMS = ['pw_lights', 'pw_o2', 'pw_terminal', 'pw_sas'] as const
 export function togglePower(sys: (typeof POWER_SYSTEMS)[number]) {
   const f = G().flags
   if (!f.power) return
+  if (sys === 'pw_terminal' && !f.pw_terminal && !f.pw_sas) {
+    useGame.setState((s) => ({
+      flags: { ...s.flags, pw_lights: false, pw_o2: false, pw_terminal: false, pw_sas: false },
+    }))
+    audio.sfx('error')
+    toast(fr.puzzles.power.tripped, 'bad', 4000)
+    penalize(20)
+    return
+  }
   const used = POWER_SYSTEMS.filter((k) => f[k]).length
   if (!f[sys] && used >= 3) {
     audio.sfx('error')
@@ -485,11 +488,13 @@ export function togglePower(sys: (typeof POWER_SYSTEMS)[number]) {
 }
 
 export const SEQUENCE = ['blue', 'yellow', 'red', 'green']
+/** Décompte de lancement : la séquence du terminal, à l'envers. */
+export const LAUNCH = [...SEQUENCE].reverse()
 export function pressSeq(color: string) {
   const s = G()
   const seq = [...s.seq, color]
   audio.sfx('keypad')
-  if (SEQUENCE[seq.length - 1] !== color) {
+  if (LAUNCH[seq.length - 1] !== color) {
     audio.sfx('error')
     toast(M.seqWrong, 'bad')
     useGame.setState({ seq: [] })
@@ -497,7 +502,7 @@ export function pressSeq(color: string) {
     return
   }
   useGame.setState({ seq })
-  if (seq.length === SEQUENCE.length) {
+  if (seq.length === LAUNCH.length) {
     audio.sfx('success')
     celebrate('p_sequence')
     toast(M.seqOk, 'good')
@@ -965,6 +970,7 @@ export function hintFor(level: 1 | 2) {
   const cur = stepsState(s.zone).find((x) => x.status === 'current')
   if (!cur) return null
   const pz = fr.puzzleList.find((p) => p.id === STEP_PUZZLE[cur.id])
+  if (level === 2 && pz?.id === 'p_valves') return valveHint(s.valves)
   return level === 1 ? cur.hint : pz?.hint2 ?? cur.hint
 }
 

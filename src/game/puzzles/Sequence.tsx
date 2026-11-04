@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { fr } from '../../i18n/fr'
-import { SEQUENCE, pressSeq } from '../logic'
+import { LAUNCH, SEQUENCE, pressSeq } from '../logic'
+import { shuffle } from '../shuffle'
 import { useGame } from '../state'
 
 // Zone 3 : séquence de lancement au poste de pilotage.
@@ -14,19 +16,20 @@ export function Sequence() {
   const T = fr.puzzles.sequence
   const seq = useGame((s) => s.seq)
   const cb = useGame((s) => s.settings.colorblind)
+  const [order] = useState(() => shuffle(['blue', 'yellow', 'red', 'green'], (o) => o.every((c, i) => c === LAUNCH[i]) || o.every((c, i) => c === SEQUENCE[i])))
   return (
     <div className="panel" data-testid="sequence">
       <h2>{T.title}</h2>
       <p className="sub">{T.sub}</p>
       <div className="seq">
-        {['blue', 'yellow', 'red', 'green'].map((c) => (
+        {order.map((c) => (
           <button key={c} data-testid={`seq-${c}`} onClick={() => pressSeq(c)} style={{ background: cb ? `${COLORS[c].pattern}, ${COLORS[c].bg}` : COLORS[c].bg }}>
             {T.colors[c]}
           </button>
         ))}
       </div>
       <div className="seq-dots">
-        {SEQUENCE.map((_, i) => (
+        {LAUNCH.map((_, i) => (
           <i key={i} style={{ background: i < seq.length ? '#ff6b35' : 'transparent' }} />
         ))}
       </div>

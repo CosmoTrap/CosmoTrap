@@ -13,7 +13,8 @@ export function Radio() {
     setF(n)
     const now = performance.now()
     if (now - last.current > 90) {
-      audio.sfx('radio_tune', { vol: Math.min(1, Math.abs(n - 121.5) / 3 + 0.15) })
+      const dist = Math.abs(n - 121.5)
+      audio.sfx('radio_tune', { vol: dist > 2 ? 0.35 : Math.min(1, dist / 2 + 0.15) })
       last.current = now
     }
   }
@@ -22,9 +23,10 @@ export function Radio() {
     return () => audio.stopLoop('static')
   }, [])
   useEffect(() => {
-    audio.loopVol('static', Math.min(0.6, Math.abs(f - 121.5) / 4))
+    const dist = Math.abs(f - 121.5)
+    audio.loopVol('static', dist >= 2 ? 0.55 : Math.min(0.55, dist / 2))
   }, [f])
-  const noise = Math.min(1, Math.abs(f - 121.5) / 6)
+  const noise = Math.min(1, Math.abs(f - 121.5) / 2)
   return (
     <div className="panel" data-testid="radio">
       <h2>{T.title}</h2>
@@ -36,6 +38,7 @@ export function Radio() {
         <div className="static-meter">
           <div style={{ width: `${(1 - noise) * 100}%` }} />
         </div>
+        <p className="sub" style={{ textAlign: 'center', margin: '8px 0 0' }}>{noise >= 1 ? T.far : T.near}</p>
         <input className="dial" type="range" min={118} max={136} step={0.1} value={f} onChange={(e) => set(parseFloat(e.target.value))} />
         <div className="radio-btns">
           <button className="btn" data-testid="radio-m1" onClick={() => set(f - 1)}>
