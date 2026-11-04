@@ -91,18 +91,19 @@ Le daily de 9 h 15 dure 15 min ; le responsable qualité le résume ici avant 9 
 
 | | |
 | --- | --- |
-| **Présents** | |
-| **Absents (motif)** | |
+| **Présents** | Volle Clément , Angot-Chabanol Ethan, Loïc Chauvelot, Orsal Kilian |
+| **Absents (motif)** | Leplat Simon (Absent pour son travail),Chaibrassou Hamza(retard) |
 
 ### Daily
 
 | Membre | Fait hier | Prévu aujourd’hui | Blocage (étape de déblocage atteinte) |
 | --- | --- | --- | --- |
-| | | | |
-| | | | |
-| | | | |
-| | | | |
-| | | | |
+| Volle Clément  | L2 à compléter & backlog à corriger/refaire | | |
+| Leplat Simon | Fiche énigme à compléter (docx sur drive) & dév tache manquante |  |  |
+| Chaibrassou Hamza| Dév avec Simon et Kilian sur tâche manquante | | |
+| Angot-Chabanol Ethan | Finir maquette & compléter fiche IA | | |
+| Loïc Chauvelot | Journal de bord & L2 aussi | | |
+| Orsal Kilian | Dév avec Simon et Hamza sur tâche manquante | | |
 
 ### Bilan
 
