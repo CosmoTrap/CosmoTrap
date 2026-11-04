@@ -7,6 +7,7 @@ import { isTouch, requestLock } from '../player/Player'
 import { keyName } from '../player/input'
 import { GaugeIcon } from './Icons'
 import { fmtTime } from '../game/api'
+import { gridMap } from '../game/maps'
 
 function Gauge({ kind, value, color, label }: { kind: 'o2' | 'lamp' | 'water'; value: number; color: string; label: string }) {
   const low = value < 25
@@ -39,7 +40,7 @@ function Objective() {
         {fr.zones[zone].name} · {fr.zones[zone].sub}
       </b>
       {cur && <span>{cur.text}</span>}
-      {room && <div className="room">{fr.rooms[room] ?? ''}</div>}
+      {room && <div className="room">{fr.rooms[gridMap(zone)?.rooms.find((r) => r.id === room)?.name ?? room] ?? ''}</div>}
     </div>
   )
 }

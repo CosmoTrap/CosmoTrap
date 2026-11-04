@@ -136,6 +136,15 @@ function MapTab() {
   useEffect(() => {
     let raf = 0
     let t = 0
+    const map = zone < 4 ? GRID_MAPS[zone as 1 | 2 | 3] : null
+    // Separate modules leave vacuum around the station. Fit its actual outline,
+    // rather than including the empty grid origin in the tablet's framing.
+    let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity
+    map?.grid.forEach((row, z) => [...row].forEach((cell, x) => {
+      if (cell === ' ') return
+      x0 = Math.min(x0, x); x1 = Math.max(x1, x)
+      z0 = Math.min(z0, z); z1 = Math.max(z1, z)
+    }))
     const draw = () => {
       const c = ref.current
       if (!c) return
@@ -161,13 +170,12 @@ function MapTab() {
         ctx.stroke()
       }
       let toPx: (x: number, z: number) => [number, number]
-      if (zone < 4) {
-        const map = GRID_MAPS[zone as 1 | 2 | 3]
-        const gw = Math.max(...map.grid.map((r) => r.length))
-        const gh = map.grid.length
+      if (map) {
+        const gw = x1 - x0 + 1
+        const gh = z1 - z0 + 1
         const ts = Math.min((W - 30) / gw, (H - 30) / gh)
-        const ox = (W - gw * ts) / 2
-        const oy = (H - gh * ts) / 2
+        const ox = (W - gw * ts) / 2 - x0 * ts
+        const oy = (H - gh * ts) / 2 - z0 * ts
         toPx = (x, z) => [ox + (x / 2) * ts, oy + (z / 2) * ts]
         map.grid.forEach((row, tz) =>
           [...row].forEach((ch, tx) => {
@@ -191,7 +199,8 @@ function MapTab() {
           const cz = Math.floor((r.rect[1] + r.rect[3]) / 2)
           if (!live.explored.has(`${zone}:${cx},${cz}`)) return
           ctx.fillStyle = ROOM_COLORS[i % ROOM_COLORS.length]
-          ctx.fillText((fr.rooms[r.name] ?? r.name).toUpperCase() + (r.dark ? ' ◐' : ''), ox + ((r.rect[0] + r.rect[2] + 1) / 2) * ts, oy + r.rect[1] * ts + 14)
+          const labelWidth = Math.max(5, r.rect[2] - r.rect[0] + 1) * ts - 4
+          ctx.fillText((fr.rooms[r.name] ?? r.name).toUpperCase() + (r.dark ? ' ◐' : ''), ox + ((r.rect[0] + r.rect[2] + 1) / 2) * ts, oy + r.rect[1] * ts + 14, labelWidth)
         })
       } else {
         const bw = BOUNDS.x1 - BOUNDS.x0

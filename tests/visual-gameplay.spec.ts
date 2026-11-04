@@ -33,10 +33,10 @@ test('passer à froid affiche la préparation, attend les ressources et rend imm
   await page.screenshot({ path: 'test-results/scene-preparation.png' })
   release()
   await ready(page)
-  await page.evaluate(() => window.__game.teleportXZ(7, 11, -Math.PI / 2))
-  await page.waitForFunction(() => Math.abs(window.__game.live.pos[0] - 7) < 0.1)
+  await page.evaluate(() => window.__game.teleportXZ(41, 41, -Math.PI / 2))
+  await page.waitForFunction(() => Math.abs(window.__game.live.pos[0] - 41) < 0.1)
   await page.keyboard.down('ArrowUp')
-  await page.waitForFunction(() => window.__game.live.pos[0] > 7.6)
+  await page.waitForFunction(() => window.__game.live.pos[0] > 41.6)
   await page.keyboard.up('ArrowUp')
   expect(errors).toEqual([])
 })
@@ -48,7 +48,7 @@ test('tous les objets tenus et la tablette se rendent sans interrompre le monde'
   await page.evaluate(() => window.__game.start())
   await ready(page)
   await scene(page)
-  await page.evaluate(() => window.__game.teleportXZ(7, 11, -Math.PI / 2))
+  await page.evaluate(() => window.__game.teleportXZ(41, 41, -Math.PI / 2))
   for (const item of ['wrench', 'fuse', 'cell', 'rope', 'badge', 'carBattery', 'antenna', 'flareGun', 'manual', 'map']) {
     await page.evaluate((it) => { window.__game.give(it); window.__game.useItem(it); window.__game.set({ readNote: null }) }, item)
     await expect.poll(async () => page.evaluate(() => window.__game.state().held)).toBe(item)
@@ -71,7 +71,7 @@ test('la coupure allume des faisceaux rouges rotatifs continus puis rétablit le
   await scene(page)
   // Exercise the actual event scheduler, not a manually started blackout.
   await page.evaluate(() => {
-    window.__game.teleportXZ(7, 11, -Math.PI / 2)
+    window.__game.teleportXZ(41, 41, -Math.PI / 2)
     const random = Math.random
     try {
       Math.random = () => 0
@@ -113,7 +113,7 @@ test('les coupures régulières du couloir reviennent et les gyrophares prennent
   await page.evaluate(() => window.__game.start())
   await ready(page)
   await scene(page)
-  await page.evaluate(() => window.__game.teleportXZ(7, 11, -Math.PI / 2))
+  await page.evaluate(() => window.__game.teleportXZ(41, 41, -Math.PI / 2))
   await page.waitForFunction(() => window.__game.live.roomId === 'couloir')
   await page.waitForFunction(() => (window as any).testScene.getObjectByName('room-light:couloir').intensity > 10)
   await page.screenshot({ path: 'test-results/power-normal.png' })

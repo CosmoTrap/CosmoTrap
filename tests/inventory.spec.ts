@@ -87,10 +87,10 @@ test('inventaire agrandi : ouverture, détails, défilement sans sélection, doc
   await page.keyboard.press('KeyI')
   await page.keyboard.press('Escape')
   await expect(page.getByTestId('inventory')).toBeHidden()
-  await page.evaluate(() => window.__game.teleportXZ(7, 11, -Math.PI / 2))
-  await page.waitForFunction(() => Math.abs(window.__game.live.pos[0] - 7) < 0.1)
+  await page.evaluate(() => window.__game.teleportXZ(41, 41, -Math.PI / 2))
+  await page.waitForFunction(() => Math.abs(window.__game.live.pos[0] - 41) < 0.1)
   await page.keyboard.down('ArrowUp')
-  try { await expect.poll(async () => (await state(page)).pos[0]).toBeGreaterThan(7.5) }
+  try { await expect.poll(async () => (await state(page)).pos[0]).toBeGreaterThan(41.5) }
   finally { await page.keyboard.up('ArrowUp') }
   await page.keyboard.press('KeyI')
   await page.setViewportSize({ width: 844, height: 390 })
