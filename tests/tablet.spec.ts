@@ -19,7 +19,7 @@ test('le bras gauche se lève avant la tablette ; plan réel, position, niveaux 
   page.on('pageerror', (e) => errors.push(e.message))
   await page.setViewportSize({ width: 1280, height: 832 })
   await start(page)
-  await page.evaluate(() => window.__game.teleportXZ(41, 41, -Math.PI / 4))
+  await page.evaluate(() => window.__game.teleportXZ(44, 41, -Math.PI / 4))
   await page.waitForFunction(() => Math.abs(window.__game.live.pos[0] - 41) < 0.05)
   await page.evaluate(async () => {
     const { _roots } = await import('/node_modules/.vite/deps/@react-three_fiber.js' as string)
