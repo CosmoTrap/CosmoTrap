@@ -20,7 +20,11 @@ const BOUNDS: Record<string, Bounds[]> = {
   medbed: [box([0.85, 0.87, 1.95], [0, 0.435, 0]), box([0.05, 1.7, 0.05], [0.45, 0.85, -0.9])],
   cabinet: [box([1.42, 0.93, 0.58], [0, 0.465, 0.29]), box([1.4, 0.7, 0.36], [0, 2, 0.18])],
   suitRack: [box([0.9, 2.28, 0.62], [0, 1.14, 0.3])],
-  labBench: [box([1.9, 0.94, 0.75], [0, 0.47, 0.38]), box([1.9, 0.5, 0.3], [0, 1.85, 0.15])],
+  labBench: [box([1.9, 0.94, 0.75], [0, 0.47, 0.38]), ...[-0.62, 0.62].map((x) => box([0.5, 0.42, 0.26], [x, 1.72, 0.16]))],
+  treadmill: [box([1.35, 0.16, 0.5], [0, 0.1, 0.32]), box([0.1, 0.72, 0.3], [0.6, 0.52, 0.32])],
+  ergBike: [box([0.4, 0.12, 0.78], [0, 0.06, 0.4]), box([0.28, 0.85, 0.35], [0, 0.5, 0.4])],
+  lounge: [box([0.78, 0.72, 0.58], [0, 0.36, 0.32])],
+  sideTable: [box([0.36, 0.46, 0.36], [0, 0.23, 0.28])],
   plantRack: [box([1.95, 2.2, 0.7], [0, 1.1, 0.35])],
   elecCabinet: [box([1, 2, 0.54], [0, 1, 0.27])],
   console: [box([1.6, 1.07, 0.62], [0, 0.535, 0.31])],
@@ -39,9 +43,8 @@ const BOUNDS: Record<string, Bounds[]> = {
 }
 
 export function PropColliders({ model }: { model: string }) {
-  if (model === 'reactor' || model === 'plant') {
-    const reactor = model === 'reactor'
-    return <CylinderCollider args={reactor ? [1.35, 1.05] : [0.175, 0.18]} position={[0, reactor ? 1.35 : 0.175, 0]} />
+  if (model === 'reactor') {
+    return <CylinderCollider args={[1.35, 1.05]} position={[0, 1.35, 0]} />
   }
   const bounds = BOUNDS[model]
   if (!bounds) return null
@@ -52,6 +55,6 @@ export function PropColliders({ model }: { model: string }) {
 }
 
 export function SolidProp({ model }: { model: string }) {
-  if (!BOUNDS[model] && model !== 'reactor' && model !== 'plant') return null
+  if (!BOUNDS[model] && model !== 'reactor') return null
   return <RigidBody type="fixed" colliders={false}><PropColliders model={model} /></RigidBody>
 }
