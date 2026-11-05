@@ -4,7 +4,8 @@ import { Suspense, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { audio } from '../../game/audio/audio'
 import { fr } from '../../i18n/fr'
-import { GRID_MAPS, placeOf, roomAt } from '../../game/maps'
+import { gridMap, placeOf, roomAt } from '../../game/maps'
+import { LunarNote, LunarTerminal } from './LunarModels'
 import { allEnts, canSeeInDark, entActive } from '../../game/logic'
 import { ITEM_KIND } from '../../game/items'
 import { live, useGame } from '../../game/state'
@@ -726,6 +727,8 @@ const DATAPADS: Record<string, string[]> = {
 }
 
 export const ENT_MODELS: Record<string, (e: Ent) => ReactNode> = {
+  lunarTerminal: e => <LunarTerminal id={e.id} />,
+  lunarNote: e => <LunarNote id={e.id} />,
   o2: () => <O2Bottle />,
   battery: () => <Batteries />,
   water: () => <WaterPouch />,
@@ -768,7 +771,7 @@ function EntNode({ e, zone }: { e: Ent; zone: ZoneId }) {
   useGame((s) => s.taken.length + Object.values(s.flags).filter(Boolean).length)
   const active = entActive(e)
   const { p, r } = placeOf(e, 0)
-  const map = zone === 4 ? null : GRID_MAPS[zone]
+  const map = gridMap(zone)
   const room = map ? roomAt(map, p[0] + (e.wall ? Math.sin(r) * 0.3 : 0), p[2] + (e.wall ? Math.cos(r) * 0.3 : 0)) : null
   const model = ENT_MODELS[e.model]
   const keepWhenDone = !e.item

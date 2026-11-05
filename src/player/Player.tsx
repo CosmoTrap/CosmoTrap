@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { audio } from '../game/audio/audio'
 import { act, cycleItem, drinkPouch, entById, labelOf, toggleLamp, useBattery, useO2, useSelectedItem, useSlot } from '../game/logic'
-import { GRID_MAPS, roomAt, spawnOf } from '../game/maps'
+import { gridMap, roomAt, spawnOf } from '../game/maps'
 import { G, NO_BLANKET_SPEED, ability, live, toggleFullscreen, useGame, type TabletTab } from '../game/state'
 import { QUALITY } from '../world/quality'
 import { hitboxes } from '../world/props/EntModels'
@@ -323,10 +323,12 @@ export function Player() {
     fwd.set(-Math.sin(live.yaw), 0, -Math.cos(live.yaw))
     right.set(Math.cos(live.yaw), 0, -Math.sin(live.yaw))
     mv.set(0, 0, 0).addScaledVector(fwd, -iz * speed * dt).addScaledVector(right, ix * speed * dt)
-    if (input.jumpRequested && !frozen && S.grounded) S.vy = JUMP_SPEED
+    const gravity = s.map === 'base' ? 1.62 : 9.81
+    // The heavy EVA suit limits jump height; lunar gravity lengthens the arc.
+    if (input.jumpRequested && !frozen && S.grounded) S.vy = JUMP_SPEED * Math.sqrt(gravity / 9.81)
     // Consume each press once, including presses in midair or behind an overlay.
     input.jumpRequested = false
-    S.vy = Math.max(S.vy - 9.81 * dt, -20)
+    S.vy = Math.max(S.vy - gravity * dt, -20)
     mv.y = S.vy * dt
     const col = b.collider(0)
     controller.computeColliderMovement(col, mv)
@@ -418,7 +420,7 @@ export function Player() {
     // pièce courante + brouillard de la carte
     if (!s.cine) reveal(s.zone, nx, nz)
     if (s.zone < 4) {
-      const room = roomAt(GRID_MAPS[s.zone as 1 | 2 | 3], nx, nz)
+      const room = roomAt(gridMap(s.zone)!, nx, nz)
       live.roomId = room?.id ?? ''
     } else live.roomId = ''
 

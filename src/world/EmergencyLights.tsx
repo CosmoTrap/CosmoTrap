@@ -7,6 +7,7 @@ import type { GridMap, RoomDef } from '../game/types'
 import { useMats } from './materials'
 import { Cyl, Lathe } from './props/models'
 import { blackoutActive, lampPositions, roomPowerCut } from './roomPower'
+import { localPoint, lunarMap, MODULES } from '../game/lunar/map'
 
 type BeaconDef = { room: RoomDef; pos: [number, number, number]; id: string }
 function beaconsFor(room: RoomDef): BeaconDef[] {
@@ -75,7 +76,10 @@ function Darkness() {
 
 /** Two nearby revolving beams, a fixed light count even when the power changes. */
 export function EmergencyLights({ map }: { map: GridMap }) {
-  const beacons = useMemo(() => map.rooms.filter((r) => !r.noDynLight || r.beacons).flatMap(beaconsFor), [map])
+  const beacons = useMemo(() => map === lunarMap ? [
+    ...beaconsFor(map.rooms[0]),
+    ...MODULES.flatMap(m => [-3, 3].map((x, i) => ({ room: map.rooms.find(r => r.id === m.id)!, id: `${m.id}:${i}`, pos: localPoint(m.id, x, CEIL, 0) }))),
+  ] : map.rooms.filter((r) => !r.noDynLight || r.beacons).flatMap(beaconsFor), [map])
   const beams = useMemo(() => Array.from({ length: 2 }, (_, i) => {
     const light = new THREE.SpotLight('#ff1408', 0, 25, 0.62, 0.8, 1.25)
     light.name = `alert-beam:${i}`

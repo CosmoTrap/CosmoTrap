@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test'
 test.setTimeout(120000)
 async function guest(page: Page) {
   await page.route('**/api/auth.php?action=me', (route) => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
-  await page.addInitScript(() => localStorage.setItem('cosmotrap.settings.v1', JSON.stringify({ quality: 'low', music: 0, voice: 0, sfx: 0 })))
+  await page.addInitScript(() => localStorage.setItem('cosmotrap.settings.v1', JSON.stringify({ quality: 'low', music: 0, voice: 0, sfx: 0, map: 'station' })))
   await page.goto('/?quality=low')
   await expect(page.getByTestId('launch')).toBeVisible()
   await page.keyboard.press('Space')

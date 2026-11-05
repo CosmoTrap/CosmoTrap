@@ -19,6 +19,7 @@ import { TitleScene } from './TitleScene'
 import { Zone4 } from './zone4/Zone4'
 import { Ghost, useLoadGhost } from './Ghost'
 import { SceneGate, SceneReady } from './SceneReady'
+import { LunarWorld } from './LunarWorld'
 
 /** soleil pour les intérieurs : n'entre que par les hublots (ombres) */
 function InteriorSun({ map }: { map: GridMap }) {
@@ -88,18 +89,18 @@ function ZoneAudio({ zone }: { zone: number }) {
 
 function PhysicsWorld() {
   const zone = useGame((s) => s.zone)
+  const mission = useGame(s => s.map)
   const map = gridMap(zone)
   const quality = useGame((s) => s.settings.quality)
   const shadows = QUALITY[quality].sunShadow > 0
   return (
-    <Physics key={zone} gravity={[0, -9.81, 0]} timeStep="vary">
+    <Physics key={`${mission}:${zone}`} gravity={[0, mission === 'base' ? -1.62 : -9.81, 0]} timeStep="vary">
       {map ? (
         <>
-          <fogExp2 attach="fog" args={['#10151b', 0.018]} />
+          <fogExp2 attach="fog" args={['#10151b', mission === 'base' ? 0 : 0.018]} />
           <InteriorEnv zone={zone} />
           <InteriorSun map={map} />
-          <Level map={map} shadows={shadows} />
-          <Exterior map={map} />
+          {mission === 'base' ? <LunarWorld shadows={shadows} /> : <><Level map={map} shadows={shadows} /><Exterior map={map} /></>}
         </>
       ) : (
         <>
@@ -111,7 +112,7 @@ function PhysicsWorld() {
       )}
       <CineActor />
       <Player key={zone} />
-      <Ghost />
+      {mission !== 'base' && <Ghost />}
       <SceneReady zone={zone} />
     </Physics>
   )

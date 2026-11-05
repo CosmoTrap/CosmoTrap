@@ -7,6 +7,7 @@ import type { RoomDef } from '../game/types'
  * This mission alarm is independent of the electrical circuit.
  */
 export function alarmOn(zone = G().zone) {
+  if (G().map === 'base') return false
   return zone === 1 && !G().flags.pressurized
 }
 
@@ -18,6 +19,7 @@ export function blackoutActive() {
 /** One power state for the ceiling lights and the service panels. */
 export function roomPowerCut(room: RoomDef, zone = G().zone) {
   const s = G()
+  if (s.map === 'base') return blackoutActive() || room.id !== 'habitat' && !s.lunar.solved.includes('loads')
   if (room.noDynLight) return false // Deliberately dark storage rooms have no backup circuit.
   if (blackoutActive()) return true
   return zone === 2 && room.id === 'machinerie' && !(s.flags.power && s.flags.pw_lights)

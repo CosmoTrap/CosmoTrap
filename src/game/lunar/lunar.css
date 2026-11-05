@@ -1,0 +1,214 @@
+.lunar-puzzle {
+  width:min(700px,94vw);
+  max-height:78vh;
+  overflow:auto;
+  padding:26px;
+  background:linear-gradient(145deg,#152239,#080e1b);
+  border:1px solid #475876;
+  color:#e6eef8;
+  border-radius:14px
+}
+.lunar-puzzle h2 {
+  margin:9px 0 16px
+}
+.solar-circuit { padding: 0 48px; }
+.solar-circuit .unused { background: #101722; opacity: .65; }
+.solar-circuit .unused svg { stroke: #4c5866; stroke-width: 2; fill: none; }
+.solar-circuit .powered svg { stroke: #75f5ac; fill: #75f5ac; }
+.solar-circuit .broken-link { border-color: #ffad70; }
+.circuit-terminal { position: absolute; top: 36%; font: bold 10px monospace; white-space: nowrap; color: #ffcd8a; }
+.circuit-terminal.supply { right: calc(100% + 5px); }
+.circuit-terminal.output { left: calc(100% + 5px); }
+.lunar-puzzle p {
+  line-height:1.65
+}
+.lunar-eyebrow {
+  font:11px monospace;
+  letter-spacing:.13em;
+  color:#ffb582
+}
+.lunar-clue {
+  padding:12px 16px;
+  background:#0b1529;
+  border-left:3px solid #fba36c;
+  margin:16px 0
+}
+.lunar-clue summary {
+  cursor:pointer
+}
+.lunar-puzzle fieldset {
+  border:0;
+  margin:0;
+  padding:0
+}
+.lunar-puzzle button,.lunar-puzzle input,.lunar-puzzle select {
+  color:#eaf3ff;
+  background:#192b46;
+  border:1px solid #566b8e;
+  border-radius:6px;
+  padding:10px;
+  font:inherit
+}
+.lunar-puzzle button {
+  cursor:pointer
+}
+.lunar-puzzle button:hover {
+  background:#29456a
+}
+.lunar-puzzle button:focus-visible,.lunar-puzzle input:focus-visible {
+  outline:3px solid #ffb077
+}
+.lunar-puzzle button:disabled {
+  opacity:.45;
+  cursor:default
+}
+.lunar-code {
+  display:grid;
+  gap:8px
+}
+.lunar-code input {
+  font:28px monospace;
+  letter-spacing:.4em;
+  width:220px
+}
+.lunar-counters,.lunar-readings {
+  display:flex;
+  gap:12px;
+  margin:18px 0;
+  flex-wrap:wrap
+}
+.lunar-counters label,.lunar-readings span {
+  flex:1;
+  display:grid;
+  gap:8px;
+  min-width:100px
+}
+.lunar-counters input {
+  width:100%;
+  box-sizing:border-box
+}
+.lunar-readings span {
+  background:#0b1529;
+  padding:12px
+}
+.lunar-readings b {
+  font:24px monospace;
+  color:#91e3d0
+}
+.lunar-loads {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px
+}
+.lunar-loads label {
+  display:grid;
+  gap:7px
+}
+.lunar-grid {
+  display:grid;
+  gap:5px;
+  max-width:360px;
+  margin:14px auto
+}
+.lunar-grid.pipes {
+  grid-template-columns:repeat(4,1fr)
+}
+.pipes button {
+  padding:0;
+  position:relative
+}
+.pipes svg {
+  width:100%;
+  display:block;
+  stroke:#88e4e0;
+  stroke-width:7;
+  fill:#88e4e0
+}
+.pipes small {
+  display:block;
+  font:9px monospace;
+  color:#f7b686;
+  padding-bottom:4px
+}
+.lunar-order {
+  padding-left:0;
+  list-style:none
+}
+.lunar-order li {
+  display:flex;
+  gap:6px;
+  align-items:center;
+  border-bottom:1px solid #344563;
+  padding:6px 0
+}
+.lunar-order span {
+  flex:1
+}
+.lunar-transfers,.lunar-actions {
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:space-between;
+  margin-top:12px
+}
+.lunar-grid.rover {
+  grid-template-columns:repeat(5,1fr)
+}
+.rover>div {
+  aspect-ratio:1;
+  display:grid;
+  place-items:center;
+  background:#172940;
+  font:10px monospace;
+  border:1px solid #384e71
+}
+.rover .blocked {
+  background:repeating-linear-gradient(45deg,#5a3036 0 4px,#251c27 4px 8px)
+}
+.rover .visited {
+  border:2px solid #6be2c4;
+  color:#6be2c4
+}
+.lunar-error {
+  color:#ffb5a1;
+  min-height:1em
+}
+.lunar-success {
+  color:#6be2c4
+}
+.lunar-map {
+  width:100%;
+  min-height:360px;
+  max-height:65vh;
+  background:radial-gradient(ellipse,#172333,#080d19)
+}
+.lunar-map text {
+  font-family:monospace;
+  fill:#dbe9f8
+}
+.lunar-map [role=button] {
+  cursor:pointer
+}
+.lunar-map [role=button]:focus {
+  outline:none
+}
+.lunar-map [role=button]:focus-visible>g>rect:first-child {
+  stroke:#ffb077;
+  stroke-width:.5
+}
+.lunar-map {
+  touch-action:none;
+  overscroll-behavior:contain
+}
+.lunar-plan .nav-module ol {
+  font-size:13px;
+  line-height:1.6;
+  padding-left:20px
+}
+.lunar-brief {
+  max-width:640px
+}
+.lunar-brief li {
+  margin:10px 0
+}
+

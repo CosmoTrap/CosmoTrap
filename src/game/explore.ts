@@ -1,4 +1,4 @@
-import { GRID_MAPS, TILE } from './maps'
+import { gridMap, TILE } from './maps'
 import { live } from './state'
 import type { ZoneId } from './types'
 
@@ -17,7 +17,7 @@ export function reveal(zone: ZoneId, x: number, z: number) {
     for (let dz = -4; dz <= 4; dz++) for (let dx = -4; dx <= 4; dx++) if (dx * dx + dz * dz <= 16) live.explored.add(`4:${cx + dx},${cz + dz}`)
     return
   }
-  const map = GRID_MAPS[zone]
+  const map = gridMap(zone)!
   const tx = Math.floor(x / TILE)
   const tz = Math.floor(z / TILE)
   const k = `${zone}:${tx},${tz}`

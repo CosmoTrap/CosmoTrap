@@ -1,7 +1,10 @@
 import { fr } from '../i18n/fr'
 import { audio } from './audio/audio'
 import { ITEM_KIND } from './items'
-import { GRID_MAPS, entWorld, entsOf, liftCab, roomAt, spawnOf } from './maps'
+import { GRID_MAPS, gridMap, entWorld, entsOf, liftCab, roomAt, spawnOf } from './maps'
+import { lunarAct, lunarLabel, lunarSteps } from './lunar/logic'
+import { lunarGate } from './lunar/map'
+import { available, strongHint } from './lunar/puzzles'
 import {
   ability,
   G,
@@ -36,6 +39,7 @@ const LOCKED_DOORS: Record<string, string> = { door_d1: 'doorBadge', door_dock: 
 
 export function allEnts(zone: ZoneId): Ent[] {
   const base = entsOf(zone)
+  if (G().map === 'base') return base
   if (zone === 4) return base
   const extra: Ent[] = GRID_MAPS[zone].doors
     .filter((d) => LOCKED_DOORS[d.id])
@@ -48,6 +52,7 @@ export function entById(id: string, zone = G().zone) {
 }
 
 export function doorUnlocked(id: string) {
+  if (G().map === 'base' && id.startsWith('lunar_')) return lunarGate(id.slice(6), G().lunar.solved)
   const f = G().flags
   if (id === 'door_d1') return f.door_d1
   if (id === 'door_dock') return f.power && f.pw_sas && f.readTerminal
@@ -65,7 +70,7 @@ export function liftUnlocked(zone = G().zone, pressurized = G().flags.pressurize
 /** l'entité est-elle dans une pièce sombre (non éclairée) ? */
 export function isDarkAt(x: number, z: number, zone = G().zone) {
   if (zone === 4) return false
-  const room = roomAt(GRID_MAPS[zone], x, z)
+  const room = roomAt(gridMap(zone)!, x, z)
   if (!room?.dark) return false
   if (room.id === 'machinerie' && G().flags.pw_lights) return false
   return true
@@ -107,6 +112,7 @@ export function labelOf(e: Ent): string | null {
   if (!entActive(e)) return null
   const s = G()
   if (e.item) return `${L.take} · ${fr.items[e.item].name}`
+  if (G().map === 'base') return lunarLabel(e.id)
   if (LOCKED_DOORS[e.id]) return (L as any)[LOCKED_DOORS[e.id]]
   switch (e.id) {
     case 'locker':
@@ -205,6 +211,7 @@ export function act(id: string) {
     pickup(e)
     return true
   }
+  if (s.map === 'base') return lunarAct(id)
   const f = s.flags
   switch (e.id) {
     case 'holo':
@@ -864,7 +871,7 @@ export function tick(dt: number) {
   // oxygène (zones 1 à 3)
   if (s.zone < 4) {
     const AB = ability()
-    let rate = 0.21 * D.drain * AB.o2
+    let rate = (s.map === 'base' ? (s.lunar.solved.includes('filters') && live.roomId ? 0.012 : 0.055) : 0.21) * D.drain * AB.o2
     if (ev === 'leak') rate *= 2.2
     if (s.zone === 2 && !f.steamFixed) rate *= 1.5
     if (s.zone === 2 && f.power && f.pw_o2) rate = 0
@@ -998,6 +1005,7 @@ export function enterZone(z: ZoneId) {
 
 // ——— mission ———
 export function stepsState(zone: ZoneId) {
+  if (G().map === 'base') return lunarSteps()
   const s = G()
   const f = s.flags
   const zDone = s.zone > zone || (s.ended && s.ending === 'rescue')
@@ -1059,6 +1067,7 @@ export function hintFor(level: 1 | 2) {
   const s = G()
   const cur = stepsState(s.zone).find((x) => x.status === 'current')
   if (!cur) return null
+  if (s.map === 'base') return level === 1 ? cur.hint : strongHint(cur.id, s.lunar.seed)
   const pz = fr.puzzleList.find((p) => p.id === STEP_PUZZLE[cur.id])
   if (level === 2 && pz?.id === 'p_valves') return valveHint(s.valves)
   return level === 1 ? cur.hint : pz?.hint2 ?? cur.hint
@@ -1087,6 +1096,7 @@ export function requestHint(level: 1 | 2 = 1) {
 
 export function puzzleStatus(p: { id: string; zone: number }) {
   const s = G()
+  if (s.map === 'base') return s.lunar.solved.includes(p.id.slice(2)) ? 'solved' : available(s.lunar, p.id.slice(2)) ? 'progress' : 'locked'
   const f = s.flags
   const solved: Record<string, boolean> = {
     p_locker: f.lockerOpen,

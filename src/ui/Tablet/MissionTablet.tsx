@@ -13,6 +13,8 @@ import { StationMap, type MapMode } from './StationMap'
 import { ModuleArt, roomCode, roomLocked, roomStatus, roomSteps } from './moduleArt'
 import { elapsed, levelName, tabletText } from './copy'
 import './tablet.css'
+import { LunarPlan } from './LunarPlan'
+import { missionNote, missionPuzzles } from '../../game/lunar/logic'
 
 const ZONES: ZoneId[] = [1, 2, 3, 4]
 
@@ -142,6 +144,7 @@ function Journal() {
   const zone = useGame((s) => s.zone)
   const notes = useGame((s) => s.notes)
   useGame((s) => s.flags); useGame((s) => s.inv)
+  useGame(s => s.lunar.solved);
   useGame((s) => s.discovered); useGame((s) => s.planDone); useGame((s) => s.choice)
   const [open, setOpen] = useState<string | null>(null)
   const t = tabletText()
@@ -149,19 +152,19 @@ function Journal() {
     const value = puzzleStatus(p)
     return { value, label: value === 'solved' ? fr.tablet.solved : value === 'progress' ? t.statusCurrent : t.puzzleLocked }
   }
-  const solved = fr.puzzleList.filter((p) => puzzleStatus(p) === 'solved').length
+  const solved = missionPuzzles().filter((p) => puzzleStatus(p) === 'solved').length
   return <div className="nav-journal-sheet nav-card" data-testid="mission-journal">
     <section className="nav-carnet">
       <h1>{t.notebook}</h1>
       {notes.length ? <ul className="nav-notes">{notes.map((id) => {
-        const note = fr.notes[id]
+        const note = missionNote(id)
         return <li key={id}><button aria-expanded={open === id} onClick={() => setOpen(open === id ? null : id)}><b>{note?.title ?? id}</b><i>{open === id ? '−' : '+'}</i></button>{open === id && <p>{note?.text}</p>}</li>
       })}</ul> : <p className="nav-empty-line">{t.noNotes}</p>}
       <h2 className="nav-sub">{t.missions}</h2>
-      {ZONES.map((z) => {
+      {(useGame.getState().map === 'base' ? [1] as ZoneId[] : ZONES).map((z) => {
         const steps = stepsState(z), remaining = steps.filter((s) => s.status !== 'done').length
         return <details key={z} className={`nav-mission-zone ${z === zone ? 'active' : ''}`} data-testid={`mission-zone-${z}`} open={z === zone}>
-          <summary><span>{fr.zones[z].name} · {fr.zones[z].sub}</span><small>{remaining ? `${remaining} ${t.remaining}` : t.complete}</small></summary>
+          <summary><span>{useGame.getState().map === 'base' ? 'Séléné-7 · Surface lunaire' : `${fr.zones[z].name} · ${fr.zones[z].sub}`}</span><small>{remaining ? `${remaining} ${t.remaining}` : t.complete}</small></summary>
           <ol>{steps.map((s) => {
             const status = s.status === 'current' && z !== zone ? 'todo' : s.status
             return <li key={s.id} className={status} data-testid={`mission-${z}-${s.id}`}><i>{status === 'done' ? '✓' : status === 'current' ? '›' : ''}</i><span>{s.text}</span></li>
@@ -170,8 +173,8 @@ function Journal() {
       })}
     </section>
     <section className="nav-puzzle-list">
-      <header><h1>{t.puzzles}</h1><span>{solved} / {fr.puzzleList.length}</span></header>
-      <ul>{fr.puzzleList.map((p) => {
+      <header><h1>{t.puzzles}</h1><span>{solved} / {missionPuzzles().length}</span></header>
+      <ul>{missionPuzzles().map((p) => {
         const { value, label } = statusLabel(p)
         return <li key={p.id} className={value}><i>{value === 'solved' ? '✓' : ''}</i><span>{p.name}<small>{p.domain}</small></span><em>{label}</em></li>
       })}</ul>
@@ -190,12 +193,12 @@ function Messages() {
   const all = [...legacy, ...history].reverse()
   const list = all.filter((m) => filter === 'all' || m.kind === filter)
   const message = list.find((m) => m.id === selected) ?? list[0]
-  const textOf = (m: MissionMessage) => m.noteId ? fr.notes[m.noteId]?.text ?? m.text : m.text
-  const titleOf = (m: MissionMessage) => m.noteId ? fr.notes[m.noteId]?.title ?? m.noteId : t[m.kind]
+  const textOf = (m: MissionMessage) => m.noteId ? missionNote(m.noteId)?.text ?? m.text : m.text
+  const titleOf = (m: MissionMessage) => m.noteId ? missionNote(m.noteId)?.title ?? m.noteId : t[m.kind]
   return <section className="nav-messages-sheet nav-card" data-testid="message-archive">
     <div className="nav-base-messages">
       <h1>{t.baseMessages}</h1>
-      <ul>{fr.briefing.map((line) => <li key={line}>{line}</li>)}</ul>
+      <ul>{(useGame.getState().map === 'base' ? ['Rétablir la liaison solaire, sécuriser les modules et certifier une sortie EVA.', 'Archiver les consignes ; les résultats validés sont conservés dans les transmissions.', 'Rejoindre LV-1 après le ravitaillement. La carte représente les modules et les couloirs réels.'] : fr.briefing).map((line) => <li key={line}>{line}</li>)}</ul>
       <HelpPanel />
     </div>
     <div className="nav-received">
@@ -243,7 +246,7 @@ export function Tablet() {
       <i className="nav-camera" aria-hidden="true" />
       <div className="nav-display"><Header tab={tab} onTab={(next) => useGame.setState({ tab: next })} />
         <main id="tablet-panel" className="nav-content" role="tabpanel" aria-labelledby={`tablet-tab-${tab}`}>
-          {tab === 0 ? <Plan /> : tab === 1 ? <Journal /> : tab === 2 ? <Messages /> : <InventoryContent />}
+          {tab === 0 ? (useGame.getState().map === 'base' ? <LunarPlan /> : <Plan />) : tab === 1 ? <Journal /> : tab === 2 ? <Messages /> : <InventoryContent />}
         </main>
       </div>
     </div>

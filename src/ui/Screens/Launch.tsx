@@ -9,7 +9,7 @@ import { GearIcon, openPage, Stage } from './Stage'
 
 // Écran de lancement (maquettes 00a / 00b) : choix de la carte et de la difficulté.
 
-const MAPS: MissionMap[] = ['base', 'station']
+const MAPS: MissionMap[] = ['station', 'base']
 const DIFF_LEVEL: Record<Difficulty, number> = { explorer: 1, astronaut: 2, survival: 3 }
 
 export function Launch() {
