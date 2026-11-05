@@ -28,8 +28,8 @@ async function playable(page: Page) {
   await expect(page.getByTestId('tablet')).toBeVisible()
   await page.keyboard.press('Tab')
   // A cleared state alone is insufficient: actual Rapier movement must resume.
-  await call(page, 'teleportXZ', 41, 41, -Math.PI / 2)
-  await expect.poll(async () => Math.abs((await state(page)).pos[0] - 41)).toBeLessThan(0.1)
+  await call(page, 'teleportXZ', 44, 41, -Math.PI / 2)
+  await expect.poll(async () => Math.abs((await state(page)).pos[0] - 44)).toBeLessThan(0.1)
   const before = (await state(page)).pos[0]
   await page.keyboard.down('ArrowUp')
   try { await expect.poll(async () => (await state(page)).pos[0], { timeout: 20000 }).toBeGreaterThan(before + 0.45) }
@@ -136,7 +136,7 @@ test('tables, lits, meubles et caisses bloquent la marche sans bloquer les passa
   await page.waitForFunction(() => window.__game.state().playerZone === 1 && window.__game.state().playTime > 0.4)
   const cases = [
     { label: 'table et banc', zone: 1, x: 35, z: 22.2, yaw: 0, axis: 2, min: 20.2, max: 20.6 },
-    { label: 'lit medical', zone: 1, x: 45, z: 66, yaw: 0, axis: 2, min: 64.24, max: 64.65 },
+    { label: 'lit medical', zone: 1, x: 45, z: 65.5, yaw: 0, axis: 2, min: 62.2, max: 62.6 },
     { label: 'lit mural tourne', zone: 1, x: 13, z: 39, yaw: Math.PI / 2, axis: 0, min: 11.22, max: 11.65 },
     { label: 'meuble laboratoire', zone: 2, x: 23, z: 13.2, yaw: 0, axis: 2, min: 11.04, max: 11.4 },
     // Approach perpendicular to the rotated face, inside the room; walking

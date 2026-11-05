@@ -29,7 +29,7 @@ for (const map of [zone1, zone2]) test(`niveau ${map.zone} : quatre branches con
       floor(1, 0) ? [true, true, false, false] : [false, false, true, true])
   }
   const gate = map.doors.find((d) => d.id === (map.zone === 1 ? 'door_d1' : 'door_dock'))!
-  const exit = map.ents.find((e) => e.id === (map.zone === 1 ? 'hatch' : 'dockExit'))!
+  const exit = map.ents.find((e) => e.id === (map.zone === 1 ? 'valves' : 'dockExit'))!
   expect(reachable(map, [gate.tile.join(',')]).has(exit.tile!.join(','))).toBe(false)
   if (map.zone === 2) {
     const beforeSteam = reachable(map, [map.ents.find((e) => e.id === 'steam')!.tile!.join(',')])
@@ -54,7 +54,12 @@ test('anciennes sauvegardes : déplacer les positions sans perdre la progression
   expect(moved.layoutVersion).toBe(LAYOUT_VERSION)
   expect(migrateStationSave(moved, moved.layoutVersion)).toBe(moved)
   expect(old.pos).toEqual([5, 0, 5])
-  expect(migrateStationSave({ ...old, zone: 1, pos: [7, 0, 11] }, 1).pos).toEqual([41, 0, 41])
+  expect(migrateStationSave({ ...old, zone: 1, pos: [7, 0, 11] }, 1).pos).toEqual([43.6, 0, 41])
+  // Saved where the lift now stands, on the previous layout: moved out, nothing else changes.
+  const inCab = migrateStationSave({ ...old, zone: 2, pos: [43, 0, 38], explored: ['2:21,18'] }, 2)
+  expect(inCab.pos).toEqual([43, 0, 39.6])
+  expect(inCab.explored).toEqual(['2:21,18'])
+  expect(migrateStationSave({ ...old, zone: 2, pos: [43, 0, 45] }, 2).pos).toEqual([43, 0, 45])
   for (const zone of [3, 4] as const) expect(migrateStationSave({ ...old, zone }, 1).pos).toEqual(old.pos)
 })
 
@@ -79,12 +84,12 @@ test('circuler physiquement entre le nœud, les salles et les compartiments des 
   await page.getByTestId('guest').click()
   await page.evaluate(() => { window.__game.start(); window.__game.set({ toured: [1, 2, 3, 4] }) })
   await page.waitForFunction(() => window.__game.state().playerZone === 1 && window.__game.state().loading === 1)
-  await walk(page, [41, 41], 0, 2, 21.5, -1) // North mess hall, clear of its tables.
-  await walk(page, [41, 41], Math.PI, 2, 62, 1) // South infirmary.
+  await walk(page, [41, 38], 0, 2, 21.5, -1) // North mess hall, clear of its tables.
+  await walk(page, [41, 44], Math.PI, 2, 62, 1) // South infirmary.
   await walk(page, [40, 63], Math.PI / 2, 0, 35.5, -1) // Storage compartment.
-  await walk(page, [41, 41], Math.PI / 2, 0, 21.8, -1) // West dormitory.
+  await walk(page, [38, 41], Math.PI / 2, 0, 21.8, -1) // West dormitory.
   await page.evaluate(() => window.__game.set({ flags: { ...window.__game.state().flags, door_d1: true } }))
-  await walk(page, [41, 41], -Math.PI / 2, 0, 61.5, 1) // East airlock.
+  await walk(page, [44, 41], -Math.PI / 2, 0, 61.5, 1) // East airlock.
 
   for (const zone of [1, 2]) {
     if (zone === 2) {
@@ -93,21 +98,21 @@ test('circuler physiquement entre le nœud, les salles et les compartiments des 
     }
     await page.evaluate((grid) => {
       const g = window.__game
-      g.teleportXZ(...(g.state().zone === 1 ? [41, 41] : [43, 37]), 0)
+      g.teleportXZ(...(g.state().zone === 1 ? [41, 38] : [43, 34]), 0)
       grid.forEach((row, z) => [...row].forEach((_, x) => g.live.explored.add(`${g.state().zone}:${x},${z}`)))
       g.set({ tabletOpen: true })
     }, zone === 1 ? zone1.grid : zone2.grid)
-    await page.getByTestId('tab-4').click()
+    await page.getByTestId('tab-0').click()
     await expect(page.getByTestId('minimap')).toBeVisible()
     await page.screenshot({ path: `test-results/station-plan-${zone}.png` })
     await page.evaluate(() => window.__game.set({ tabletOpen: false }))
     await page.screenshot({ path: `test-results/station-hub-${zone}.png` })
   }
-  await walk(page, [43, 37], 0, 2, 14.5, -1) // Push cart through greenhouse entrance.
+  await walk(page, [43, 34], 0, 2, 14.5, -1) // Push cart through greenhouse entrance.
   await walk(page, [37, 13], Math.PI / 2, 0, 32.5, -1) // Lab compartment.
-  await walk(page, [43, 37], Math.PI, 2, 58, 1) // Machinery, terminal beside entry.
+  await walk(page, [43, 40], Math.PI, 2, 58, 1) // Machinery, terminal beside entry.
   await page.evaluate(() => window.__game.set({ flags: { ...window.__game.state().flags, steamFixed: true, power: true, pw_sas: true, readTerminal: true } }))
-  await walk(page, [43, 37], -Math.PI / 2, 0, 63.5, 1) // Breaker after repaired steam leak.
-  await walk(page, [43, 37], Math.PI / 2, 0, 22, -1) // Docking airlock.
+  await walk(page, [46, 37], -Math.PI / 2, 0, 63.5, 1) // Breaker after repaired steam leak.
+  await walk(page, [40, 37], Math.PI / 2, 0, 22, -1) // Docking airlock.
   expect(errors).toEqual([])
 })

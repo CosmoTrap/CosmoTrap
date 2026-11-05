@@ -16,6 +16,8 @@ import { input } from '../player/input'
 // décollage + rentrée atmosphérique, arrivée de l'hélicoptère et fin.
 
 const sm = THREE.MathUtils.smoothstep
+/** when the lift's arrival began, measured after the new floor finished loading */
+let liftArrival = 0
 
 export function GameLoop() {
   const saveT = useRef(0)
@@ -41,7 +43,8 @@ export function CineDirector() {
     }
     // Pointer lock routes every click to the canvas, including clicks visually
     // over "Passer". Release it for every cinematic, not just the launch.
-    if (cine && G().cine === cine && document.pointerLockElement) {
+    // The lift is a short everyday ride: leave the mouse captured so play simply carries on.
+    if (cine && cine !== 'lift' && G().cine === cine && document.pointerLockElement) {
       document.exitPointerLock?.()
     }
   }, [cine, t0])
@@ -96,6 +99,24 @@ export function CineDirector() {
         live.card = null
         if (!s.toured.includes(s.zone)) useGame.setState({ cine: 'tour', cineT0: performance.now() })
         else afterTour()
+      }
+    } else if (cine === 'lift') {
+      if (pendingZone) {
+        // The door closes, then the picture fades while the cab travels.
+        live.fade = sm(t, 0.55, 1.25)
+        if (t > 1.3) once('enter', () => enterZone(pendingZone!))
+      } else if (!s.toured.includes(s.zone)) {
+        // First arrival on this floor: its title card, then its film scene.
+        live.fade = 1
+        useGame.setState({ cine: 'zoneCard', cineT0: performance.now() - 1300 })
+      } else {
+        liftArrival ||= performance.now()
+        const a = (performance.now() - liftArrival) / 1000
+        live.fade = Math.max(0, 1 - a / 0.9)
+        if (a > 0.9) {
+          liftArrival = 0
+          afterTour()
+        }
       }
     } else if (cine === 'tour') {
       // scène « film » de la zone (plans découpés, acteur, crash sur Terre)
@@ -235,14 +256,14 @@ function resumePlaying(briefed = G().briefed) {
   resetCineView()
   const s = G()
   useGame.setState({ cine: null, subtitle: null, briefed, paused: false, shake: 0,
-    tabletOpen: false, inventoryOpen: false, puzzle: null, readNote: null, settingsOpen: false,
+    tabletOpen: false, puzzle: null, readNote: null, settingsOpen: false,
     toured: s.toured.includes(s.zone) ? s.toured : [...s.toured, s.zone] })
 }
 
 /** Skip is a complete transition, never a timer adjustment waiting on WebGL. */
 export function skipCine() {
   const s = G()
-  if (!s.cine || s.cine === 'faint' || s.cine === 'fail') return
+  if (!s.cine || s.cine === 'faint' || s.cine === 'fail' || s.cine === 'lift') return
   if (s.cine === 'zoneCard' && pendingZone) enterZone(pendingZone)
   if (s.cine === 'launch') enterZone(4)
   if (s.cine === 'heli') {

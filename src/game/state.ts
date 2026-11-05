@@ -11,7 +11,7 @@ export type Screen = 'launch' | 'login' | 'title' | 'prologue' | 'playing' | 'en
 /** carte choisie sur l'écran de lancement */
 export type MissionMap = 'base' | 'station'
 export type Quality = 'low' | 'medium' | 'high' | 'ultra'
-export type CineKind = 'briefing' | 'faint' | 'zoneCard' | 'tour' | 'launch' | 'heli' | 'fail' | null
+export type CineKind = 'briefing' | 'faint' | 'zoneCard' | 'lift' | 'tour' | 'launch' | 'heli' | 'fail' | null
 
 /** limite de temps de la partie (s) selon la difficulté : au-delà, échec */
 export const timeLimit = () => DIFFICULTY[useGame.getState().difficulty ?? 'astronaut'].time + (useGame.getState().character === 'ines' ? 180 : 0)
@@ -71,7 +71,6 @@ export interface Settings {
   subtitles: boolean
   /** sauvegarde à chaque énigme résolue (en plus des 30 s) */
   autosave: boolean
-  lang: 'fr' | 'en'
   /** luminosité de l'image (0,6 à 1,6) */
   brightness: number
   /** voix de synthèse du navigateur quand aucun fichier de voix n'est fourni */
@@ -124,6 +123,16 @@ export const live = {
 
 const emptyFlags = () => Object.fromEntries(FLAGS.map((f) => [f, false])) as Flags
 
+export type TabletTab = 0 | 1 | 2 | 3 // Plan, journal, messages, inventaire.
+export interface MissionMessage {
+  id: number
+  text: string
+  kind: 'system' | 'radio' | 'document'
+  zone: ZoneId
+  time: number
+  noteId?: string
+}
+
 export interface GameData {
   layoutVersion: number
   zone: ZoneId
@@ -134,6 +143,7 @@ export interface GameData {
   res: { o2: number; lamp: number; water: number }
   lampOn: boolean
   notes: string[]
+  messages: MissionMessage[]
   taken: string[]
   discovered: string[]
   hintsUsed: number
@@ -186,6 +196,7 @@ export const newGameData = (character = 'nova', difficulty: Difficulty = 'astron
   res: { o2: 100, lamp: 100, water: 100 },
   lampOn: false,
   notes: [],
+  messages: [],
   taken: [],
   discovered: [],
   hintsUsed: 0,
@@ -223,8 +234,9 @@ export interface GameState extends GameData {
   paused: boolean
   locked: boolean // pointer lock actif
   tabletOpen: boolean
-  inventoryOpen: boolean
-  tab: number
+  tabletReady: boolean
+  tabletOpenedAt: number
+  tab: TabletTab
   puzzle: PuzzleId | null
   readNote: string | null
   cine: CineKind
@@ -311,7 +323,6 @@ function loadSettings(): Settings {
     showChrono: true,
     subtitles: true,
     autosave: true,
-    lang: 'fr',
     brightness: 1,
     browserVoice: false,
     trackpadLook: true,
@@ -348,7 +359,8 @@ export const useGame = create<GameState>((set) => ({
   paused: false,
   locked: false,
   tabletOpen: false,
-  inventoryOpen: false,
+  tabletReady: false,
+  tabletOpenedAt: 0,
   tab: 0,
   puzzle: null,
   readNote: null,
@@ -377,9 +389,23 @@ export const useGame = create<GameState>((set) => ({
 
 export const G = () => useGame.getState()
 
+/** Archive the text actually delivered to the player, including voiced cinematics. */
+export function recordMessage(text: string, kind: MissionMessage['kind'] = 'system', noteId?: string) {
+  const s = G()
+  if (!text.trim() || !['playing', 'prologue'].includes(s.screen)) return
+  const previous = s.messages.at(-1)
+  if (previous?.text === text && previous.kind === kind && previous.zone === s.zone) return
+  if (noteId && s.messages.some((m) => m.noteId === noteId)) return
+  useGame.setState({ messages: [...s.messages, { id: (previous?.id ?? 0) + 1, text, kind, zone: s.zone, time: s.playTime, ...(noteId ? { noteId } : {}) }] })
+}
+useGame.subscribe((s, previous) => {
+  if (s.subtitle && s.subtitle !== previous.subtitle) recordMessage(s.subtitle, 'radio')
+})
+
 let toastId = 1
 const toastTimers = new Map<number, ReturnType<typeof setTimeout>>()
 export function toast(text: string, kind: Toast['kind'] = 'info', ms = 3200) {
+  recordMessage(text)
   // même message déjà affiché : on prolonge au lieu de l'empiler
   const same = useGame.getState().toasts.find((t) => t.text === text)
   const id = same?.id ?? toastId++
@@ -423,6 +449,7 @@ export function addNote(id: string) {
   const s = G()
   if (s.notes.includes(id)) return false
   useGame.setState({ notes: [...s.notes, id] })
+  recordMessage(id, 'document', id)
   return true
 }
 
@@ -474,7 +501,7 @@ export type SaveFile = GameData & { pos?: [number, number, number]; yaw?: number
 
 export function normalizeSave(d: any): SaveFile | null {
   if (!d || !d.zone) return null
-  const saved = { ...newGameData(d.character), ...d, flags: { ...emptyFlags(), ...d.flags } }
+  const saved = { ...newGameData(d.character), ...d, flags: { ...emptyFlags(), ...d.flags }, messages: Array.isArray(d.messages) ? d.messages : [] }
   if (!Array.isArray(d.valveStart) || d.valveStart.length !== 9)
     saved.valveStart = Array.isArray(saved.valves) && saved.valves.length === 9 ? [...saved.valves] : [...saved.valveStart]
   const items = (Object.keys(saved.inv) as ItemId[]).filter((it) => saved.inv[it] > 0)

@@ -21,7 +21,7 @@ export const zone3: GridMap = {
   ],
   rooms: [
     { id: 'cockpit', name: 'cockpit', rect: [1, 1, 7, 3], light: '#9ec4ff', intensity: 4, theme: 'rocket' },
-    { id: 'pont', name: 'pont', rect: [1, 5, 7, 8], light: '#ffe6c8', intensity: 8, theme: 'rocket', flicker: true },
+    { id: 'pont', name: 'pont', rect: [1, 5, 7, 8], light: '#ffe6c8', intensity: 8, theme: 'rocket' },
     { id: 'soute', name: 'soute', rect: [1, 10, 3, 12], dark: true, noDynLight: true, theme: 'rocket' },
     { id: 'moteurs', name: 'moteurs', rect: [5, 10, 7, 12], light: '#ff8a50', intensity: 6, theme: 'machine' },
   ],
@@ -64,7 +64,7 @@ export const zone3: GridMap = {
     { model: 'rack', tile: [1, 10], wall: 'N' },
     { model: 'engineCore', tile: [6, 11], off: [0, 0.2] },
     { model: 'pipesBig', tile: [5, 10], scale: 3 },
-    { model: 'beacon', tile: [7, 12], wall: 'E', y: 2.4 },
+    { model: 'beacon', tile: [7, 12], wall: 'E', y: 2.58 },
     { model: 'toolChest', tile: [5, 12], wall: 'W' },
     { model: 'container', tile: [2, 12], off: [0.3, 0] },
     { model: 'camera', tile: [5, 5], wall: 'N', y: 2.35 },

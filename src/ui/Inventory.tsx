@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useState } from 'react'
 import { ITEM_KIND } from '../game/items'
 import { canUseItem, cycleItem, hotbarItems, selectedInventoryItem, selectItem, useSelectedItem } from '../game/logic'
 import { useGame } from '../game/state'
 import type { ItemId, ItemKind } from '../game/types'
 import { fr } from '../i18n/fr'
-import { closeInventory, openInventory } from '../player/Player'
-import { labelFor, matches, padButtonName } from '../player/input'
+import { openInventory } from '../player/Player'
+import { labelFor, padButtonName } from '../player/input'
 import { ItemIcon } from './Icons'
 import './inventory.css'
 
@@ -61,15 +61,13 @@ export function Hotbar() {
   )
 }
 
-export function Inventory() {
+export function InventoryContent() {
   const inv = useGame((s) => s.inv)
   useGame((s) => s.selectedItem)
   const held = useGame((s) => s.held)
   const lampOn = useGame((s) => s.lampOn)
   const keys = useGame((s) => s.settings.keys)
   const [category, setCategory] = useState<ItemKind | 'all'>('all')
-  const panel = useRef<HTMLDivElement>(null)
-  const close = useRef<HTMLButtonElement>(null)
   const t = fr.inventory
   const items = hotbarItems()
   const selected = selectedInventoryItem()
@@ -79,30 +77,13 @@ export function Inventory() {
     const next = items.filter((it) => kind === 'all' || ITEM_KIND[it] === kind)
     if (next.length && (!selected || !next.includes(selected))) selectItem(next[0])
   }
-  useEffect(() => { close.current?.focus() }, [])
-  const trapFocus = (e: KeyboardEvent) => {
-    if (e.key !== 'Tab' || matches(keys, 'inventory', e.code)) return
-    e.stopPropagation()
-    const buttons = [...(panel.current?.querySelectorAll<HTMLButtonElement>('button:not([disabled])') ?? [])]
-    const first = buttons[0]
-    const last = buttons[buttons.length - 1]
-    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus() }
-    if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus() }
-  }
   return (
-    <div className="inventory-backdrop" onClick={(e) => { if (e.target === e.currentTarget) closeInventory() }}>
-      <div ref={panel} className="inventory-panel" role="dialog" aria-modal="true" aria-labelledby="inventory-title"
-        data-testid="inventory" onKeyDown={trapFocus}>
-        <header className="inventory-header">
-          <div><span className="inventory-kicker">{t.kicker}</span><h1 id="inventory-title">{t.title}</h1></div>
-          <div className="inventory-summary"><b>{String(items.length).padStart(2, '0')}</b><span>{t.owned}</span></div>
-          <button ref={close} className="inventory-close" type="button" onClick={closeInventory} aria-label={t.close} data-testid="close-inventory">×</button>
-        </header>
+    <section className="tablet-inventory" data-testid="inventory">
         <div className="inventory-body">
           <section className="inventory-storage">
             <nav className="inventory-filters" aria-label={t.title}>
               {(['all', 'resource', 'key', 'survival'] as const).map((kind) => <button key={kind} type="button"
-                aria-pressed={category === kind} className={category === kind ? 'active' : ''} onClick={() => filter(kind)}>{t[kind]}</button>)}
+                aria-pressed={category === kind} className={category === kind ? 'active' : ''} onClick={() => filter(kind)}>{t[kind]}<small>{kind === 'all' ? items.length : items.filter((it) => ITEM_KIND[it] === kind).length}</small></button>)}
             </nav>
             {!visible.length && <p className="inventory-empty">{items.length ? t.noCategory : t.empty}<small>{!items.length && t.emptyHint}</small></p>}
             <div className="inventory-grid">
@@ -111,7 +92,7 @@ export function Inventory() {
                 <span className={`inventory-category kind-${ITEM_KIND[item]}`}>{t[ITEM_KIND[item]]}</span>
                 <ItemIcon item={item} /><b>{fr.items[item].name}</b><span className="inventory-count">×{inv[item]}</span>
               </button>)}
-              {Array.from({ length: Math.max(0, 12 - visible.length) }, (_, i) => <div key={`empty-${i}`} className="inventory-cell empty" aria-hidden="true"><span>+</span></div>)}
+              {Array.from({ length: visible.length < 15 ? 15 - visible.length : (5 - visible.length % 5) % 5 }, (_, i) => <div key={`empty-${i}`} className="inventory-cell empty" aria-hidden="true" />)}
             </div>
           </section>
           <aside className="inventory-detail" data-testid="inventory-detail">
@@ -130,8 +111,6 @@ export function Inventory() {
             </> : <><div className="inventory-preview"><ItemIcon item="survival" /></div><h2>{t.select}</h2><p>{t.emptyHint}</p></>}
           </aside>
         </div>
-        <footer className="inventory-footer"><span><kbd>{labelFor(keys, 'inventory')}</kbd> / <kbd>{labelFor(keys, 'pause')}</kbd> {t.close}</span><span>{t.scroll}</span></footer>
-      </div>
-    </div>
+    </section>
   )
 }

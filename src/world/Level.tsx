@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { CEIL, TILE, cellAt, isFloor, isSolid, roomAt, tileCenter } from '../game/maps'
-import { G, diff, useGame } from '../game/state'
+import { G, diff, live, useGame } from '../game/state'
 import type { GridMap, RoomDef } from '../game/types'
 import { Door } from './Door'
 import { LightShafts } from './LightShafts'
@@ -12,7 +12,7 @@ import { RoomCtx, ceilingMaterial, floorMaterial, setRoomLit, useMats, wallMater
 import { EntModels } from './props/EntModels'
 import { Props } from './props/Props'
 import { EmergencyLights } from './EmergencyLights'
-import { roomPowerCut } from './roomPower'
+import { lampPositions, roomPowerCut } from './roomPower'
 import { RoundHub } from './RoundHub'
 
 export const WIN_R = 0.42
@@ -31,6 +31,8 @@ interface Built {
   rooms: Record<string, { floor: THREE.BufferGeometry[]; ceil: THREE.BufferGeometry[]; wall: THREE.BufferGeometry[]; trim: THREE.BufferGeometry[] }>
   windows: WindowDef[]
   colliders: { p: [number, number, number]; h: [number, number, number] }[]
+  /** Opaque shell behind every wall, floor and ceiling: no seam can ever show open space. */
+  hull: THREE.BufferGeometry | null
   doors: { id: string; x: number; z: number; alongZ: boolean; room: string }[]
 }
 
@@ -42,7 +44,8 @@ const DIRS: { d: [number, number]; rot: number; off: (tx: number, tz: number) =>
 ]
 
 function wallQuad() {
-  const g = new THREE.PlaneGeometry(TILE, CEIL)
+  // A hair wider and taller than its tile, so neighbouring panels meet with no seam at corners.
+  const g = new THREE.PlaneGeometry(TILE + 0.02, CEIL + 0.04)
   g.translate(0, CEIL / 2, 0)
   return g
 }
@@ -171,7 +174,32 @@ function buildLevel(map: GridMap): Built {
   }
   colliders.push({ p: [(W * TILE) / 2, -0.25, (H * TILE) / 2], h: [(W * TILE) / 2 + 4, 0.25, (H * TILE) / 2 + 4] })
   colliders.push({ p: [(W * TILE) / 2, CEIL + 0.25, (H * TILE) / 2], h: [(W * TILE) / 2 + 4, 0.25, (H * TILE) / 2 + 4] })
-  return { rooms, windows, colliders, doors }
+  const hull: THREE.BufferGeometry[] = []
+  const solidBehind = (c: string) => c === '#'
+  // The round hub has its own hull and looks out through its windows: nothing may stand in front of space there.
+  const hubs = map.rooms.filter((room) => room.shape === 'round').map((room) => room.rect)
+  const inHub = (tx: number, tz: number, margin = 0) => hubs.some(([x0, z0, x1, z1]) => tx >= x0 - margin && tx <= x1 + margin && tz >= z0 - margin && tz <= z1 + margin)
+  const liningTunnel = (tx: number, tz: number) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => isFloor(cellAt(map, tx + dx, tz + dz)) && !inHub(tx + dx, tz + dz))
+  for (let tz = 0; tz < H; tz++) for (let tx = 0; tx < W; tx++) {
+    const c = cellAt(map, tx, tz)
+    const [cx, cz] = tileCenter(tx, tz)
+    if (inHub(tx, tz, 3) && !liningTunnel(tx, tz) && (!isFloor(c) || inHub(tx, tz))) continue
+    if (isFloor(c)) {
+      for (const y of [-0.025, CEIL + 0.025]) {
+        const plane = new THREE.PlaneGeometry(TILE + 0.04, TILE + 0.04)
+        plane.rotateX(-Math.PI / 2); plane.translate(cx, y, cz)
+        hull.push(plane)
+      }
+    } else if (solidBehind(c) && near(tx, tz)) {
+      // Stops just short of any wall facing a room, overlaps its neighbours everywhere else.
+      const gap = (dx: number, dz: number) => (isFloor(cellAt(map, tx + dx, tz + dz)) ? -0.015 : 0.02)
+      const west = gap(-1, 0), east = gap(1, 0), north = gap(0, -1), south = gap(0, 1)
+      const box = new THREE.BoxGeometry(TILE + west + east, CEIL + 0.1, TILE + north + south)
+      box.translate(cx + (east - west) / 2, CEIL / 2, cz + (south - north) / 2)
+      hull.push(box)
+    }
+  }
+  return { rooms, windows, colliders, doors, hull: hull.length ? mergeGeometries(hull.map((g) => g.toNonIndexed())) : null }
 }
 
 function floorKind(room: RoomDef): 'plate' | 'rubber' | 'grate' {
@@ -195,10 +223,10 @@ function RoomMeshes({ room, geo, shadows }: { room: RoomDef; geo: Built['rooms']
   const m = useMats()
   return (
     <group>
-      <mesh geometry={merged.floor} material={floorMaterial(floorKind(room), dark, room.id)} receiveShadow castShadow={shadows} />
-      <mesh geometry={merged.ceil} material={ceilingMaterial(dark, room.id)} receiveShadow castShadow={shadows} />
-      {merged.wall && <mesh geometry={merged.wall} material={wallMaterial(theme, dark, room.id)} receiveShadow castShadow={shadows} />}
-      {merged.trim && <mesh geometry={merged.trim} material={m.painted('#60676b', 0.48, 0.65)} receiveShadow castShadow={shadows} />}
+      <mesh geometry={merged.floor} material={floorMaterial(floorKind(room), dark, room.id)} receiveShadow castShadow />
+      <mesh geometry={merged.ceil} material={ceilingMaterial(dark, room.id)} receiveShadow castShadow />
+      {merged.wall && <mesh geometry={merged.wall} material={wallMaterial(theme, dark, room.id)} receiveShadow castShadow />}
+      {merged.trim && <mesh geometry={merged.trim} material={m.painted('#60676b', 0.48, 0.65)} receiveShadow castShadow />}
     </group>
   )
 }
@@ -255,70 +283,89 @@ function Fixtures({ room, lit }: { room: RoomDef; lit: boolean }) {
   const ref = useRef<THREE.InstancedMesh>(null)
   const housing = useRef<THREE.InstancedMesh>(null)
   const materials = useMats()
-  const tiles = useMemo(() => {
-    const out: [number, number][] = []
-    const [x0, z0, x1, z1] = room.rect
-    if (room.shape === 'round') return Array.from({ length: 4 }, (_, i): [number, number] => {
-      const a = i * Math.PI / 2
-      return [(x0 + x1) / 2 + Math.sin(a) * 1.6, (z0 + z1) / 2 + Math.cos(a) * 1.6]
-    })
-    const wide = x1 - x0 >= z1 - z0
-    for (let tz = z0; tz <= z1; tz++)
-      for (let tx = x0; tx <= x1; tx++) {
-        const k = wide ? tx - x0 : tz - z0
-        const mid = wide ? Math.floor((z0 + z1) / 2) === tz : Math.floor((x0 + x1) / 2) === tx
-        if (mid && k % 2 === 0) out.push([tx, tz])
-      }
-    return out
-  }, [room])
+  const lamps = useMemo(() => lampPositions(room), [room])
   useEffect(() => {
     const m = new THREE.Matrix4()
     const wide = room.rect[2] - room.rect[0] >= room.rect[3] - room.rect[1]
-    tiles.forEach(([tx, tz], i) => {
-      const [cx, cz] = tileCenter(tx, tz)
+    lamps.forEach(([cx, cz], i) => {
       m.makeRotationY(wide ? 0 : Math.PI / 2)
-      m.setPosition(cx, CEIL - 0.105, cz)
+      m.setPosition(cx, CEIL - 0.125, cz)
       ref.current!.setMatrixAt(i, m)
-      m.setPosition(cx, CEIL - 0.045, cz)
+      m.setPosition(cx, CEIL - 0.06, cz)
       housing.current!.setMatrixAt(i, m)
     })
     ref.current!.instanceMatrix.needsUpdate = true
     housing.current!.instanceMatrix.needsUpdate = true
-  }, [tiles, room])
+    // Three caches these from the matrices it first sees: stale ones made lamps vanish at some angles.
+    ref.current!.computeBoundingSphere()
+    housing.current!.computeBoundingSphere()
+  }, [lamps, room])
   const color = room.light ?? '#ffffff'
-  const mat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#111', emissive: color, emissiveIntensity: 0 }), [color])
+  // A frosted LED panel: switched off it is a pale disc, still plainly there on the ceiling.
+  const mat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#c9ced1', roughness: 0.42, emissive: color, emissiveIntensity: 0 }), [color])
   useFrame(() => {
     const k = lit && !roomPowerCut(room) ? 1 : 0
-    mat.emissiveIntensity = 4.2 * k
-    mat.color.set(k ? '#1a1a1a' : '#0a0a0a')
+    mat.emissiveIntensity = 3.4 * k
   })
   return (
     <group>
-      <instancedMesh ref={housing} args={[undefined, undefined, tiles.length]} material={materials.painted('#454b50', 0.4, 0.6)} receiveShadow>
-        <boxGeometry args={[1.45, 0.09, 0.32]} />
+      <instancedMesh ref={housing} args={[undefined, undefined, lamps.length]} material={materials.metal('#8d9499', 0.3)} receiveShadow>
+        <cylinderGeometry args={[0.36, 0.4, 0.12, 48]} />
       </instancedMesh>
-      <instancedMesh name={`ceiling-light:${room.id}`} ref={ref} args={[undefined, undefined, tiles.length]} material={mat}>
-        <boxGeometry args={[1.3, 0.025, 0.2]} />
+      <instancedMesh name={`ceiling-light:${room.id}`} ref={ref} args={[undefined, undefined, lamps.length]} material={mat}>
+        <cylinderGeometry args={[0.33, 0.33, 0.012, 48]} />
       </instancedMesh>
     </group>
   )
 }
 
 /** lumière dynamique d'une pièce (nombre constant : on change l'intensité, pas le nombre) */
-function RoomLight({ room, on }: { room: RoomDef; on: boolean }) {
+function RoomLight({ room, on, offset = [0, 0], share = 1 }: { room: RoomDef; on: boolean; offset?: [number, number]; share?: number }) {
   const ref = useRef<THREE.PointLight>(null)
   const [x0, z0, x1, z1] = room.rect
-  const cx = ((x0 + x1 + 1) * TILE) / 2
-  const cz = ((z0 + z1 + 1) * TILE) / 2
+  // Directly under a real lamp, and well below the ceiling, so no bright spot appears on bare panels.
+  const wide = x1 - x0 >= z1 - z0
+  const snap = (from: number, to: number) => from + Math.round((to - from) / 4) * 2
+  const fixture = room.shape === 'round' ? null : wide
+    ? tileCenter(snap(x0, x1), Math.floor((z0 + z1) / 2))
+    : tileCenter(Math.floor((x0 + x1) / 2), snap(z0, z1))
+  const cx = (fixture ? fixture[0] : ((x0 + x1 + 1) * TILE) / 2) + offset[0]
+  const cz = (fixture ? fixture[1] : ((z0 + z1 + 1) * TILE) / 2) + offset[1]
   const reach = Math.hypot((x1 - x0 + 1) * TILE, (z1 - z0 + 1) * TILE) * 0.55 + 1.5
-  const base = (room.intensity ?? 8) * 2.3
+  const base = (room.intensity ?? 8) * 2.3 * share
   useFrame((_, dt) => {
     if (!ref.current) return
     // The normal circuit really goes dark. Red light comes from the beacons.
     ref.current.intensity = !on || roomPowerCut(room) ? 0
       : THREE.MathUtils.damp(ref.current.intensity, base * diff().light, 10, Math.min(dt, 0.1))
   })
-  return <pointLight name={`room-light:${room.id}`} ref={ref} position={[cx, CEIL - 0.45, cz]} color={room.light} intensity={on ? base : 0} distance={reach} decay={1.5} />
+  return <pointLight name={`room-light:${room.id}`} ref={ref} position={[cx, CEIL - 1.05, cz]} color={room.light} intensity={on ? base : 0} distance={reach} decay={1.5} />
+}
+
+/** A light at the hub's centre would be inside the lift and leave its outer wall black. */
+const HUB_LIGHTS = [0, 1, 2].map((i): [number, number] => {
+  const a = Math.PI / 2 + i * Math.PI * 2 / 3
+  return [Math.sin(a) * 4, Math.cos(a) * 4]
+})
+
+/**
+ * Shell behind the walls: it hides the seams and stops the sun. Black from inside the modules; seen through
+ * the round hub's windows it is the station's outer skin, so the corridors look like what they are.
+ */
+function Hull({ geometry, map }: { geometry: THREE.BufferGeometry; map: GridMap }) {
+  const mesh = useRef<THREE.Mesh>(null)
+  const [black, skin] = useMemo(() => [
+    new THREE.MeshBasicMaterial({ color: '#000000', side: THREE.DoubleSide }),
+    new THREE.MeshStandardMaterial({ color: '#79828e', roughness: 0.62, metalness: 0.35, side: THREE.DoubleSide }),
+  ], [])
+  useEffect(() => () => { black.dispose(); skin.dispose() }, [black, skin])
+  const hub = map.rooms.find((room) => room.shape === 'round')?.rect
+  useFrame(() => {
+    const [x, , z] = live.pos
+    const inside = !!hub && x >= hub[0] * TILE && x <= (hub[2] + 1) * TILE && z >= hub[1] * TILE && z <= (hub[3] + 1) * TILE
+    if (mesh.current) mesh.current.material = inside ? skin : black
+  })
+  return <mesh ref={mesh} name="hull" geometry={geometry} material={black} frustumCulled={false} castShadow />
 }
 
 export function Level({ map, shadows }: { map: GridMap; shadows: boolean }) {
@@ -343,7 +390,9 @@ export function Level({ map, shadows }: { map: GridMap; shadows: boolean }) {
           <RoomCtx.Provider key={room.id} value={{ id: room.id, dark: !!room.dark }}>
             {room.shape === 'round' ? <RoundHub room={room} shadows={shadows} zone={map.zone} /> : <RoomMeshes room={room} geo={geo} shadows={shadows} />}
             <Fixtures room={room} lit={lit} />
-            {!room.noDynLight && <RoomLight room={room} on={lit} />}
+            {!room.noDynLight && (room.shape === 'round'
+              ? HUB_LIGHTS.map((offset, i) => <RoomLight key={i} room={room} on={lit} offset={offset} share={0.5} />)
+              : <RoomLight room={room} on={lit} />)}
           </RoomCtx.Provider>
         )
       })}
@@ -357,6 +406,7 @@ export function Level({ map, shadows }: { map: GridMap; shadows: boolean }) {
           <Door {...d} />
         </RoomCtx.Provider>
       ))}
+      {built.hull && <Hull geometry={built.hull} map={map} />}
       <LightShafts windows={built.windows} sun={map.sun} />
       <RigidBody type="fixed" colliders={false}>
         {built.colliders.map((c, i) => (

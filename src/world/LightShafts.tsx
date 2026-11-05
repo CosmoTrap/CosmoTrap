@@ -1,5 +1,6 @@
+import { alarmOn } from './roomPower'
 import { useFrame } from '@react-three/fiber'
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { G } from '../game/state'
 import { QUALITY } from './quality'
@@ -37,7 +38,9 @@ float n3(vec3 p){
              mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z);
 }
 void main() {
-  float t = vUv.y;
+  // Interpolation at the cylinder rim can slightly exceed [0, 1]. A negative
+  // base in pow(..., 1.8) yields NaN, which bloom spreads across the whole frame.
+  float t = clamp(vUv.y, 0.0, 1.0);
   float fade = pow(1.0 - t, 1.8) * smoothstep(0.0, 0.06, t);
   float edge = pow(abs(dot(vN, vV)), 2.2);
   float dust = 0.7 + 0.6 * n3(vW * 2.5 + vec3(0.0, uTime * 0.08, uTime * 0.05));
@@ -84,8 +87,11 @@ export function LightShafts({ windows, sun }: { windows: WindowDef[]; sun: [numb
     return { shafts, mat, dust }
   }, [windows, sun])
 
+  const fullBeam = useRef(mat.uniforms.uIntensity.value)
   useFrame(({ clock }) => {
     mat.uniforms.uTime.value = clock.elapsedTime
+    // With the lights out the portholes barely light anything: only a faint shaft remains.
+    mat.uniforms.uIntensity.value = fullBeam.current * (alarmOn() ? 0.28 : 1)
     const p = dust.geometry.attributes.position as THREE.BufferAttribute
     const t = clock.elapsedTime
     for (let i = 0; i < p.count; i++) p.setY(i, p.getY(i) + Math.sin(t * 0.4 + i) * 0.0006)

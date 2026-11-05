@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { audio } from '../game/audio/audio'
 import { act, cycleItem, drinkPouch, entById, labelOf, toggleLamp, useBattery, useO2, useSelectedItem, useSlot } from '../game/logic'
 import { GRID_MAPS, roomAt, spawnOf } from '../game/maps'
-import { G, ability, live, toggleFullscreen, useGame } from '../game/state'
+import { G, ability, live, toggleFullscreen, useGame, type TabletTab } from '../game/state'
 import { QUALITY } from '../world/quality'
 import { hitboxes } from '../world/props/EntModels'
 import { lampCookie } from '../world/textures'
@@ -21,7 +21,7 @@ export const aim = { id: null as string | null, label: null as string | null }
 
 function overlayOpen() {
   const s = G()
-  return s.loading < 1 || s.tabletOpen || s.inventoryOpen || !!s.puzzle || !!s.readNote || s.paused || s.settingsOpen
+  return s.loading < 1 || s.tabletOpen || !!s.puzzle || !!s.readNote || s.paused || s.settingsOpen
 }
 
 /** écoute clavier / souris (une seule fois) */
@@ -41,13 +41,12 @@ export function useInputListeners() {
       if (target?.matches('input, textarea, select, [contenteditable="true"]')) return
       markKeyboard()
       const k = s.settings.keys
-      if ((e.code === 'Tab' && !s.inventoryOpen) || e.code === 'Space') e.preventDefault()
+      if (!s.tabletOpen && (e.code === 'Tab' || e.code === 'Space')) e.preventDefault()
       input.down.add(e.code)
       if (e.repeat) return
       if (s.cine && s.cine !== 'briefing') return
       if (matches(k, 'pause', e.code)) {
         if (s.puzzle || s.readNote) useGame.setState({ puzzle: null, readNote: null })
-        else if (s.inventoryOpen) closeInventory()
         else if (s.tabletOpen) closeTablet()
         else if (s.settingsOpen) useGame.setState({ settingsOpen: false })
         else useGame.setState({ paused: !s.paused })
@@ -55,22 +54,23 @@ export function useInputListeners() {
       }
       if (matches(k, 'inventory', e.code)) {
         e.preventDefault()
-        if (s.inventoryOpen) closeInventory()
+        if (s.tabletOpen) closeTablet()
         else openInventory()
-        return
-      }
-      if (s.inventoryOpen) {
-        if (matches(k, 'useSelected', e.code)) useSelectedItem()
         return
       }
       if (matches(k, 'hint', e.code)) {
         e.preventDefault()
-        if (!overlayOpen()) { useGame.setState({ tab: 0 }); openTablet() }
+        if (!overlayOpen() || s.tabletOpen) openTablet(1)
         return
       }
       if (matches(k, 'tablet', e.code)) {
+        e.preventDefault()
         if (s.tabletOpen) closeTablet()
         else if (!overlayOpen()) openTablet()
+        return
+      }
+      if (s.tabletOpen) {
+        if (s.tabletReady && s.tab === 3 && matches(k, 'useSelected', e.code)) useSelectedItem()
         return
       }
       if (matches(k, 'jump', e.code)) {
@@ -173,34 +173,30 @@ export function useInputListeners() {
 
 export const isTouch = () => window.matchMedia?.('(pointer: coarse)').matches
 
-export function openTablet() {
-  useGame.setState({ tabletOpen: true, inventoryOpen: false })
-  audio.sfx('tablet_open')
-  document.exitPointerLock?.()
-}
-export function closeTablet() {
-  useGame.setState({ tabletOpen: false })
-  audio.sfx('tablet_close')
-  requestLock()
-}
-export function openInventory() {
+export function openTablet(tab: TabletTab = 0) {
   const s = G()
   if (s.screen !== 'playing' || s.loading < 1 || s.cine || s.paused || s.puzzle || s.readNote || s.settingsOpen) return
-  useGame.setState({ inventoryOpen: true, tabletOpen: false })
+  if (s.tabletOpen) { useGame.setState({ tab }); return }
+  useGame.setState({ tabletOpen: true, tabletReady: false, tabletOpenedAt: performance.now(), tab })
   input.down.clear()
   input.jumpRequested = false
   input.joy.x = input.joy.y = 0
   input.touchRun = false
+  input.look.dx = input.look.dy = 0
   audio.sfx('tablet_open')
   document.exitPointerLock?.()
 }
-export function closeInventory() {
-  useGame.setState({ inventoryOpen: false })
+export function closeTablet() {
+  useGame.setState({ tabletOpen: false, tabletReady: false })
   input.down.clear()
   input.jumpRequested = false
   audio.sfx('tablet_close')
   requestLock()
 }
+export function openInventory() {
+  openTablet(3)
+}
+export const closeInventory = closeTablet
 export function requestLock() {
   if (isTouch() || G().screen !== 'playing' || G().cine || overlayOpen()) return
   const c = document.querySelector('canvas')
@@ -219,7 +215,7 @@ export function Player() {
   const tp = useGame((s) => s.tp)
   const quality = useGame((s) => s.settings.quality)
   const q = QUALITY[quality]
-  const st = useRef({ vy: 0, grounded: false, phase: 0, lastStep: 0, roll: 0, lampYaw: 0, lampPitch: 0, flick: 1, breath: 0, prevAim: '', cinematic: false, crouch: 0 })
+  const st = useRef({ vy: 0, grounded: false, phase: 0, lastStep: 0, roll: 0, lampYaw: 0, lampPitch: 0, flick: 1, breath: 0, prevAim: '', cinematic: false, crouch: 0, lampPower: 40 })
   const controller = useMemo(() => {
     const c = world.createCharacterController(0.02)
     c.enableAutostep(0.35, 0.25, false)
@@ -234,16 +230,19 @@ export function Player() {
   useEffect(() => () => world.removeCharacterController(controller), [world, controller])
   useEffect(() => () => { live.playerZone = null; input.jumpRequested = false }, [])
 
-  // lampe frontale
+  // lampe torche : le faisceau part de la main gauche et converge vers le centre de la vue
   const lamp = useMemo(() => {
-    const l = new THREE.SpotLight('#fff1dc', 0, 24, 0.44, 0.55, 1.5)
+    const l = new THREE.SpotLight('#fff1dc', 0, 32, 0.5, 0.75, 1.4)
     l.map = lampCookie()
-    l.castShadow = q.lampShadow
-    l.shadow.mapSize.set(1024, 1024)
-    l.shadow.bias = -0.0005
-    l.shadow.normalBias = 0.03
-    l.shadow.camera.near = 0.1
-    l.shadow.camera.far = 24
+    // Always cast shadows, so the beam stops at corners and door frames instead of crossing them.
+    l.castShadow = true
+    const size = q.lampShadow ? 1024 : 512
+    l.shadow.mapSize.set(size, size)
+    l.shadow.bias = -0.0006
+    l.shadow.normalBias = 0.025
+    l.shadow.radius = 3
+    l.shadow.camera.near = 0.08
+    l.shadow.camera.far = 30
     return l
   }, [q.lampShadow])
   const lampTarget = useMemo(() => new THREE.Object3D(), [])
@@ -286,7 +285,7 @@ export function Player() {
     live.playerZone = zone
     const S = st.current
     const keys = s.settings.keys
-    const frozen = s.screen !== 'playing' || s.loading < 1 || s.paused || !!s.cine || s.tabletOpen || s.inventoryOpen || !!s.puzzle || !!s.readNote || s.settingsOpen
+    const frozen = s.screen !== 'playing' || s.loading < 1 || s.paused || !!s.cine || s.tabletOpen || !!s.puzzle || !!s.readNote || s.settingsOpen
 
     // regard
     const sens = 0.0022 * s.settings.sensitivity
@@ -390,16 +389,28 @@ export function Player() {
     // lampe : suit la tête avec un léger retard
     S.lampYaw = THREE.MathUtils.damp(S.lampYaw, live.yaw, 14, dt)
     S.lampPitch = THREE.MathUtils.damp(S.lampPitch, live.pitch, 14, dt)
-    lamp.position.set(camera.position.x + right.x * 0.12, camera.position.y + 0.08, camera.position.z + right.z * 0.12)
     const ldir = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(S.lampPitch, S.lampYaw, 0, 'YXZ'))
-    lampTarget.position.copy(lamp.position).add(ldir)
+    // From the lens, or just short of a wall when the player stands right against one.
+    const eye = camera.position
+    const lensRay = new rapier.Ray({ x: eye.x, y: eye.y, z: eye.z }, { x: ldir.x, y: ldir.y, z: ldir.z })
+    // Solid surfaces only: interaction zones are invisible volumes, and the player often stands inside one.
+    const hit = world.castRay(lensRay, 14, true, rapier.QueryFilterFlags.EXCLUDE_SENSORS, undefined, b.collider(0), b)
+    const surface = hit ? hit.timeOfImpact : 14
+    // The source backs off near a wall, so the beam stays a wide pool instead of shrinking to a white dot.
+    const reach = Math.min(0.62, surface * 0.4)
+    lamp.position.set(eye.x - right.x * 0.2 + ldir.x * reach, eye.y - 0.16 + ldir.y * reach, eye.z - right.z * 0.2 + ldir.z * reach)
+    lampTarget.position.copy(camera.position).addScaledVector(ldir, 7)
     lampTarget.updateMatrixWorld()
-    let li = s.lampOn && s.res.lamp > 0 ? 42 : 0
+    // Like a camera's exposure: power follows the distance of what the beam lands on, so a nearby
+    // wall stays readable instead of burning white, while the far end of a room still lights up.
+    S.lampPower = THREE.MathUtils.damp(S.lampPower, THREE.MathUtils.clamp(6.5 * Math.pow(surface - reach, 1.4), 2, 110), 9, dt)
+    let li = s.lampOn && s.res.lamp > 0 ? S.lampPower : 0
     if (li && s.res.lamp < 15) {
       S.flick = Math.random() < 0.08 ? Math.random() * 0.4 : THREE.MathUtils.damp(S.flick, 1, 10, dt)
       li *= S.flick * (0.5 + s.res.lamp / 30)
     }
     lamp.intensity = li
+    lamp.shadow.autoUpdate = li > 0
 
     // son : écouteur
     audio.setListener([camera.position.x, camera.position.y, camera.position.z], [fwd.x, 0, fwd.z])

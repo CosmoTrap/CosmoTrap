@@ -57,7 +57,7 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
 
   // ——— Zone 1 ———
   await waitIdle(page, 1)
-  expect(await g(page, 'interact', 'hatch')).toBe(false) // la trappe reste fermée avant la pressurisation
+  expect(await g(page, 'interact', 'lift')).toBe(false) // l'ascenseur reste verrouillé avant la pressurisation
   expect((await st(page)).zone).toBe(1)
   await act(page, 'lamp')
   await page.keyboard.press('f')
@@ -95,7 +95,9 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
   await expect.poll(async () => (await st(page)).flags.pressurized).toBe(true)
   await page.waitForTimeout(1500)
   await page.screenshot({ path: 'test-results/zone1.png' })
-  await act(page, 'hatch')
+  await g(page, 'teleportXZ', 41, 41, -Math.PI / 2)
+  await page.waitForTimeout(250)
+  await g(page, 'interact', 'lift')
 
   // ——— Zone 2 ———
   await waitIdle(page, 2)
@@ -226,6 +228,7 @@ test('ressources à zéro, pénalités, indices et limite de temps', async ({ pa
   // indice léger : compté et pénalisé
   await page.keyboard.press('Tab')
   await expect(page.getByTestId('tablet')).toBeVisible()
+  await page.getByTestId('tab-2').click()
   const before = (await st(page)).penalty
   await page.getByTestId('hint').click()
   s = await st(page)
@@ -311,7 +314,7 @@ test('difficulté, imprévus, succès, fantôme et manette', async ({ page, requ
   await expect(page.getByTestId('achievements')).toContainText('Bricoleur')
 })
 
-test('menu principal, nouvelle partie, paramètres et langue', async ({ page, request }) => {
+test('menu principal, nouvelle partie et paramètres', async ({ page, request }) => {
   await signedInPage(page, request)
   await expect(page.getByTestId('leaderboard')).toBeVisible()
   // paramètres : profil → choix d'un personnage à capacité
@@ -324,11 +327,9 @@ test('menu principal, nouvelle partie, paramètres et langue', async ({ page, re
   // K12's new jump action also appears in main's redesigned settings page.
   await page.getByTestId('stab-2').click()
   await expect(page.getByTestId('bind-jump-0')).toContainText('Espace')
-  // onglet Jeu : passage en anglais puis retour
+  // onglet Jeu : le français est la seule langue du jeu
   await page.getByTestId('stab-1').click()
-  await page.getByRole('button', { name: 'English' }).click()
-  await expect(page.getByText('Help level')).toBeVisible()
-  await page.getByRole('button', { name: 'Français' }).click()
+  await expect(page.getByRole('button', { name: 'English' })).toHaveCount(0)
   await expect(page.getByText('Niveau d’aide')).toBeVisible()
   await expect(page.getByRole('button', { name: /Se déconnecter/ })).toBeVisible()
   await page.evaluate(() => window.__game.set({ screen: 'title' }))

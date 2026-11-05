@@ -90,15 +90,23 @@ et demandent une carte graphique plus puissante. Garder la résolution sur
 | S’accroupir | Ctrl | — |
 | Agir | E | Bouton « Agir » |
 | Lampe | F | Bouton « Lampe » |
-| Oxygène, piles, boire | O, R, B | Tablette → Sac |
-| Inventaire complet | I (ou touche personnalisée), I / Échap pour fermer | Bouton Inventaire |
+| Oxygène, piles, boire | O, R, B | Tablette → Inventaire |
+| Tablette → Inventaire | I (ou touche personnalisée), I / Échap pour fermer | Bouton Inventaire |
 | Sélection d’objet | Molette ou 1 à 9, sans consommer | Toucher une case / flèches de la barre |
 | Utiliser la sélection | X, ou bouton dans l’inventaire | Bouton d’utilisation |
-| Tablette | Tab | Bouton « Tablette » |
+| Tablette → Plan | Tab | Bouton « Tablette » |
+| Tablette → Journal et indices | H | Onglet « Journal » |
 | Pause | P ou Échap | Bouton « Pause » |
 | Passer une cinématique | Entrée ou bouton « Passer » | Bouton « Passer » |
 
 **Regard.** Il marche à la souris (clic pour la verrouiller), au glisser-cliquer, et à Alt + glisser à deux doigts sur le pavé tactile (réglage activé par défaut).
+
+**Tablette de poignet.** Le bras gauche se lève avant l'ouverture du terminal.
+Ses quatre onglets regroupent le **Plan** (pièces réelles, position et orientation,
+choix du niveau, zoom et recentrage), le **Journal** (missions, progression et
+indices), les **Messages** (transmissions, alertes et documents reçus, conservés
+dans la sauvegarde) et l'**Inventaire** (objets, quantités et utilisation).
+La barre d'objets reste accessible à la molette pendant le jeu.
 
 **Chariot de la serre (zone 2).** Avancer contre l'étagère à légumes sur roulettes
 pour la pousser et dégager l'entrée. Sa position est conservée dans la sauvegarde.
@@ -137,7 +145,7 @@ Le classement est séparé par difficulté.
 ### Imprévus (zones 1 à 3)
 
 - **Coupure de courant** (32 s) : l’éclairage normal s’éteint et les gyrophares rouges prennent le relais. Les coupures locales des couloirs durent 16 s ; la lampe reste utilisable.
-- **Micro-fuite** (28 s) : l'O₂ baisse 2,2 fois plus vite. Le ruban adhésif (objet de survie, Tablette → Sac → Colmater) l'arrête tout de suite.
+- **Micro-fuite** (28 s) : l'O₂ baisse 2,2 fois plus vite. Le ruban adhésif (objet de survie, Tablette → Inventaire → Colmater) l'arrête tout de suite.
 
 ### Succès et réplique fantôme
 
@@ -149,7 +157,7 @@ Le classement est séparé par difficulté.
   - Code faux, mauvaise séquence ou programme mal exécuté : −30 s.
   - Tâche lancée trop tôt dans le planning : −20 s.
   - Mauvaise fréquence radio : −20 s.
-- **Indices.** Il y a 2 niveaux par étape, dans la tablette, onglet Mission :
+- **Indices.** Il y a 2 niveaux par étape, dans la tablette, onglet Journal :
   - indice léger : −30 s ;
   - indice fort : −60 s.
 
@@ -180,13 +188,13 @@ Le classement est séparé par difficulté.
 
 ### Zone 1 — Quartiers d'équipage
 
-1. Prendre la **lampe frontale** sur l'étagère du dortoir, puis l'allumer (F).
+1. Prendre la **lampe torche** sur l'étagère du dortoir, puis l'allumer (F).
 2. Lire le **tableau du réfectoire** : le code du casier est l'année de mise en service de la station.
 3. Aller dans la **réserve** (sombre, au sud-ouest) et lire la plaque à la lampe : **2041**.
 4. **Énigme 1, observation visuelle.** Taper **2041** sur le casier du dortoir pour récupérer le badge. Les touches sont mélangées à chaque ouverture ; le clavier physique du PC saisit les vrais chiffres. Le code ne change pas.
 5. Badger la porte du **sas**, à l'est du couloir.
 6. **Énigme 2, logique (Lights Out 3×3).** Chaque vanne inverse son état et celui de ses voisines directes (haut, bas, gauche, droite). L'ordre ne compte pas, et appuyer deux fois annule. La grille de départ est tirée au sort à chaque partie, toujours soluble, avec une solution minimale de 4 à 7 appuis. Elle est enregistrée dans la sauvegarde. Le bouton Réinitialiser revient à ce départ, sans en tirer un nouveau. L'indice fort donne les cases exactes de la grille en cours, au format « ligne, colonne » (L1 C1 en haut à gauche). Méthode : corriger une ligne après l'autre en partant du haut, comme l'indique le post-it du casier.
-7. Descendre par la **trappe**.
+7. Prendre l'**ascenseur** du nœud central, déverrouillé par la pressurisation, pour descendre à l'étage 2. On peut ensuite circuler librement entre les étages 1 et 2.
 
 ### Zone 2 — Labo & machinerie
 
@@ -287,7 +295,7 @@ npx playwright test
 
 `tests/playthrough.spec.ts` crée un compte et joue toute la partie en se téléportant devant chaque objectif. Il résout les énigmes par l'interface et vérifie les verrous :
 
-- la trappe reste fermée avant la pressurisation ;
+- l'ascenseur reste verrouillé avant la pressurisation ;
 - la vapeur bloque l'accès au disjoncteur ;
 - le sas reste fermé tant que le terminal n'est pas décodé ;
 - la rivière est infranchissable avant le pont.

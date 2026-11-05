@@ -468,12 +468,13 @@
 }
 .x-modal {
   position: absolute;
-  inset: 0;
+  /* Past the 1280x832 canvas: otherwise the dimming stops short on other screen shapes. */
+  inset: -100vmax;
   z-index: 5;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(7, 11, 32, 0.6);
+  background: rgba(0, 0, 0, 0.45);
 }
 .x-confirm {
   position: static;
@@ -779,6 +780,44 @@
 .la-resume.on button {
   background: rgba(242, 107, 58, 0.24) !important;
   color: var(--x-orange-soft) !important;
+}
+.la-resume.on .la-trash {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-left: 8px;
+  padding: 0 !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: var(--x-cream) !important;
+}
+.la-resume.on .la-trash:hover,
+.la-resume.on .la-trash:focus-visible {
+  background: rgba(224, 72, 56, 0.28) !important;
+  border-color: #e04838;
+}
+.la-resume.on .la-resume-txt {
+  min-width: 0;
+}
+.la-resume.on .la-resume-txt small {
+  /* One line on both maps: a wrapped label pushes the block against the bubble's edges. */
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+.la-resume.on .la-resume-txt b {
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.la-resume.on .la-resume-meta {
+  flex: none;
+  margin-left: 10px;
+  font-size: 11.5px;
+  letter-spacing: 0;
 }
 .la-press {
   position: absolute;

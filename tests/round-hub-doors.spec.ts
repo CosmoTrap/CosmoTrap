@@ -26,7 +26,7 @@ test('les deux nœuds sont courbes, vitrés et solides, avec quatre passages dé
       await page.waitForFunction(() => window.__game.state().playerZone === 2 && window.__game.state().loading === 1)
     }
     const cx = zone === 1 ? 41 : 43, cz = zone === 1 ? 41 : 37
-    await teleport(page, cx, cz, -Math.PI / 4)
+    await teleport(page, cx + 3, cz, -Math.PI / 4)
     const geometry = await page.evaluate(async (path) => {
       const { _roots } = await import(path)
       const s = _roots.get(document.querySelector('canvas')).store.getState().scene
@@ -40,7 +40,8 @@ test('les deux nœuds sont courbes, vitrés et solides, avec quatre passages dé
     await page.screenshot({ path: `test-results/round-hub-${zone}.png` })
     // A clear window and an opaque stretch of the curved hull must both stop us.
     for (const degrees of [45, 112]) {
-      await teleport(page, cx, cz, Math.PI + degrees * Math.PI / 180)
+      const a = degrees * Math.PI / 180
+      await teleport(page, cx + Math.sin(a) * 3, cz + Math.cos(a) * 3, Math.PI + a)
       await page.keyboard.down('ArrowUp')
       try {
         await page.waitForFunction(({ cx, cz }) => Math.hypot(window.__game.live.pos[0] - cx, window.__game.live.pos[2] - cz) > 6.4, { cx, cz })

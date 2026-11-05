@@ -3,7 +3,6 @@ import { ApiError, changePassword, logout, updateProfile } from '../../game/api'
 import { audio } from '../../game/audio/audio'
 import { toggleFullscreen, useGame, type Quality } from '../../game/state'
 import { fr } from '../../i18n/fr'
-import { setLanguage } from '../../i18n'
 import { detectPadType } from '../../player/gamepad'
 import { DEFAULT_KEYS, DEFAULT_PAD, detectKeyLayout, keyName, padButtonName, type Action, type PadAction, type PadType } from '../../player/input'
 import { update } from './Settings'
@@ -231,19 +230,6 @@ function Game() {
       </Row>
       <Row title={S.autosave} desc={S.autosaveDesc}>
         <Toggle on={s.autosave} onChange={(v) => update({ autosave: v })} />
-      </Row>
-      <Row title={S.lang} desc={S.langDesc}>
-        <Seg
-          value={s.lang}
-          options={[
-            ['fr', 'Français'],
-            ['en', 'English'],
-          ]}
-          onChange={(v) => {
-            update({ lang: v })
-            setLanguage(v)
-          }}
-        />
       </Row>
       <div className="x-section">{S.display}</div>
       <Row title={S.quality} desc={S.qualityDesc}>

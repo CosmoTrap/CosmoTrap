@@ -37,7 +37,13 @@ export async function startNewGame(character: string, d: Difficulty, map: Missio
   clearSave()
   deleteCloudSave()
   loadExplored([])
-  useGame.setState({ ...newGameData(character, d, map), screen: 'prologue', paused: false, tp: null, resume: null, tabletOpen: false, inventoryOpen: false, puzzle: null, readNote: null, lastResult: null })
+  useGame.setState({ ...newGameData(character, d, map), screen: 'prologue', paused: false, tp: null, resume: null, tabletOpen: false, puzzle: null, readNote: null, lastResult: null })
+}
+
+/** supprime la partie en cours, sur cet appareil et dans le compte */
+export function deleteCurrentSave() {
+  clearSave()
+  return deleteCloudSave()
 }
 
 export async function resumeGame(save: SaveFile) {
@@ -45,7 +51,7 @@ export async function resumeGame(save: SaveFile) {
   const { pos, yaw, savedAt, ...data } = save
   void savedAt
   loadExplored(data.explored)
-  useGame.setState({ ...data, screen: 'playing', loading: 0, inventoryOpen: false, paused: false, cine: null, resume: pos ? { pos, yaw: yaw ?? 0 } : null, tp: null, tabletOpen: false, puzzle: null, readNote: null })
+  useGame.setState({ ...data, screen: 'playing', loading: 0, paused: false, cine: null, resume: pos ? { pos, yaw: yaw ?? 0 } : null, tp: null, tabletOpen: false, puzzle: null, readNote: null })
   requestLock()
 }
 
