@@ -144,7 +144,7 @@ function WaterPouch() {
 
 /** The flashlight resting in its cradle on the shelf. */
 function ShelfFlashlight() {
-  return <group position={[0, -0.03, 0.14]} rotation={[0, Math.PI, 0]}><Flashlight /></group>
+  return <group position={[-0.089, -0.01, 0.14]} rotation={[0, 0, -Math.PI / 2]}><Flashlight /></group>
 }
 
 function Fuse() {
@@ -323,11 +323,16 @@ function Locker() {
   )
 }
 
-function Postit() {
+const POSTITS: Record<string, string[]> = {
+  postit: ['Jamais au', 'hasard. Une', 'ligne après', 'l’autre. — N.'],
+  postitO2: ['Bouteille O₂', '= +55 %', 'Sous 15 % :', 'flou, visions'],
+}
+
+function Postit({ lines }: { lines: string[] }) {
   const mat = useMemo(() => {
-    const t = textTexture(['Jamais au', 'hasard. Une', 'ligne après', 'l’autre. — N.'], { w: 128, h: 128, bg: '#f6e27a', fg: '#1d2a6b', size: 14, font: 'italic 600 14px Inter, sans-serif', pad: 8 })
+    const t = textTexture(lines, { w: 128, h: 128, bg: '#f6e27a', fg: '#1d2a6b', size: 14, font: 'italic 600 14px Inter, sans-serif', pad: 8 })
     return new THREE.MeshStandardMaterial({ map: t, roughness: 0.8 })
-  }, [])
+  }, [lines])
   return (
     <mesh position={[0, 0, 0.02]} rotation={[0, 0, 0.1]} material={mat}>
       <planeGeometry args={[0.12, 0.12]} />
@@ -469,7 +474,7 @@ function SteamValve() {
   )
 }
 
-/** fuite de vapeur : particules + collision + son spatial */
+/** fuite de gaz : particules + collision + son spatial */
 function Steam({ e }: { e: Ent }) {
   const fixed = useGame((s) => s.flags.steamFixed)
   const pts = useRef<THREE.Points>(null)
@@ -711,7 +716,7 @@ export const ENT_MODELS: Record<string, (e: Ent) => ReactNode> = {
   mirror: () => <MirrorItem />,
   holo: () => <Hologram />,
   locker: () => <Locker />,
-  postit: () => <Postit />,
+  postit: (e) => <Postit lines={POSTITS[e.id] ?? POSTITS.postit} />,
   board: () => <Board />,
   plate: () => <Plate />,
   dispenser: () => <Dispenser />,

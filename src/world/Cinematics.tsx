@@ -2,7 +2,7 @@ import { useFrame } from '@react-three/fiber'
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { audio } from '../game/audio/audio'
-import { enterZone, pendingZone, respawnAfterFaint, tick } from '../game/logic'
+import { enterZone, pendingZone, tick } from '../game/logic'
 import { GRID_MAPS, spawnOf } from '../game/maps'
 import { riverCenter, terrainHeight } from '../game/maps/zone4'
 import { AUTOSAVE_EVERY, G, clearSave, live, saveGame, useGame } from '../game/state'
@@ -12,7 +12,7 @@ import { endScene, runScene } from './FilmScenes'
 import { heli } from './zone4/Zone4'
 import { input } from '../player/input'
 
-// Metteur en scène : briefing holographique, évanouissement, transitions de zone,
+// Metteur en scène : briefing holographique, transitions de zone,
 // décollage + rentrée atmosphérique, arrivée de l'hélicoptère et fin.
 
 const sm = THREE.MathUtils.smoothstep
@@ -81,14 +81,6 @@ export function CineDirector() {
         once('end', () => {
           resumePlaying(true)
         })
-    } else if (cine === 'faint') {
-      live.fade = Math.min(1, t / 1.8)
-      if (t > 2.2) once('respawn', respawnAfterFaint)
-      if (t > 2.6) {
-        live.fade = Math.max(0, 1 - (t - 2.6) / 1.5)
-        useGame.setState({ subtitle: fr.msg.fainted })
-      }
-      if (t > 4.4) useGame.setState({ cine: null, subtitle: null })
     } else if (cine === 'zoneCard') {
       live.fade = t < 1.2 ? t / 1.2 : t < 2.4 ? 1 : Math.max(0, 1 - (t - 2.4) / 1.4)
       if (t > 1.2 && pendingZone) once('enter', () => enterZone(pendingZone!))
@@ -124,7 +116,7 @@ export function CineDirector() {
       flags.current.started = true
     } else if (cine === 'fail') {
       live.fade = Math.min(1, t / 3)
-      const lines = fr.story.fail
+      const lines = fr.story.fail[s.failCause ?? 'time']
       const i = Math.min(lines.length - 1, Math.floor(t / 3))
       once(`f${i}`, () => {
         useGame.setState({ subtitle: lines[i] })
@@ -263,7 +255,7 @@ function resumePlaying(briefed = G().briefed) {
 /** Skip is a complete transition, never a timer adjustment waiting on WebGL. */
 export function skipCine() {
   const s = G()
-  if (!s.cine || s.cine === 'faint' || s.cine === 'fail' || s.cine === 'lift') return
+  if (!s.cine || s.cine === 'fail' || s.cine === 'lift') return
   if (s.cine === 'zoneCard' && pendingZone) enterZone(pendingZone)
   if (s.cine === 'launch') enterZone(4)
   if (s.cine === 'heli') {

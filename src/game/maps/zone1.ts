@@ -6,7 +6,7 @@ import { hubDecor, liftEnts } from './hubDecor'
 const rooms: RoomDef[] = [
   { id: 'dortoir', name: 'dortoir', rect: [5, 19, 10, 21], light: '#ffe2c0', intensity: 9 },
   { id: 'refectoire', name: 'refectoire', rect: [13, 8, 27, 10], light: '#fff1de', intensity: 14 },
-  { id: 'reserve', name: 'reserve', rect: [12, 30, 17, 32], dark: true, noDynLight: true },
+  { id: 'reserve', name: 'reserve', rect: [12, 30, 17, 32], dark: true, noDynLight: true, beacons: true },
   { id: 'infirmerie', name: 'infirmerie', rect: [19, 30, 27, 32], light: '#e8f6ff', intensity: 11, theme: 'lab' },
   { id: 'sas', name: 'sas', rect: [30, 19, 34, 21], light: '#eaf1ff', intensity: 10, theme: 'machine' },
   { id: 'couloir', name: 'noeud', shape: 'round', rect: [17, 17, 23, 23], light: '#dfe9ff', intensity: 10 },
@@ -37,6 +37,8 @@ export const zone1: GridMap = {
     { id: 'lamp', model: 'lamp', tile: [9, 19], wall: 'N', y: 1.05, item: 'lamp', dot: 'key', hit: [0.5, 0.6, 0.32] },
     { id: 'locker', model: 'locker', tile: [10, 21], wall: 'E', off: [0.55, 0], dot: 'key', hit: [0.9, 2, 0.7] },
     { id: 'postit', model: 'postit', tile: [9, 19], wall: 'N', y: 1.55, dot: 'exam', hit: [0.22, 0.2, 0.1] },
+    // Posé sur la façade d'un casier personnel, qui s'arrête à 0,55 m du mur.
+    { id: 'postitO2', model: 'postit', tile: [8, 21], wall: 'S', y: 1.25, off: [-0.31, 0.54], dot: 'exam', hit: [0.3, 0.3, 0.12] },
     { id: 'o2_a', model: 'o2', tile: [10, 19], item: 'o2', dot: 'res' },
     { id: 'board', model: 'board', tile: [13, 9], wall: 'W', y: 1.55, dot: 'exam', hit: [1.6, 1.1, 0.3] },
     { id: 'dispenser', model: 'dispenser', tile: [27, 9], wall: 'E', dot: 'res', hit: [0.8, 1.6, 0.6] },
@@ -47,7 +49,7 @@ export const zone1: GridMap = {
     { id: 'battery_b', model: 'battery', tile: [16, 30], wall: 'N', y: 1.14, item: 'battery', dot: 'res' },
     { id: 'blanket', model: 'blanket', tile: [14, 32], y: 0, item: 'blanket', dot: 'surv' },
     { id: 'water_a', model: 'water', tile: [26, 30], wall: 'N', y: 1, item: 'water', dot: 'res' },
-    { id: 'medkit', model: 'medkit', tile: [27, 31], wall: 'E', y: 1.2, item: 'medkit', dot: 'surv' },
+    { id: 'medkit', model: 'medkit', tile: [27, 31], wall: 'E', y: 1.2, item: 'medkit', dot: 'res' },
     { id: 'o2_c', model: 'o2', tile: [25, 32], wall: 'S', item: 'o2', dot: 'res' },
     { id: 'valves', model: 'valvePanel', tile: [32, 19], wall: 'N', y: 1.35, dot: 'key', hit: [1.2, 1.2, 0.4] },
     ...liftEnts(rooms.find((r) => r.id === 'couloir')!),
@@ -158,6 +160,7 @@ export const zone1: GridMap = {
     { model: 'pipes', tile: [20, 16], rot: Math.PI / 2, scale: 5 },
     { model: 'pipes', tile: [20, 24], rot: -Math.PI / 2, scale: 5 },
     // ——— réserve : rayonnages contre les murs, l'allée centrale reste libre ———
+    { model: 'fireAlarm', tile: [14, 32], wall: 'S', y: 1.5 },
     { model: 'barrel', tile: [12, 30], off: [-0.35, -0.35] },
     { model: 'stack', tile: [13, 30], wall: 'N' },
     { model: 'rack', tile: [14, 30], wall: 'N' },

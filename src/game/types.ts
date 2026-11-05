@@ -116,6 +116,8 @@ export interface RoomDef {
   intensity?: number
   /** pas de lumière dynamique dans cette pièce (néons émissifs seulement) */
   noDynLight?: boolean
+  /** gyrophares d'alarme malgré l'absence d'éclairage de plafond */
+  beacons?: boolean
   /** palette de murs */
   theme?: 'station' | 'lab' | 'machine' | 'rocket' | 'green'
 }

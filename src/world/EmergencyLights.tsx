@@ -75,7 +75,7 @@ function Darkness() {
 
 /** Two nearby revolving beams, a fixed light count even when the power changes. */
 export function EmergencyLights({ map }: { map: GridMap }) {
-  const beacons = useMemo(() => map.rooms.filter((r) => !r.noDynLight).flatMap(beaconsFor), [map])
+  const beacons = useMemo(() => map.rooms.filter((r) => !r.noDynLight || r.beacons).flatMap(beaconsFor), [map])
   const beams = useMemo(() => Array.from({ length: 2 }, (_, i) => {
     const light = new THREE.SpotLight('#ff1408', 0, 25, 0.62, 0.8, 1.25)
     light.name = `alert-beam:${i}`

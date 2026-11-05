@@ -11,7 +11,8 @@ export type Screen = 'launch' | 'login' | 'title' | 'prologue' | 'playing' | 'en
 /** carte choisie sur l'écran de lancement */
 export type MissionMap = 'base' | 'station'
 export type Quality = 'low' | 'medium' | 'high' | 'ultra'
-export type CineKind = 'briefing' | 'faint' | 'zoneCard' | 'lift' | 'tour' | 'launch' | 'heli' | 'fail' | null
+export type FailCause = 'time' | 'o2' | 'hp' | 'water'
+export type CineKind = 'briefing' | 'zoneCard' | 'lift' | 'tour' | 'launch' | 'heli' | 'fail' | null
 
 /** limite de temps de la partie (s) selon la difficulté : au-delà, échec */
 export const timeLimit = () => DIFFICULTY[useGame.getState().difficulty ?? 'astronaut'].time + (useGame.getState().character === 'ines' ? 180 : 0)
@@ -24,10 +25,12 @@ export const ability = () => {
     lamp: c === 'nova' ? 0.65 : 1,
     errorPenalty: c === 'kenji' ? 0.5 : 1,
     water: c === 'sam' ? 0.6 : 1,
-    faintO2: c === 'sam' ? 75 : 50,
     o2: c === 'maya' ? 0.75 : 1,
+    medkitHeal: c === 'sam' ? 60 : 40,
   }
 }
+/** vitesse sur Terre sans couverture de survie (0,8 = 20 % plus lent) */
+export const NO_BLANKET_SPEED = 0.8
 export const diff = () => DIFFICULTY[useGame.getState().difficulty ?? 'astronaut']
 export const AUTOSAVE_EVERY = 30
 
@@ -140,7 +143,7 @@ export interface GameData {
   map: MissionMap
   flags: Flags
   inv: Partial<Record<ItemId, number>>
-  res: { o2: number; lamp: number; water: number }
+  res: { o2: number; lamp: number; water: number; hp: number }
   lampOn: boolean
   notes: string[]
   messages: MissionMessage[]
@@ -148,7 +151,8 @@ export interface GameData {
   discovered: string[]
   hintsUsed: number
   hintsShown: string[]
-  faints: number
+  /** l'O₂ est passé sous 15 % au moins une fois (succès « Souffle long ») */
+  o2Critical: boolean
   playTime: number
   valves: boolean[]
   /** grille de départ de cette partie, pour le bouton Réinitialiser */
@@ -170,6 +174,8 @@ export interface GameData {
   /** zones dont la présentation cinématique a été vue */
   toured: number[]
   ending: 'rescue' | 'fail' | null
+  /** ce qui a mis fin à la partie, pour adapter l'écran de défaite */
+  failCause: FailCause | null
   /** copie sérialisée de live.explored */
   explored: string[]
   difficulty: Difficulty
@@ -193,7 +199,7 @@ export const newGameData = (character = 'nova', difficulty: Difficulty = 'astron
   map,
   flags: emptyFlags(),
   inv: {},
-  res: { o2: 100, lamp: 100, water: 100 },
+  res: { o2: 100, lamp: 100, water: 100, hp: 100 },
   lampOn: false,
   notes: [],
   messages: [],
@@ -201,7 +207,7 @@ export const newGameData = (character = 'nova', difficulty: Difficulty = 'astron
   discovered: [],
   hintsUsed: 0,
   hintsShown: [],
-  faints: 0,
+  o2Critical: false,
   playTime: 0,
   valves,
   valveStart: [...valves],
@@ -217,6 +223,7 @@ export const newGameData = (character = 'nova', difficulty: Difficulty = 'astron
   choice: null,
   toured: [],
   ending: null,
+  failCause: null,
   explored: [],
   difficulty,
   track: [],
@@ -501,7 +508,9 @@ export type SaveFile = GameData & { pos?: [number, number, number]; yaw?: number
 
 export function normalizeSave(d: any): SaveFile | null {
   if (!d || !d.zone) return null
-  const saved = { ...newGameData(d.character), ...d, flags: { ...emptyFlags(), ...d.flags }, messages: Array.isArray(d.messages) ? d.messages : [] }
+  const fresh = newGameData(d.character)
+  // Les sauvegardes d'avant la jauge de vie n'ont pas de res.hp.
+  const saved = { ...fresh, ...d, res: { ...fresh.res, ...d.res }, flags: { ...emptyFlags(), ...d.flags }, messages: Array.isArray(d.messages) ? d.messages : [] }
   if (!Array.isArray(d.valveStart) || d.valveStart.length !== 9)
     saved.valveStart = Array.isArray(saved.valves) && saved.valves.length === 9 ? [...saved.valves] : [...saved.valveStart]
   const items = (Object.keys(saved.inv) as ItemId[]).filter((it) => saved.inv[it] > 0)

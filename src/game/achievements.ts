@@ -17,8 +17,8 @@ export const ACHIEVEMENTS: Achievement[] = [
   { code: 'no_hint', name: 'Esprit d’ingénieur', desc: 'Terminer sans aucun indice.', icon: '🧠' },
   { code: 'perfect', name: 'Sans faute', desc: 'Terminer sans aucune erreur.', icon: '🎯' },
   { code: 'speed', name: 'Fusée', desc: 'Terminer en moins de 10 minutes.', icon: '⚡' },
-  { code: 'collector', name: 'Prévoyant', desc: 'Ramasser les 11 objets de survie.', icon: '🎒' },
-  { code: 'no_faint', name: 'Souffle long', desc: 'Terminer sans t’évanouir.', icon: '🫁' },
+  { code: 'collector', name: 'Prévoyant', desc: 'Ramasser les 10 objets de survie.', icon: '🎒' },
+  { code: 'no_faint', name: 'Souffle long', desc: 'Terminer sans jamais passer sous 15 % d’O₂.', icon: '🫁' },
   { code: 'keeper', name: 'La découverte', desc: 'Ramener les échantillons de Maya.', icon: '🧪' },
   { code: 'survivor', name: 'Survivant', desc: 'Terminer en difficulté Survie.', icon: '🔥' },
   { code: 'sealed', name: 'Bricoleur', desc: 'Colmater une micro-fuite au ruban adhésif.', icon: '🩹' },
@@ -68,7 +68,7 @@ export function checkEndAchievements() {
   ok('no_hint', s.hintsUsed === 0)
   ok('perfect', s.errors === 0)
   ok('speed', t < 600)
-  ok('no_faint', s.faints === 0)
+  ok('no_faint', !s.o2Critical)
   ok('keeper', s.choice === 'keep')
   ok('survivor', s.difficulty === 'survival')
   ok('collector', SURVIVAL_ITEMS.every((k) => (s.inv[k] ?? 0) > 0 || (k === 'tape' && localAchievements().includes('sealed'))))

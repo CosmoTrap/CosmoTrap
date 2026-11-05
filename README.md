@@ -22,7 +22,7 @@ Ouvrir l'URL publique : `https://royalblue-wolverine-280146.hostingersite.com`. 
 | Nova | Économe : la lampe consomme 35 % de piles en moins |
 | Kenji | Décodeur : pénalités d'erreur divisées par 2 |
 | Inès | Sang-froid : +3 min au chrono |
-| Sam | Endurant : −40 % d'eau, 75 % d'O₂ après un malaise |
+| Sam | Endurant : −40 % d'eau, trousses de secours à +60 % de vie |
 | Maya | Souffle long : −25 % d'O₂ |
 
 **Paramètres → Jeu.** Niveau d'aide (Recrue : 1er indice gratuit ; Pilote : 30 s / 60 s ; Commandant : 60 s / 120 s), chronomètre, sous-titres, sauvegarde à chaque énigme, langue FR / EN, qualité, luminosité, sensibilité, champ de vision (70–110°), plein écran et résolution.
@@ -149,7 +149,7 @@ Le classement est séparé par difficulté.
 
 ### Succès et réplique fantôme
 
-- **Succès.** Il y en a 10 : partie terminée, sans indice, sans faute, moins de 10 min, 11 objets de survie, sans évanouissement, échantillons gardés, Survie terminée, fuite colmatée, station explorée en entier. Ils sont gardés dans le compte et visibles depuis le menu **Succès**.
+- **Succès.** Il y en a 10 : partie terminée, sans indice, sans faute, moins de 10 min, 10 objets de survie, O₂ jamais sous 15 %, échantillons gardés, Survie terminée, fuite colmatée, station explorée en entier. Ils sont gardés dans le compte et visibles depuis le menu **Succès**.
 - **Réplique fantôme.** Le parcours du meilleur temps de ta difficulté est rejoué en hologramme orange, en même temps que toi. Il se désactive dans Réglages.
 
 - **Chronomètre.** La partie dure au plus 30 minutes, avec le temps restant affiché en haut. À zéro, c'est l'échec : la station est perdue.
@@ -163,9 +163,11 @@ Le classement est séparé par difficulté.
 
   Leur nombre est compté et affiché à la fin.
 - **Ressources.**
-  - Oxygène : −0,42 %/s, ×1,5 en zone 2 tant que la vapeur fuit. À 0, la bouteille d'O₂ se branche seule ; sans bouteille, tu t'évanouis et reviens au départ de la zone avec 50 %.
-  - Lampe : −0,75 %/s quand elle est allumée. À 0, elle s'éteint, et on ne peut plus lire ni ramasser dans le noir.
-  - Eau : −0,11 %/s. À 0, la vue devient floue et tu avances 45 % moins vite.
+  - Oxygène : −0,21 %/s, ×1,5 en zone 2 tant que le gaz fuit. Une bouteille d'O₂ ajoute 55 % : on ne peut la brancher qu'à 45 % ou moins, et elle se branche seule à 15 %. À 0, la partie est perdue.
+  - Lampe : −0,20 %/s quand elle est allumée. À 0, elle s'éteint, et on ne peut plus lire ni ramasser dans le noir.
+  - Eau : −0,11 %/s. Une poche ajoute 50 % et se boit seule à 15 %. À 0, la partie est perdue.
+  - Vie : le gaz de la conduite cassée (zone 2) enlève 75 % à chaque contact. Une trousse de secours rend 40 % (60 % avec Sam) et se déclenche seule à 15 %. À 0, la partie est perdue.
+  - Couverture de survie : sur Terre, sans elle, tu perds 0,1 % de vie par seconde et tu avances 20 % moins vite.
 - **Score.** `6000 + 3 × (secondes restantes) − 150 × indices − 100 × erreurs + 60 × objets de survie (+300 si les échantillons sont gardés)`.
 - **Classement.** Il garde le meilleur temps de chaque joueur, pénalités comprises.
 - **Sauvegarde.** Elle a lieu toutes les 30 s et à chaque changement de zone, en local et dans le compte. **Continuer** reprend la sauvegarde la plus récente, même depuis un autre ordinateur.
@@ -174,7 +176,7 @@ Le classement est séparé par difficulté.
 
 1. **Prologue** (passable) : 2041, base lunaire Selene-7. Le labo de Maya vient de trouver de l'eau sous le pôle Sud. Une micro-météorite frappe la station.
 2. **Zone 1 · Quartiers d'équipage.** Visite cinématique de la zone. Briefing holographique de la commandante. Il faut sortir du dortoir et pressuriser le sas.
-3. **Zone 2 · Labo & machinerie.** Il faut couper la fuite de vapeur, réparer le disjoncteur, faire un choix d'énergie, puis décoder le programme de lancement.
+3. **Zone 2 · Labo & machinerie.** Il faut couper la fuite de gaz, réparer le disjoncteur, faire un choix d'énergie, puis décoder le programme de lancement.
 4. **Zone 3 · Fusée Hermès.** Il faut trouver la cellule, planifier le pré-vol, prendre une décision sur les échantillons et lancer la séquence. Suivent le décollage et la rentrée atmosphérique.
 5. **Zone 4 · Terre.** Dans la vallée au coucher du soleil, il faut fouiller la capsule, réparer le pont, émettre un signal radio et tirer la fusée de détresse. L'hélicoptère arrive : fin.
 
@@ -199,7 +201,7 @@ Le classement est séparé par difficulté.
 ### Zone 2 — Labo & machinerie
 
 1. Prendre le **fusible** dans le labo (nord-ouest) et la **clé à molette** dans la serre (nord).
-2. Fermer la **vanne de vapeur** dans le couloir, à l'est. La vapeur bloque l'accès au disjoncteur.
+2. Fermer la **vanne de gaz** dans le couloir, à l'est. Le gaz bloque l'accès au disjoncteur.
 3. **Disjoncteur** (nord-est) : y poser le fusible.
 4. **Choix stratégique (gestion de projet).** Le réseau fournit 3 unités pour 4 systèmes. Démarrer le **sas** d'abord, puis le **terminal**. Lancer le terminal avant le sas fait sauter le disjoncteur : les quatre systèmes s'éteignent (−20 s). Ensuite, choisir **Recyclage O₂** ou **Lumières de la machinerie**.
 5. **Énigme 3, algorithmique.** Le terminal de la machinerie affiche :
@@ -296,7 +298,7 @@ npx playwright test
 `tests/playthrough.spec.ts` crée un compte et joue toute la partie en se téléportant devant chaque objectif. Il résout les énigmes par l'interface et vérifie les verrous :
 
 - l'ascenseur reste verrouillé avant la pressurisation ;
-- la vapeur bloque l'accès au disjoncteur ;
+- le gaz bloque l'accès au disjoncteur ;
 - le sas reste fermé tant que le terminal n'est pas décodé ;
 - la rivière est infranchissable avant le pont.
 

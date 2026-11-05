@@ -141,3 +141,93 @@ test('raccourcis personnalisés, cinématiques et sauvegarde de la sélection', 
   await page.keyboard.press('KeyV')
   await expect(page.getByTestId('inventory')).toBeVisible()
 })
+
+test('sur Terre, la couverture de survie évite le malus de vitesse sans jamais bloquer le joueur', async ({ page }) => {
+  await start(page)
+  await page.evaluate(() => { window.__game.goto(4); window.__game.set({ cine: null, toured: [1, 2, 3, 4] }) })
+  await page.waitForFunction(() => window.__game.state().playerZone === 4 && window.__game.state().loading === 1, null, { timeout: 120000 })
+  await page.waitForTimeout(500)
+  const walk = async () => {
+    const from = await page.evaluate(() => [...window.__game.live.pos])
+    await page.keyboard.down('KeyW')
+    await page.waitForTimeout(1500)
+    await page.keyboard.up('KeyW')
+    const to = await page.evaluate(() => [...window.__game.live.pos])
+    await page.keyboard.down('KeyS')
+    await page.waitForTimeout(1500)
+    await page.keyboard.up('KeyS')
+    await page.waitForTimeout(200)
+    return Math.hypot(to[0] - from[0], to[2] - from[2])
+  }
+  const without = await walk()
+  await page.evaluate(() => window.__game.give('blanket'))
+  const withBlanket = await walk()
+  expect(without).toBeGreaterThan(1)
+  expect(without / withBlanket).toBeGreaterThan(0.7)
+  expect(without / withBlanket).toBeLessThan(0.9)
+})
+
+test('vie : le gaz brûle, les trousses soignent, le froid blesse sur Terre sans couverture', async ({ page }) => {
+  await start(page)
+  await page.evaluate(() => { window.__game.goto(2); window.__game.set({ cine: null, toured: [1, 2, 3, 4] }) })
+  await page.waitForFunction(() => window.__game.state().playerZone === 2 && window.__game.state().loading === 1, null, { timeout: 120000 })
+  // Hors du gaz, rien ; dans le nuage, un seul coup de 75 % malgré plusieurs images.
+  await page.evaluate(() => window.__game.teleportXZ(51, 37, -Math.PI / 2))
+  await page.waitForTimeout(300)
+  expect((await state(page)).res.hp).toBe(100)
+  await page.evaluate(() => window.__game.teleportXZ(55.5, 37, -Math.PI / 2))
+  await expect.poll(async () => (await state(page)).res.hp).toBe(25)
+  await page.waitForTimeout(500)
+  expect((await state(page)).res.hp).toBe(25)
+  const o2 = (await state(page)).res.o2
+  expect(o2).toBeGreaterThan(90)
+  await page.evaluate(() => window.__game.teleportXZ(51, 37, -Math.PI / 2))
+  await page.waitForTimeout(300)
+  // Une trousse soigne, et elle est refusée quand la vie est pleine.
+  await page.evaluate(() => { window.__game.give('medkit', 2); window.__game.setRes({ hp: 20 }) })
+  expect(await page.evaluate(() => window.__game.useItem('medkit'))).toBe(true)
+  expect((await state(page)).res.hp).toBeCloseTo(60, 0)
+  await page.evaluate(() => window.__game.setRes({ hp: 100 }))
+  expect(await page.evaluate(() => window.__game.useItem('medkit'))).toBe(false)
+  expect((await state(page)).inv.medkit).toBe(1)
+  // À 15 %, la trousse restante se déclenche seule.
+  await page.evaluate(() => { window.__game.setRes({ hp: 15 }); window.__game.drain(0.1) })
+  expect((await state(page)).inv.medkit).toBeUndefined()
+  expect((await state(page)).res.hp).toBeCloseTo(55, 0)
+  // Sur Terre, la vie baisse sans couverture et ne bouge plus avec.
+  await page.evaluate(() => { window.__game.goto(4); window.__game.set({ cine: null }) })
+  await page.waitForFunction(() => window.__game.state().playerZone === 4 && window.__game.state().loading === 1, null, { timeout: 120000 })
+  await page.evaluate(() => { window.__game.setRes({ hp: 80 }); window.__game.drain(10) })
+  expect((await state(page)).res.hp).toBeCloseTo(79, 0)
+  await page.evaluate(() => { window.__game.give('blanket'); window.__game.setRes({ hp: 80 }); window.__game.drain(10) })
+  expect((await state(page)).res.hp).toBe(80)
+})
+
+for (const [gauge, cause, title] of [['o2', 'o2', 'Plus d’oxygène…'], ['hp', 'hp', 'Blessures mortelles…'], ['water', 'water', 'Plus une goutte d’eau…']] as const) {
+  test(`à 0 % de ${gauge}, la partie est perdue et l'écran de défaite en donne la cause`, async ({ page }) => {
+    await start(page)
+    await page.evaluate((g) => { window.__game.setRes({ [g]: 0 }); window.__game.drain(0.1) }, gauge)
+    expect((await state(page)).cine).toBe('fail')
+    expect(await page.evaluate(() => window.__game.state().failCause)).toBe(cause)
+    await expect(page.getByTestId('end')).toBeVisible({ timeout: 20000 })
+    await expect(page.getByText(title)).toBeVisible()
+    await expect(page.getByText('Temps restant')).toBeVisible()
+    await page.waitForTimeout(2500)
+    await page.screenshot({ path: `test-results/defaite-${cause}.png` })
+  })
+}
+
+test('Sam soigne mieux, et le succès Souffle long suit le passage sous 15 % d’O₂', async ({ page }) => {
+  await start(page)
+  await page.evaluate(() => { window.__game.give('medkit'); window.__game.setRes({ hp: 20 }); window.__game.useItem('medkit') })
+  expect((await state(page)).res.hp).toBeCloseTo(60, 0)
+  // Une bouteille branchée à 15 % évite le passage en zone critique ; sans bouteille, il est retenu.
+  await page.evaluate(() => { window.__game.give('o2'); window.__game.setRes({ o2: 15.05 }); window.__game.drain(1) })
+  expect((await state(page)).o2Critical).toBe(false)
+  await page.evaluate(() => { window.__game.setRes({ o2: 15.05 }); window.__game.drain(1) })
+  expect((await state(page)).o2Critical).toBe(true)
+  await page.evaluate(() => window.__game.start('sam'))
+  await page.evaluate(() => { window.__game.give('medkit'); window.__game.setRes({ hp: 20 }); window.__game.useItem('medkit') })
+  expect((await state(page)).res.hp).toBeCloseTo(80, 0)
+  expect((await state(page)).o2Critical).toBe(false)
+})

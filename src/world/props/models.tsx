@@ -184,29 +184,59 @@ function Shelf() {
   )
 }
 
-/** Angle-head flashlight: the grip stands along +y in the fist, the lens looks along -z. */
+/** Soft fade along a beam: bright at the lens, gone at the far end. */
+function beamTexture() {
+  const c = document.createElement('canvas')
+  c.width = 4
+  c.height = 128
+  const ctx = c.getContext('2d')!
+  const g = ctx.createLinearGradient(0, 0, 0, 128)
+  g.addColorStop(0, 'rgba(255,255,255,0)')
+  g.addColorStop(1, 'rgba(255,255,255,1)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, 4, 128)
+  return new THREE.CanvasTexture(c)
+}
+
+/** Straight torch: tail at y = 0, lens at the top looking along +y. Machined body with an orange grip, readable even in a dark room. */
 export function Flashlight({ on = false }: { on?: boolean }) {
-  const m = useMats()
-  const body = m.metal('#2b3036', 0.38)
-  const steel = m.metal('#b3b8bc', 0.22)
+  const mats = useMemo(() => {
+    const std = (color: string, metalness: number, roughness: number, glow = 0.1) => new THREE.MeshStandardMaterial({ color, metalness, roughness, emissive: color, emissiveIntensity: glow })
+    return {
+      body: std('#aeb6bc', 0.55, 0.42),
+      dark: std('#3a4046', 0.6, 0.5),
+      grip: std('#e8662a', 0, 0.8, 0.16),
+      steel: std('#dfe4e7', 0.8, 0.22),
+      reflector: std('#f2f4f5', 0.9, 0.12),
+      glass: new THREE.MeshStandardMaterial({ color: '#d9e6ec', metalness: 0.1, roughness: 0.08, transparent: true, opacity: 0.35 }),
+      lens: new THREE.MeshBasicMaterial({ color: '#fff3d6', toneMapped: false }),
+      beam: new THREE.MeshBasicMaterial({ map: beamTexture(), color: '#ffe9c2', transparent: true, opacity: 0.07, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }),
+    }
+  }, [])
   return (
     <group name="flashlight">
-      <Lathe m={body} seg={28} profile={[[0, 0], [0.014, 0], [0.018, 0.004], [0.018, 0.024], [0.0165, 0.028], [0.0165, 0.128], [0.02, 0.138], [0.02, 0.16], [0, 0.17]]} />
-      {/* Knurled grip. */}
-      {[0.045, 0.057, 0.069, 0.081, 0.093, 0.105].map((y) => <mesh key={y} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]} material={m.rubber('#14171a')}>
-        <torusGeometry args={[0.0168, 0.0014, 6, 22]} />
+      {/* Tail cap, barrel and flared head, turned as one piece. */}
+      <Lathe m={mats.dark} seg={28} profile={[[0, 0], [0.015, 0], [0.0175, 0.003], [0.0175, 0.024], [0.016, 0.027], [0, 0.027]]} />
+      <Lathe m={mats.body} seg={28} profile={[[0.016, 0.027], [0.016, 0.128], [0.0185, 0.134], [0.027, 0.158], [0.0285, 0.176], [0.024, 0.178], [0.022, 0.15], [0, 0.15]]} />
+      {/* Rubber grip where the fist closes, with raised ribs. */}
+      <Cyl a={[0.0172, 0.0172, 0.07]} p={[0, 0.08, 0]} m={mats.grip} seg={28} />
+      {[0.054, 0.067, 0.08, 0.093, 0.106].map((y) => <mesh key={y} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]} material={mats.grip}>
+        <torusGeometry args={[0.0176, 0.0013, 6, 26]} />
       </mesh>)}
-      {/* Head, bent forward from the top of the grip. */}
-      <group position={[0, 0.15, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <Lathe m={body} seg={28} profile={[[0, -0.024], [0.02, -0.022], [0.021, 0.015], [0.03, 0.04], [0.033, 0.06], [0.033, 0.074], [0.03, 0.078], [0, 0.078]]} />
-        <mesh position={[0, 0.076, 0]} rotation={[Math.PI / 2, 0, 0]} material={steel}><torusGeometry args={[0.031, 0.0028, 8, 28]} /></mesh>
-        <mesh position={[0, 0.0795, 0]} rotation={[-Math.PI / 2, 0, 0]} material={on ? m.glow('#fff4d8', 2.4) : m.glass('#dfe9ef', 0.75)}>
-          <circleGeometry args={[0.028, 28]} />
-        </mesh>
-      </group>
-      {/* Switch under the thumb, lanyard ring at the tail. */}
-      <Box s={[0.014, 0.024, 0.008]} p={[0, 0.118, 0.018]} m={m.plastic(on ? '#ff8a3a' : '#d9673a', 0.4)} />
-      <mesh position={[0, -0.006, 0]} material={steel}><torusGeometry args={[0.008, 0.0016, 6, 14]} /></mesh>
+      {/* Knurled tail and steel collars. */}
+      {[0.007, 0.013, 0.019].map((y) => <mesh key={y} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]} material={mats.steel}>
+        <torusGeometry args={[0.0176, 0.0009, 6, 26]} />
+      </mesh>)}
+      <mesh position={[0, 0.123, 0]} rotation={[Math.PI / 2, 0, 0]} material={mats.steel}><torusGeometry args={[0.0165, 0.0014, 8, 26]} /></mesh>
+      <mesh position={[0, 0.177, 0]} rotation={[Math.PI / 2, 0, 0]} material={mats.steel}><torusGeometry args={[0.0265, 0.0024, 8, 30]} /></mesh>
+      {/* Reflector, then the lens: glass when off, lit when on. */}
+      <Lathe m={mats.reflector} seg={28} profile={[[0.006, 0.152], [0.024, 0.175]]} />
+      <mesh position={[0, 0.175, 0]} rotation={[-Math.PI / 2, 0, 0]} material={on ? mats.lens : mats.glass}><circleGeometry args={[0.0245, 30]} /></mesh>
+      {/* Switch on the barrel, under the thumb. */}
+      <Box s={[0.011, 0.018, 0.005]} p={[0, 0.118, 0.0172]} m={mats.dark} />
+      <Box s={[0.007, 0.012, 0.003]} p={[0, 0.118, 0.0205]} m={on ? mats.lens : mats.grip} />
+      {/* The beam, visible in the air when lit. */}
+      {on && <mesh position={[0, 0.176 + 0.25, 0]} material={mats.beam}><cylinderGeometry args={[0.12, 0.024, 0.5, 24, 1, true]} /></mesh>}
     </group>
   )
 }
