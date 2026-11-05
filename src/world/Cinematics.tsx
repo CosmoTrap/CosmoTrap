@@ -8,12 +8,16 @@ import { riverCenter, terrainHeight } from '../game/maps/zone4'
 import { AUTOSAVE_EVERY, G, clearSave, live, saveGame, useGame } from '../game/state'
 import { fr } from '../i18n/fr'
 import { Astronaut, type AstronautHandle } from './Astronaut'
+import { endScene, runScene } from './FilmScenes'
 import { heli } from './zone4/Zone4'
+import { input } from '../player/input'
 
 // Metteur en scène : briefing holographique, évanouissement, transitions de zone,
 // décollage + rentrée atmosphérique, arrivée de l'hélicoptère et fin.
 
 const sm = THREE.MathUtils.smoothstep
+/** when the lift's arrival began, measured after the new floor finished loading */
+let liftArrival = 0
 
 export function GameLoop() {
   const saveT = useRef(0)
@@ -37,14 +41,22 @@ export function CineDirector() {
     if (cine === 'briefing') {
       audio.sfx('holo')
     }
-    if (cine === 'launch') {
+    // Pointer lock routes every click to the canvas, including clicks visually
+    // over "Passer". Release it for every cinematic, not just the launch.
+    // The lift is a short everyday ride: leave the mouse captured so play simply carries on.
+    if (cine && cine !== 'lift' && G().cine === cine && document.pointerLockElement) {
       document.exitPointerLock?.()
     }
   }, [cine, t0])
+  useEffect(() => () => resetCineView(), [])
 
   useFrame(() => {
     const s = G()
-    const t = (performance.now() - t0) / 1000
+    if (s.loading < 1) return
+    // Read the store, not the previous render: a click can finish the cinematic
+    // between two frames. A stale tour frame must never take the camera back.
+    const cine = s.cine
+    const t = (performance.now() - s.cineT0) / 1000
     const once = (k: string, fn: () => void) => {
       if (!flags.current[k]) {
         flags.current[k] = true
@@ -67,7 +79,7 @@ export function CineDirector() {
         })
       } else
         once('end', () => {
-          useGame.setState({ cine: null, subtitle: null, briefed: true })
+          resumePlaying(true)
         })
     } else if (cine === 'faint') {
       live.fade = Math.min(1, t / 1.8)
@@ -88,22 +100,28 @@ export function CineDirector() {
         if (!s.toured.includes(s.zone)) useGame.setState({ cine: 'tour', cineT0: performance.now() })
         else afterTour()
       }
+    } else if (cine === 'lift') {
+      if (pendingZone) {
+        // The door closes, then the picture fades while the cab travels.
+        live.fade = sm(t, 0.55, 1.25)
+        if (t > 1.3) once('enter', () => enterZone(pendingZone!))
+      } else if (!s.toured.includes(s.zone)) {
+        // First arrival on this floor: its title card, then its film scene.
+        live.fade = 1
+        useGame.setState({ cine: 'zoneCard', cineT0: performance.now() - 1300 })
+      } else {
+        liftArrival ||= performance.now()
+        const a = (performance.now() - liftArrival) / 1000
+        live.fade = Math.max(0, 1 - a / 0.9)
+        if (a > 0.9) {
+          liftArrival = 0
+          afterTour()
+        }
+      }
     } else if (cine === 'tour') {
-      const path = tourPath(s.zone)
-      const D = tourDur(s.zone)
-      const k = Math.min(1, t / D)
-      const e = k * k * (3 - 2 * k)
-      const p = path.getPointAt(e)
-      const ahead = path.getPointAt(Math.min(1, e + 0.04))
-      live.camOverride = { pos: [p.x, p.y, p.z], look: [ahead.x, ahead.y - 0.25, ahead.z] }
-      live.fade = t < 0.6 ? 1 - t / 0.6 : t > D - 0.8 ? Math.min(1, (t - (D - 0.8)) / 0.8) : 0
-      const lines = fr.story.tours[s.zone] ?? []
-      const i = Math.min(lines.length - 1, Math.floor((t / D) * lines.length))
-      once(`t${i}`, () => {
-        useGame.setState({ subtitle: lines[i] })
-        audio.speak(lines[i], { rate: 1.05, id: `tour_${s.zone}_${i}` })
-      })
-      if (t > D) once('end', endTour)
+      // scène « film » de la zone (plans découpés, acteur, crash sur Terre)
+      if (!runScene(s.zone, t, !flags.current.started)) once('end', endTour)
+      flags.current.started = true
     } else if (cine === 'fail') {
       live.fade = Math.min(1, t / 3)
       const lines = fr.story.fail
@@ -200,99 +218,64 @@ export function CineDirector() {
   return null
 }
 
-const tourCache = new Map<number, THREE.CatmullRomCurve3>()
-function tourDur(zone: number) {
-  return THREE.MathUtils.clamp(tourPath(zone).getLength() / 6, 12, 24)
-}
-
-/** trajet de caméra qui présente la map (salles dans l'ordre, en passant par les portes) */
-function tourPath(zone: number) {
-  const hit = tourCache.get(zone)
-  if (hit) return hit
-  const curve = buildTourPath(zone)
-  tourCache.set(zone, curve)
-  return curve
-}
-
-function buildTourPath(zone: number) {
-  const pts: THREE.Vector3[] = []
-  if (zone < 4) {
-    const map = GRID_MAPS[zone as 1 | 2 | 3]
-    const sp = spawnOf(zone as 1 | 2 | 3)
-    const targets = map.rooms.map((r) => [Math.floor((r.rect[0] + r.rect[2]) / 2), Math.floor((r.rect[1] + r.rect[3]) / 2)] as [number, number])
-    targets.push([Math.floor(sp.pos[0] / 2), Math.floor(sp.pos[2] / 2)])
-    const walk = (a: [number, number], b: [number, number]) => {
-      const key = (x: number, z: number) => `${x},${z}`
-      const prev = new Map<string, string | null>([[key(...a), null]])
-      const q: [number, number][] = [a]
-      while (q.length) {
-        const [x, z] = q.shift()!
-        if (x === b[0] && z === b[1]) break
-        for (const [dx, dz] of [
-          [1, 0],
-          [-1, 0],
-          [0, 1],
-          [0, -1],
-        ]) {
-          const nx = x + dx
-          const nz = z + dz
-          const c = map.grid[nz]?.[nx]
-          if (!c || (c !== '.' && c !== 'D') || prev.has(key(nx, nz))) continue
-          prev.set(key(nx, nz), key(x, z))
-          q.push([nx, nz])
-        }
-      }
-      const out: [number, number][] = []
-      let k: string | null | undefined = key(...b)
-      while (k) {
-        const [x, z] = k.split(',').map(Number)
-        out.unshift([x, z])
-        k = prev.get(k)
-      }
-      return out
-    }
-    let cur = targets[0]
-    const tiles: [number, number][] = [cur]
-    for (const t of targets.slice(1)) {
-      tiles.push(...walk(cur, t).slice(1))
-      cur = t
-    }
-    tiles.forEach(([x, z], i) => {
-      if (i % 2 === 0 || i === tiles.length - 1) pts.push(new THREE.Vector3(x * 2 + 1, 1.85, z * 2 + 1))
-    })
-  } else {
-    const h = (x: number, z: number, dy: number) => new THREE.Vector3(x, terrainHeight(x, z) + dy, z)
-    pts.push(h(-6, 14, 9), h(4, 0, 6), h(10, riverCenter(10) + 6, 4), h(12, -36, 6), h(4, -54, 9), h(-4, -30, 14), h(0, -8, 3))
-  }
-  return new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.3)
-}
-
 function afterTour() {
   const s = G()
-  live.camOverride = null
-  live.fade = 0
-  useGame.setState({ cine: null, subtitle: null })
-  if (s.zone === 1 && !s.briefed) useGame.setState({ cine: 'briefing', cineT0: performance.now() })
+  resetCineView()
+  const briefing = s.zone === 1 && !s.briefed
+  useGame.setState({ cine: briefing ? 'briefing' : null, cineT0: performance.now(), subtitle: null, paused: false, shake: 0 })
 }
 
 function endTour() {
   const s = G()
   audio.stopSpeech()
+  endScene()
   useGame.setState({ toured: [...s.toured, s.zone] })
   afterTour()
 }
 
-/** passer la cinématique en cours */
+/** Release everything owned by a cinematic, including overlays outside the canvas. */
+function resetCineView() {
+  endScene()
+  live.camOverride = null
+  live.fade = 0
+  live.flash = 0
+  live.card = null
+  live.countdown = null
+  live.ext.y = 0
+  live.ext.plasma = 0
+  input.down.clear()
+  input.jumpRequested = false
+  input.look.dx = input.look.dy = 0
+  input.joy.x = input.joy.y = 0
+  input.touchRun = false
+}
+
+function resumePlaying(briefed = G().briefed) {
+  audio.stopSpeech()
+  audio.stopLoop('reentry')
+  resetCineView()
+  const s = G()
+  useGame.setState({ cine: null, subtitle: null, briefed, paused: false, shake: 0,
+    tabletOpen: false, puzzle: null, readNote: null, settingsOpen: false,
+    toured: s.toured.includes(s.zone) ? s.toured : [...s.toured, s.zone] })
+}
+
+/** Skip is a complete transition, never a timer adjustment waiting on WebGL. */
 export function skipCine() {
   const s = G()
-  const now = performance.now()
-  if (s.cine === 'tour') endTour()
-  else if (s.cine === 'briefing') {
-    audio.stopSpeech()
-    useGame.setState({ cine: null, subtitle: null, briefed: true })
-  } else if (s.cine === 'zoneCard') useGame.setState({ cineT0: Math.min(s.cineT0, now - 4900) })
-  else if (s.cine === 'launch') useGame.setState({ cineT0: now - 18000 })
-  else if (s.cine === 'heli') useGame.setState({ cineT0: now - 21000 })
+  if (!s.cine || s.cine === 'faint' || s.cine === 'fail' || s.cine === 'lift') return
+  if (s.cine === 'zoneCard' && pendingZone) enterZone(pendingZone)
+  if (s.cine === 'launch') enterZone(4)
+  if (s.cine === 'heli') {
+    audio.stopAllLoops()
+    heli.visible = false
+    clearSave()
+    resumePlaying()
+    audio.oneShotMusic('victory')
+    useGame.setState({ ended: true, ending: 'rescue', screen: 'end' })
+    return
+  }
+  resumePlaying(G().zone === 1 ? true : G().briefed)
 }
 
 /** le personnage vu à la 3e personne pendant la fin : il lève le bras */
@@ -320,7 +303,7 @@ export function EndAvatar() {
   })
   return (
     <group ref={g} visible={false}>
-      <Astronaut ref={ref} accent={fr.characters[character]?.color ?? '#d9673a'} />
+      <Astronaut ref={ref} skin={character} accent={fr.characters[character]?.color ?? '#d9673a'} />
     </group>
   )
 }

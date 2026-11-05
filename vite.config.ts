@@ -6,7 +6,7 @@ export default defineConfig({
   // dépendances préoptimisées dès le démarrage : évite qu'une réoptimisation en cours de partie
   // ne charge deux copies de Rapier (écran noir « raweventqueue_new »)
   optimizeDeps: {
-    include: ['three', '@react-three/fiber', '@react-three/drei', '@react-three/postprocessing', 'postprocessing', '@react-three/rapier', '@dimforge/rapier3d-compat', 'howler', 'zustand', 'three/examples/jsm/utils/BufferGeometryUtils.js'],
+    include: ['three', '@react-three/fiber', '@react-three/drei', '@react-three/postprocessing', 'postprocessing', '@react-three/rapier', '@dimforge/rapier3d-compat', 'howler', 'zustand', 'three/examples/jsm/utils/BufferGeometryUtils.js', 'three/examples/jsm/geometries/RoundedBoxGeometry.js'],
   },
   server: {
     host: true,

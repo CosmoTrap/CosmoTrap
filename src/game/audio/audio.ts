@@ -8,6 +8,7 @@ import { SFX, heart, makeImpulse, makeNoise, startLoop, type LoopName, type SfxN
 const DUCKED: SfxName[] = ['door_open', 'pickup_key', 'power_up', 'success', 'launch', 'valve', 'breathe_o2', 'airlock', 'flare']
 
 const FILE_OF: Partial<Record<SfxName | LoopName, string>> = {
+  impact: 'sfx_impact',
   door_open: 'sfx_door_open',
   door_locked: 'sfx_door_locked',
   pickup_o2: 'sfx_pickup_o2',
@@ -58,7 +59,14 @@ class AudioManager {
   private howls = new Map<string, Howl>()
   private musicHowls: { calm?: Howl; tension?: Howl } = {}
   private vols = { music: 0.7, sfx: 0.85, voice: 0.9 }
-  private loops = new Map<string, { stop: () => void; out: GainNode; panner?: PannerNode; howl?: Howl; hid?: number }>()
+  private ambience = 1
+  /** son spatial 3D : si désactivé, les sons ne sont plus positionnés dans l'espace */
+  spatial = true
+  /** sortie : casque (HRTF) ou haut-parleurs (panoramique simple) */
+  output: 'headphones' | 'speakers' = 'headphones'
+  /** légendes de sons (branché par App sur les messages à l'écran) */
+  onCaption: ((name: SfxName) => void) | null = null
+  private loops = new Map<string, { stop: () => void; out: GainNode; panner?: PannerNode; howl?: Howl; hid?: number; vol?: number }>()
   private listener = { pos: [0, 0, 0], fwd: [0, 0, -1] }
   private theme: ThemeId | null = null
   ready = false
@@ -111,8 +119,9 @@ class AudioManager {
     }
   }
 
-  setVolumes(v: { music: number; sfx: number; voice: number }) {
+  setVolumes(v: { music: number; sfx: number; voice: number; ambience?: number }) {
     this.vols = v
+    if (v.ambience != null) this.ambience = v.ambience
     this.applyVolumes()
   }
 
@@ -124,6 +133,11 @@ class AudioManager {
     this.voiceBus.gain.setTargetAtTime(this.vols.voice, t, 0.05)
     Howler.volume(1)
     for (const h of this.howls.values()) h.volume(this.vols.sfx)
+    for (const [key, l] of this.loops) {
+      if (!key.startsWith('amb')) continue
+      if (l.howl && l.hid != null) l.howl.volume((l.vol ?? 1) * this.vols.sfx * this.ambience, l.hid)
+      else l.out.gain.setTargetAtTime((l.vol ?? 1) * this.ambience, t, 0.05)
+    }
   }
 
   /** les fichiers du manifeste peuvent être en .mp3 (ElevenLabs), .ogg ou .m4a */
@@ -144,6 +158,8 @@ class AudioManager {
   /** joue un bruitage, éventuellement spatialisé */
   sfx(name: SfxName, opts: { pos?: [number, number, number]; vol?: number } = {}) {
     if (!this.ctx || !this.ready) return
+    this.onCaption?.(name)
+    if (!this.spatial) opts = { ...opts, pos: undefined }
     const file = FILE_OF[name] ?? `sfx_${name}`
     const h = this.howl(name.startsWith('steps') ? `${file}_${1 + Math.floor(Math.random() * 4)}` : file)
     let dur = 1
@@ -171,7 +187,7 @@ class AudioManager {
 
   private panner(pos: [number, number, number]) {
     const p = this.ctx!.createPanner()
-    p.panningModel = 'HRTF'
+    p.panningModel = this.output === 'headphones' ? 'HRTF' : 'equalpower'
     p.distanceModel = 'inverse'
     p.refDistance = 1.5
     p.rolloffFactor = 1.3
@@ -191,18 +207,20 @@ class AudioManager {
 
   loop(key: string, name: LoopName, opts: { pos?: [number, number, number]; vol?: number } = {}) {
     if (!this.ctx || !this.ready || this.loops.has(key)) return
+    if (!this.spatial) opts = { ...opts, pos: undefined }
+    const amb = key.startsWith('amb') ? this.ambience : 1
     const file = FILE_OF[name]
     const h = file ? this.howl(file, true) : null
     if (h) {
       const id = h.play()
       h.loop(true, id)
-      h.volume((opts.vol ?? 1) * this.vols.sfx, id)
+      h.volume((opts.vol ?? 1) * this.vols.sfx * amb, id)
       if (opts.pos) h.pos(opts.pos[0], opts.pos[1], opts.pos[2], id)
-      this.loops.set(key, { stop: () => h.stop(id), out: this.ctx.createGain(), howl: h, hid: id })
+      this.loops.set(key, { stop: () => h.stop(id), out: this.ctx.createGain(), howl: h, hid: id, vol: opts.vol })
       return
     }
     const g = this.ctx.createGain()
-    g.gain.value = opts.vol ?? 1
+    g.gain.value = (opts.vol ?? 1) * amb
     g.connect(this.sfxBus)
     let dest: AudioNode = g
     let panner: PannerNode | undefined
@@ -214,6 +232,7 @@ class AudioManager {
     const l = startLoop({ ...this.synth, out: dest }, name)
     this.loops.set(key, {
       out: g,
+      vol: opts.vol,
       panner,
       stop: () => {
         l.stop()
@@ -342,20 +361,29 @@ class AudioManager {
   }
 
   private voiceHowl: Howl | null = null
+  /** voix de synthèse du navigateur autorisée (sinon sous-titres seuls tant qu'il n'y a pas de fichiers) */
+  browserVoice = false
+  lang: 'fr' | 'en' = 'fr'
 
   /** meilleure voix française disponible (voix « naturelles » en priorité) */
   private pickVoice() {
-    const vs = speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith('fr'))
+    const vs = speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith(this.lang))
     const score = (v: SpeechSynthesisVoice) =>
       (/natural|neural|online/i.test(v.name) ? 10 : 0) + (/google/i.test(v.name) ? 6 : 0) + (/premium|enhanced|amélie|amelie|thomas|audrey|aurélie/i.test(v.name) ? 5 : 0) + (v.lang === 'fr-FR' ? 2 : 0) + (v.localService ? 0 : 1)
     return vs.sort((a, b) => score(b) - score(a))[0]
   }
 
   /** voix : fichier ElevenLabs (voice_<id>.mp3) si fourni, sinon synthèse vocale du navigateur */
+  /** personnage féminin (choix de la voix intérieure) */
+  female = false
+
   speak(text: string, opts: { radio?: boolean; rate?: number; id?: string } = {}) {
     if (this.vols.voice <= 0.01) return
     this.stopSpeech()
-    const file = opts.id ? `voice_${opts.id}` : null
+    const pre = `voice_${this.lang === 'en' ? 'en_' : ''}`
+    // voix intérieure féminine si le personnage est une femme
+    const fem = opts.id && this.female && opts.id.startsWith('tour_') ? `${pre}f_${opts.id}` : null
+    const file = fem && this.files.has(fem) ? fem : opts.id ? pre + opts.id : null
     if (file && this.files.has(file)) {
       this.voiceHowl = new Howl({ src: this.srcs(file), volume: this.vols.voice })
       this.voiceHowl.play()
@@ -363,10 +391,10 @@ class AudioManager {
       if (opts.radio) this.sfx('radio_tune', { vol: 0.5 })
       return
     }
-    if (!('speechSynthesis' in window)) return
+    if (!('speechSynthesis' in window) || !this.browserVoice) return
     try {
       const u = new SpeechSynthesisUtterance(text)
-      u.lang = 'fr-FR'
+      u.lang = this.lang === 'en' ? 'en-GB' : 'fr-FR'
       u.rate = opts.rate ?? (opts.radio ? 1.05 : 0.98)
       u.pitch = opts.radio ? 0.9 : 1
       u.volume = this.vols.voice

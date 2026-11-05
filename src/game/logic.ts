@@ -1,8 +1,9 @@
 import { fr } from '../i18n/fr'
 import { audio } from './audio/audio'
 import { ITEM_KIND } from './items'
-import { GRID_MAPS, entWorld, entsOf, roomAt, spawnOf } from './maps'
+import { GRID_MAPS, entWorld, entsOf, liftCab, roomAt, spawnOf } from './maps'
 import {
+  ability,
   G,
   addItem,
   addNote,
@@ -16,6 +17,7 @@ import {
   saveGame,
   setFlag,
   toast,
+  recordMessage,
   useGame,
   diff,
   timeLimit,
@@ -50,6 +52,14 @@ export function doorUnlocked(id: string) {
   return true
 }
 
+/**
+ * The lift opens once every puzzle on floor 1 is solved. Pressurizing the airlock is the last of
+ * them and requires the others. On floor 2 it always works, so nobody can be locked in the cab.
+ */
+export function liftUnlocked(zone = G().zone, pressurized = G().flags.pressurized) {
+  return zone === 2 || pressurized
+}
+
 /** l'entité est-elle dans une pièce sombre (non éclairée) ? */
 export function isDarkAt(x: number, z: number, zone = G().zone) {
   if (zone === 4) return false
@@ -65,11 +75,13 @@ export function canSeeInDark() {
 }
 
 /** l'entité est-elle visible / active (pas encore ramassée, etc.) */
-export function entActive(e: Ent) {
+export function entActive(e: Ent, zone = G().zone) {
   const s = G()
-  if (e.item && isTaken(e.id)) return false
+  if (e.item && isTaken(e.id, zone)) return false
   if (LOCKED_DOORS[e.id]) return !doorUnlocked(e.id)
   switch (e.id) {
+    case 'liftDoor':
+      return !liftUnlocked()
     case 'steam':
       return !s.flags.steamFixed
     case 'steamValve':
@@ -111,8 +123,10 @@ export function labelOf(e: Ent): string | null {
       return L.dispenser
     case 'valves':
       return s.flags.pressurized ? null : L.valves
-    case 'hatch':
-      return L.hatch
+    case 'lift':
+      return s.zone === 1 ? L.liftDown : L.liftUp
+    case 'liftDoor':
+      return L.liftLocked
     case 'steamValve':
       return L.steamValve
     case 'steam':
@@ -169,7 +183,7 @@ function pickup(e: Ent) {
   }
 }
 
-/** agir sur une entité (E / Espace / bouton Agir) */
+/** agir sur une entité (E / bouton Agir) */
 export function act(id: string) {
   const s = G()
   const e = entById(id)
@@ -246,13 +260,14 @@ export function act(id: string) {
       discover('p_valves')
       openPuzzle('valves')
       return true
-    case 'hatch':
-      if (!f.pressurized) {
+    case 'lift':
+    case 'liftDoor':
+      if (!liftUnlocked()) {
         audio.sfx('door_locked')
-        toast(M.hatchLocked, 'bad')
+        toast(M.liftLocked, 'bad')
         return false
       }
-      transitionTo(2)
+      rideLift(s.zone === 1 ? 2 : 1)
       return true
     case 'steam':
       discover('p_steam')
@@ -397,7 +412,7 @@ export function act(id: string) {
 /** erreur : conséquence visible (pénalité de temps) */
 export function penalize(sec: number, countError = true) {
   const s = G()
-  sec = Math.round(sec * diff().penalty)
+  sec = Math.round(sec * diff().penalty * (countError ? ability().errorPenalty : 1))
   useGame.setState({ penalty: s.penalty + sec, errors: s.errors + (countError ? 1 : 0) })
   live.flash = 0
   live.penaltyFlash = 1
@@ -644,20 +659,51 @@ export function toggleLamp() {
   audio.sfx(s.lampOn ? 'lamp_off' : 'lamp_on')
 }
 
-/** barre d'inventaire : objets dans l'ordre d'acquisition */
+/** Tous les objets possédés, dans l'ordre d'acquisition, sans limite de cases. */
 export function hotbarItems(): ItemId[] {
   const inv = G().inv
-  return (Object.keys(inv) as ItemId[]).filter((k) => (inv[k] ?? 0) > 0 && ITEM_KIND[k] !== 'survival').slice(0, 9)
+  return (Object.keys(inv) as ItemId[]).filter((k) => (inv[k] ?? 0) > 0 && k in ITEM_KIND)
 }
 
-/** utiliser l'emplacement n (touches 1 à 9) */
+export function selectedInventoryItem(): ItemId | null {
+  const items = hotbarItems()
+  return items.find((it) => it === G().selectedItem) ?? items[0] ?? null
+}
+
+export function selectItem(item: ItemId) {
+  if (!has(item)) return
+  useGame.setState({ selectedItem: item })
+}
+
+export function cycleItem(direction: number) {
+  const items = hotbarItems()
+  if (!items.length) return
+  const current = items.indexOf(selectedInventoryItem()!)
+  selectItem(items[(current + Math.sign(direction) + items.length) % items.length])
+}
+
+export function useSelectedItem() {
+  const s = G()
+  if (s.screen !== 'playing' || s.loading < 1 || s.cine || s.paused || s.settingsOpen || s.puzzle || s.readNote || (s.tabletOpen && (!s.tabletReady || s.tab !== 3))) return
+  const item = selectedInventoryItem()
+  if (item) useItem(item)
+}
+
+export function canUseItem(item: ItemId) {
+  return ITEM_KIND[item] !== 'survival' || item === 'tape' || item === 'map'
+}
+
+/** Sélection directe : les touches 1 à 9 ne consomment jamais un objet. */
 export function useSlot(n: number) {
   const item = hotbarItems()[n]
   if (!item) return
-  useItem(item)
+  selectItem(item)
 }
 
 export function useItem(item: ItemId) {
+  if (!has(item)) return false
+  selectItem(item)
+  if (!canUseItem(item)) return false
   if (item === 'o2') return useO2()
   if (item === 'battery') return useBattery()
   if (item === 'water') return drinkPouch()
@@ -666,7 +712,7 @@ export function useItem(item: ItemId) {
   const s = G()
   useGame.setState({ held: s.held === item ? null : item })
   audio.sfx('click')
-  if (item === 'manual' || item === 'map') useGame.setState({ readNote: item === 'manual' ? 'manual' : 'sign' })
+  if (item === 'manual' || item === 'map') useGame.setState({ readNote: item === 'manual' ? 'manual' : 'sign', tabletOpen: false })
 }
 
 // ——— boucle des ressources ———
@@ -687,7 +733,7 @@ function updateEvents(dt: number): 'blackout' | 'leak' | null {
 
 export function startEvent(kind: 'blackout' | 'leak') {
   const s = G()
-  const dur = kind === 'blackout' ? 22 : 28
+  const dur = kind === 'blackout' ? 32 : 28
   useGame.setState({ event: { kind, until: s.playTime + dur } })
   audio.sting('danger')
   if (kind === 'blackout') {
@@ -746,12 +792,14 @@ function recordTrack() {
 export function celebrate(id: string) {
   const p = fr.puzzleList.find((x) => x.id === id)
   if (!p) return
-  live.banner = { title: 'Énigme résolue', sub: `${p.name} · ${p.domain}`, t: performance.now() }
+  useGame.setState((s) => (s.splits?.[id] ? {} : { splits: { ...s.splits, [id]: s.playTime + s.penalty } }))
+  live.banner = { title: G().settings.lang === 'en' ? 'Puzzle solved' : 'Énigme résolue', sub: `${p.name} · ${p.domain}`, t: performance.now() }
   audio.sting('solved')
+  if (G().settings.autosave) setTimeout(() => saveGame(), 400)
 }
 export function tick(dt: number) {
   const s = G()
-  if (s.screen !== 'playing' || s.paused || s.cine) return
+  if (s.screen !== 'playing' || s.loading < 1 || s.paused || s.cine) return
   const f = s.flags
   const res = { ...s.res }
   const D = diff()
@@ -759,7 +807,8 @@ export function tick(dt: number) {
   recordTrack()
   // oxygène (zones 1 à 3)
   if (s.zone < 4) {
-    let rate = 0.42 * D.drain
+    const AB = ability()
+    let rate = 0.42 * D.drain * AB.o2
     if (ev === 'leak') rate *= 2.2
     if (s.zone === 2 && !f.steamFixed) rate *= 1.5
     if (s.zone === 2 && f.power && f.pw_o2) rate = 0
@@ -768,7 +817,7 @@ export function tick(dt: number) {
   // lampe
   let lampOn = s.lampOn
   if (lampOn) {
-    res.lamp = Math.max(0, res.lamp - 0.75 * D.drain * dt)
+    res.lamp = Math.max(0, res.lamp - 0.75 * D.drain * ability().lamp * dt)
     if (res.lamp <= 0) {
       if (has('battery')) {
         removeItem('battery')
@@ -783,7 +832,7 @@ export function tick(dt: number) {
     }
   }
   // eau
-  res.water = Math.max(0, res.water - 0.11 * D.drain * dt)
+  res.water = Math.max(0, res.water - 0.11 * D.drain * ability().water * dt)
   useGame.setState({ res, lampOn, playTime: s.playTime + dt })
   if (s.playTime + dt + s.penalty >= timeLimit()) {
     useGame.setState({ cine: 'fail', cineT0: performance.now(), tabletOpen: false, puzzle: null, readNote: null })
@@ -799,7 +848,7 @@ export function tick(dt: number) {
   if (low) {
     alarmT -= dt
     if (alarmT <= 0) {
-      audio.sfx('alarm_o2', { vol: 0.8 })
+      if (s.settings.o2Alert && res.o2 < 20) audio.sfx('alarm_o2', { vol: 0.8 })
       alarmT = 2.5
     }
     if (!lowO2On) {
@@ -838,7 +887,7 @@ export function faint() {
 export function respawnAfterFaint() {
   const s = G()
   const sp = spawnOf(s.zone)
-  useGame.setState({ res: { ...s.res, o2: 50 }, tp: { pos: sp.pos, yaw: sp.yaw, n: Date.now() } })
+  useGame.setState({ res: { ...s.res, o2: ability().faintO2 }, tp: { pos: sp.pos, yaw: sp.yaw, n: Date.now() } })
   audio.sfx('gasp')
 }
 
@@ -850,13 +899,29 @@ export function transitionTo(z: ZoneId) {
   useGame.setState({ cine: 'zoneCard', cineT0: performance.now(), tabletOpen: false, puzzle: null })
 }
 
+/** Ride the lift between the station's two floors, in either direction. */
+export function rideLift(z: 1 | 2) {
+  pendingZone = z
+  audio.sfx('airlock')
+  useGame.setState({ cine: 'lift', cineT0: performance.now(), tabletOpen: false, inventoryOpen: false, puzzle: null })
+}
+
 export function enterZone(z: ZoneId) {
+  const viaLift = G().cine === 'lift' && z < 3
+  if (G().zone !== z) {
+    live.playerZone = null
+    useGame.setState({ loading: 0 })
+  }
   if (z === 3) checkCartographer([1, 2].map((zone) => ({ zone, grid: GRID_MAPS[zone as 1 | 2].grid })))
   pendingZone = null
-  urgentWarned = false
-  const sp = spawnOf(z)
+  // The lift can be taken many times: the warning stays once per approach to the deadline.
+  if (!viaLift) urgentWarned = false
+  const sp = viaLift ? liftCab(z as 1 | 2) : spawnOf(z)
   audio.stopAllLoops()
-  useGame.setState({ zone: z, held: null, tp: { pos: sp.pos, yaw: sp.yaw, n: Date.now() }, lampOn: G().lampOn })
+  // stopAllLoops also ended these sounds; the conditions that started them may still hold.
+  lowO2On = false
+  if (G().event?.kind === 'leak') audio.loop('leak', 'steam', { vol: 0.45 })
+  useGame.setState({ zone: z, held: null, tp: { pos: sp.pos, yaw: sp.yaw, n: Date.now() }, lampOn: G().lampOn, ...(viaLift ? { resume: sp } : {}) })
   live.pos = [...sp.pos]
   live.yaw = sp.yaw
   setTimeout(saveGame, 300)
@@ -866,7 +931,7 @@ export function enterZone(z: ZoneId) {
 export function stepsState(zone: ZoneId) {
   const s = G()
   const f = s.flags
-  const zDone = s.zone > zone || s.ended
+  const zDone = s.zone > zone || (s.ended && s.ending === 'rescue')
   const done: Record<string, boolean> = {
     lamp: has('lamp'),
     board: f.read_board,
@@ -874,7 +939,7 @@ export function stepsState(zone: ZoneId) {
     locker: f.lockerOpen,
     door: f.door_d1,
     valves: f.pressurized,
-    hatch: zDone,
+    lift: zDone,
     fuse: has('fuse') || f.power,
     wrench: has('wrench') || f.steamFixed,
     steam: f.steamFixed,
@@ -891,8 +956,8 @@ export function stepsState(zone: ZoneId) {
     antenna: has('antenna') || f.beacon,
     bridge: f.bridge,
     beacon: f.beacon,
-    flare: has('flareGun') || s.ended,
-    helipad: s.ended,
+    flare: has('flareGun') || s.ending === 'rescue',
+    helipad: s.ending === 'rescue',
   }
   const steps = fr.steps[zone]
   const firstTodo = steps.findIndex((st) => !(zDone || done[st.id]))
@@ -941,9 +1006,13 @@ export function requestHint(level: 1 | 2 = 1) {
   if (!key) return null
   if (!s.hintsShown.includes(key)) {
     useGame.setState({ hintsShown: [...s.hintsShown, key], hintsUsed: s.hintsUsed + 1 })
-    penalize(level === 1 ? 30 : 60, false)
+    const help = s.settings.help
+    const cost = help === 'recrue' ? (level === 1 ? 0 : 30) : help === 'commandant' ? (level === 1 ? 60 : 120) : level === 1 ? 30 : 60
+    if (cost) penalize(cost, false)
   }
-  return hintFor(level)
+  const message = hintFor(level)
+  if (message) recordMessage(message)
+  return message
 }
 
 export function puzzleStatus(p: { id: string; zone: number }) {
@@ -962,6 +1031,8 @@ export function puzzleStatus(p: { id: string; zone: number }) {
     p_radio: f.beacon,
   }
   if (solved[p.id]) return 'solved'
-  if (p.zone === s.zone && s.discovered.includes(p.id)) return 'progress'
+  // The lift joins floors 1 and 2: a puzzle discovered on the other floor stays in progress.
+  const reachable = p.zone === s.zone || (p.zone <= 2 && s.zone <= 2)
+  if (reachable && s.discovered.includes(p.id)) return 'progress'
   return 'locked'
 }

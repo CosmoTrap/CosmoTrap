@@ -1,3 +1,4 @@
+import { CineActor, CrashFx } from './FilmScenes'
 import { Environment, Lightformer } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { Physics } from '@react-three/rapier'
@@ -17,6 +18,7 @@ import { QUALITY } from './quality'
 import { TitleScene } from './TitleScene'
 import { Zone4 } from './zone4/Zone4'
 import { Ghost, useLoadGhost } from './Ghost'
+import { SceneGate, SceneReady } from './SceneReady'
 
 /** soleil pour les intérieurs : n'entre que par les hublots (ombres) */
 function InteriorSun({ map }: { map: GridMap }) {
@@ -92,7 +94,7 @@ function PhysicsWorld() {
     <Physics key={zone} gravity={[0, -9.81, 0]} timeStep="vary">
       {map ? (
         <>
-          <fogExp2 attach="fog" args={['#05070a', 0.034]} />
+          <fogExp2 attach="fog" args={['#10151b', 0.018]} />
           <InteriorEnv zone={zone} />
           <InteriorSun map={map} />
           <Level map={map} shadows={shadows} />
@@ -103,10 +105,13 @@ function PhysicsWorld() {
           <Zone4 />
           <EndAvatar />
           <Flare />
+          <CrashFx />
         </>
       )}
+      <CineActor />
       <Player key={zone} />
       <Ghost />
+      <SceneReady zone={zone} />
     </Physics>
   )
 }
@@ -117,14 +122,14 @@ function AdaptiveDpr() {
   const quality = useGame((s) => s.settings.quality)
   const resolution = useGame((s) => s.settings.resolution)
   const acc = useRef({ t: 0, n: 0, dpr: 0 })
-  useFrame(({ gl, size }, dt) => {
+  useFrame(({ gl, size, setDpr }, dt) => {
     const a = acc.current
     a.t += dt
     a.n++
     if (resolution !== 'auto') {
       // hauteur de rendu choisie (720p, 1080p, 4K…) quelle que soit la taille de la fenêtre
       const want = THREE.MathUtils.clamp(resolution / Math.max(1, size.height), 0.25, 3)
-      if (Math.abs(gl.getPixelRatio() - want) > 0.01) gl.setPixelRatio(want)
+      if (Math.abs(gl.getPixelRatio() - want) > 0.01) setDpr(want)
       if (a.t > 2) {
         live.fps = a.n / a.t
         a.t = 0
@@ -136,14 +141,14 @@ function AdaptiveDpr() {
     const target = Math.min(window.devicePixelRatio || 1, hi)
     if (!a.dpr) {
       a.dpr = target
-      gl.setPixelRatio(a.dpr)
+      setDpr(a.dpr)
     }
     if (a.t > 2) {
       const fps = a.n / a.t
       live.fps = fps
       if (fps < 42 && a.dpr > lo + 0.01) a.dpr = Math.max(lo, a.dpr - 0.15)
       else if (fps > 58 && a.dpr < target - 0.01) a.dpr = Math.min(target, a.dpr + 0.1)
-      gl.setPixelRatio(a.dpr)
+      if (Math.abs(gl.getPixelRatio() - a.dpr) > 0.01) setDpr(a.dpr)
       a.t = 0
       a.n = 0
     }
@@ -156,12 +161,14 @@ function AdaptiveDpr() {
 
 export function Scene() {
   const screen = useGame((s) => s.screen)
+  const zone = useGame((s) => s.zone)
   useInputListeners()
   useLoadGhost()
   return (
     <>
       <AdaptiveDpr />
       {screen === 'playing' ? (
+        <SceneGate key={zone}>
         <Suspense fallback={null}>
           <PhysicsWorld />
           <Hands />
@@ -169,10 +176,11 @@ export function Scene() {
           <CineDirector />
           <ZoneAudioWatcher />
         </Suspense>
-      ) : (
+        </SceneGate>
+      ) : screen === 'prologue' ? (
         <TitleScene />
-      )}
-      <Effects />
+      ) : null}
+      {(screen === 'playing' || screen === 'prologue') && <Effects />}
     </>
   )
 }

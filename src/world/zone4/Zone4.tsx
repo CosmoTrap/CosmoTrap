@@ -14,10 +14,32 @@ import { concreteSet, drawTexture } from '../textures'
 import { rockGeometry } from '../Exterior/Asteroids'
 import { CloudLayer, FOG4, Grass, Mountains, River, Rocks, SUN4, SunLight, Terrain, Trees, buildTerrain, placeTrees } from './Nature'
 import { woodMat } from './Zone4Ents'
+import { capsulePos, crash } from '../FilmScenes'
+import { photoSurface } from '../photomaterials'
 
 // Zone 4 — Terre, vallée de l'atterrissage, fin d'après-midi.
 
 export const heli = { x: 60, y: 60, z: -120, yaw: 0, visible: false, rotor: 0 }
+
+/** la capsule pendant le crash : elle tombe du ciel en tournoyant, puis se pose à sa place */
+function Falling({ children }: { children: React.ReactNode }) {
+  const g = useRef<THREE.Group>(null)
+  useFrame(() => {
+    if (!g.current) return
+    if (!crash.active || crash.k >= 1) {
+      g.current.position.set(0, 0, 0)
+      g.current.rotation.set(0, 0, 0)
+      return
+    }
+    const c = capsulePos(crash.k)
+    const end = capsulePos(1)
+    g.current.position.set(c[0] - end[0], c[1] - end[1], c[2] - end[2])
+    // bouclier thermique vers l'avant, roulis
+    const a = 1 - crash.k
+    g.current.rotation.set(-1.1 * a - 0.2, crash.t * 0.8, 0.9 * a)
+  })
+  return <group ref={g}>{children}</group>
+}
 
 function Capsule() {
   const m = useMats()
@@ -206,7 +228,7 @@ function Helipad() {
 }
 
 function BigRock({ scale = 1 }: { scale?: number }) {
-  const { geo, mat } = useMemo(() => ({ geo: rockGeometry(Math.floor(scale * 10), 4, 0.35), mat: new THREE.MeshStandardMaterial({ color: '#7d766c', roughness: 1 }) }), [scale])
+  const { geo, mat } = useMemo(() => ({ geo: rockGeometry(Math.floor(scale * 10), 4, 0.35), mat: new THREE.MeshStandardMaterial({ ...photoSurface('rock'), roughness: 1 }) }), [scale])
   return <mesh geometry={geo} material={mat} scale={[scale * 1.3, scale, scale * 1.1]} castShadow receiveShadow />
 }
 
@@ -355,11 +377,13 @@ function Colliders() {
       <CylinderCollider position={[0, terrainHeight(0, 2.2) + 1.5, 2.2]} args={[1.5, 1.8]} />
       {/* refuge (murs, porte au sud) */}
       <group position={[-15, terrainHeight(-15, -44), -44]} rotation={[0, 0.2, 0]}>
+        <CuboidCollider position={[0, 0.12, 0]} args={[2.2, 0.125, 1.7]} />
         <CuboidCollider position={[0, 1.4, -1.6]} args={[2.1, 1.4, 0.1]} />
         <CuboidCollider position={[-2.05, 1.4, 0]} args={[0.1, 1.4, 1.6]} />
         <CuboidCollider position={[2.05, 1.4, 0]} args={[0.1, 1.4, 1.6]} />
         <CuboidCollider position={[-1.4, 1.4, 1.6]} args={[0.7, 1.4, 0.1]} />
         <CuboidCollider position={[1.4, 1.4, 1.6]} args={[0.7, 1.4, 0.1]} />
+        <CuboidCollider position={[-0.5, 0.6, -0.9]} args={[0.7, 0.38, 0.4]} />
       </group>
       {zone4Props
         .filter((p) => p.model === 'bigRock')
@@ -403,7 +427,7 @@ export function Zone4() {
   const trees = useMemo(() => placeTrees(q.trees), [q.trees])
   const sunPos = useMemo(() => SUN4.clone().multiplyScalar(1000), [])
   return (
-    <group>
+    <>
       <fogExp2 attach="fog" args={[FOG4, 0.0055]} />
       <Sky distance={4500} sunPosition={sunPos} turbidity={7} rayleigh={2.4} mieCoefficient={0.007} mieDirectionalG={0.86} />
       <Environment frames={1} resolution={128}>
@@ -421,7 +445,7 @@ export function Zone4() {
       <RoomCtx.Provider value={{ id: 'out', dark: false }}>
         {zone4Props.map((p, i) => (
           <group key={i} position={p.pos} rotation={[0, p.rot ?? 0, 0]}>
-            {p.model === 'capsule' && <Capsule />}
+            {p.model === 'capsule' && <Falling><Capsule /></Falling>}
             {p.model === 'parachute' && <Parachute />}
             {p.model === 'cabin' && <Cabin />}
             {p.model === 'helipad' && <Helipad />}
@@ -435,6 +459,6 @@ export function Zone4() {
       <Colliders />
       <TreeColliders trees={trees} />
       <Ambience />
-    </group>
+    </>
   )
 }

@@ -37,7 +37,9 @@ float n3(vec3 p){
              mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z);
 }
 void main() {
-  float t = vUv.y;
+  // Interpolation at the cylinder rim can slightly exceed [0, 1]. A negative
+  // base in pow(..., 1.8) yields NaN, which bloom spreads across the whole frame.
+  float t = clamp(vUv.y, 0.0, 1.0);
   float fade = pow(1.0 - t, 1.8) * smoothstep(0.0, 0.06, t);
   float edge = pow(abs(dot(vN, vV)), 2.2);
   float dust = 0.7 + 0.6 * n3(vW * 2.5 + vec3(0.0, uTime * 0.08, uTime * 0.05));
@@ -52,7 +54,7 @@ export function LightShafts({ windows, sun }: { windows: WindowDef[]; sun: [numb
     const mat = new THREE.ShaderMaterial({
       vertexShader: shaftVert,
       fragmentShader: shaftFrag,
-      uniforms: { uColor: { value: new THREE.Color('#ffe2b8') }, uTime: { value: 0 }, uIntensity: { value: 0.55 } },
+      uniforms: { uColor: { value: new THREE.Color('#ffe9cb') }, uTime: { value: 0 }, uIntensity: { value: 0.2 } },
       transparent: true,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
@@ -79,7 +81,7 @@ export function LightShafts({ windows, sun }: { windows: WindowDef[]; sun: [numb
     }
     const dg = new THREE.BufferGeometry()
     dg.setAttribute('position', new THREE.Float32BufferAttribute(dustPts, 3))
-    const dm = new THREE.PointsMaterial({ color: '#ffe9c9', size: 0.018, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true })
+    const dm = new THREE.PointsMaterial({ color: '#ffe9c9', size: 0.009, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true })
     const dust = new THREE.Points(dg, dm)
     return { shafts, mat, dust }
   }, [windows, sun])

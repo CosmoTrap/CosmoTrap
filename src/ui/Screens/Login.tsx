@@ -1,72 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import { ApiError, googleLogin, login, me, register, token } from '../../game/api'
+import { ApiError, forgotPassword, googleLogin, login, me, register, resetPassword, token } from '../../game/api'
 import { audio } from '../../game/audio/audio'
 import { useGame } from '../../game/state'
 import { fr } from '../../i18n/fr'
+import { Stage } from './Stage'
 
-// Page de connexion / inscription (maquette « Bienvenue sur CosmoTrap »).
+// Écrans de connexion / inscription (maquettes 01 « Accès équipage » et 02 « Nouvelle recrue »).
 const A = fr.auth
 const GOOGLE_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined
 
-function Stars() {
-  const stars = useRef(
-    Array.from({ length: 70 }, () => ({ x: Math.random() * 100, y: Math.random() * 62, s: Math.random() < 0.12 ? 14 : 3 + Math.random() * 3, d: Math.random() * 4 })),
-  ).current
-  return (
-    <svg className="login-stars" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
-      {stars.map((st, i) =>
-        st.s > 10 ? (
-          <path key={i} d={`M${st.x} ${st.y - 1.2}L${st.x + 0.25} ${st.y - 0.25}L${st.x + 1.2 * 0.6} ${st.y}L${st.x + 0.25} ${st.y + 0.25}L${st.x} ${st.y + 1.2}L${st.x - 0.25} ${st.y + 0.25}L${st.x - 0.72} ${st.y}L${st.x - 0.25} ${st.y - 0.25}Z`} fill="#fff" style={{ animationDelay: `${st.d}s` }} className="twinkle" />
-        ) : (
-          <circle key={i} cx={st.x} cy={st.y} r={st.s / 40} fill="#fff" opacity={0.7} className="twinkle" style={{ animationDelay: `${st.d}s` }} />
-        ),
-      )}
-    </svg>
-  )
-}
-
-function Planet() {
-  return (
-    <svg className="login-planet" viewBox="0 0 120 80" aria-hidden>
-      <defs>
-        <radialGradient id="pl" cx="40%" cy="35%" r="70%">
-          <stop offset="0" stopColor="#e9e2d6" />
-          <stop offset="1" stopColor="#a49c8f" />
-        </radialGradient>
-      </defs>
-      <ellipse cx="60" cy="42" rx="52" ry="11" fill="none" stroke="#8d8577" strokeWidth="4" transform="rotate(-14 60 42)" />
-      <circle cx="60" cy="40" r="24" fill="url(#pl)" />
-      <path d="M8 52 A52 11 0 0 0 112 30" fill="none" stroke="#c9c1b3" strokeWidth="4" transform="rotate(-14 60 42)" />
-    </svg>
-  )
-}
-
-function MoonGround() {
-  return (
-    <svg className="login-ground" viewBox="0 0 1440 360" preserveAspectRatio="none" aria-hidden>
-      <path d="M0 150 C 240 90, 420 120, 620 140 S 1000 70, 1440 120 L1440 360 L0 360Z" fill="#cfcac0" />
-      <path d="M0 210 C 300 170, 560 200, 820 190 S 1200 150, 1440 180 L1440 360 L0 360Z" fill="#dcd8cf" />
-      {[
-        [220, 250, 60, 14],
-        [520, 300, 36, 8],
-        [1080, 230, 70, 16],
-        [1290, 300, 40, 9],
-        [760, 330, 90, 16],
-        [380, 330, 22, 5],
-        [960, 290, 26, 6],
-      ].map(([x, y, rx, ry], i) => (
-        <g key={i}>
-          <ellipse cx={x} cy={y} rx={rx} ry={ry} fill="#bdb7ab" />
-          <ellipse cx={x + rx * 0.08} cy={y + ry * 0.15} rx={rx * 0.82} ry={ry * 0.7} fill="#c8c2b6" />
-        </g>
-      ))}
-    </svg>
-  )
-}
-
 function GoogleG() {
   return (
-    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
+    <svg width="22" height="22" viewBox="0 0 48 48" aria-hidden>
       <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
       <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
       <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z" />
@@ -75,32 +20,57 @@ function GoogleG() {
   )
 }
 
+/** force du mot de passe : 0 à 4 segments */
+function strength(p: string) {
+  let s = 0
+  if (p.length >= 8) s++
+  if (p.length >= 12) s++
+  if (/[A-Z]/.test(p) && /[a-z]/.test(p)) s++
+  if (/\d/.test(p) && /[^A-Za-z0-9]/.test(p)) s++
+  return Math.min(4, s)
+}
+
+function Field({ label, aside, children, hint }: { label: string; aside?: React.ReactNode; children: React.ReactNode; hint?: string }) {
+  return (
+    <div className="x-field">
+      <div className="x-label">
+        <span>{label}</span>
+        {aside}
+      </div>
+      {children}
+      {hint && <div className="x-hint">{hint}</div>}
+    </div>
+  )
+}
+
+type Mode = 'login' | 'register' | 'forgot' | 'reset'
+
 export function Login() {
-  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const resetToken = new URLSearchParams(location.search).get('reset')
+  const [mode, setMode] = useState<Mode>(resetToken ? 'reset' : 'login')
   const [email, setEmail] = useState('')
   const [pseudo, setPseudo] = useState('')
   const [pass, setPass] = useState('')
   const [pass2, setPass2] = useState('')
   const [err, setErr] = useState<string | null>(null)
+  const [info, setInfo] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [offline, setOffline] = useState(false)
   const [googleOn, setGoogleOn] = useState(false)
   const gbtn = useRef<HTMLDivElement>(null)
 
-  // reprise de session
   useEffect(() => {
     me()
       .then((r) => {
         setGoogleOn(r.google && !!GOOGLE_ID)
-        if (r.user) useGame.setState({ user: r.user, screen: 'title' })
-        else if (token.get()) token.set(null)
+        if (r.user && !resetToken) useGame.setState({ user: r.user, screen: 'title' })
+        else if (token.get() && !r.user) token.set(null)
       })
       .catch(() => setOffline(true))
   }, [])
 
-  // bouton Google (Google Identity Services), seulement si configuré
   useEffect(() => {
-    if (!googleOn || !GOOGLE_ID) return
+    if (!googleOn || !GOOGLE_ID || mode !== 'login') return
     const s = document.createElement('script')
     s.src = 'https://accounts.google.com/gsi/client'
     s.async = true
@@ -117,21 +87,42 @@ export function Login() {
           }
         },
       })
-      if (gbtn.current) g?.accounts.id.renderButton(gbtn.current, { theme: 'filled_black', shape: 'pill', width: 300, text: 'continue_with', locale: 'fr' })
+      if (gbtn.current) g?.accounts.id.renderButton(gbtn.current, { theme: 'outline', shape: 'rectangular', width: 460, text: 'continue_with', locale: 'fr' })
     }
     document.head.appendChild(s)
-  }, [googleOn])
+  }, [googleOn, mode])
+
+  const go = (m: Mode) => {
+    setErr(null)
+    setInfo(null)
+    setMode(m)
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErr(null)
-    if (mode === 'register' && pass !== pass2) return setErr(A.mismatch)
+    setInfo(null)
+    if ((mode === 'register' || mode === 'reset') && pass !== pass2) return setErr(A.mismatch)
     setBusy(true)
     try {
-      if (mode === 'login') await login(email, pass)
-      else await register(email, pseudo, pass)
-      audio.init()
-      useGame.setState({ screen: 'title' })
+      if (mode === 'login') {
+        await login(email, pass)
+        audio.init()
+        useGame.setState({ screen: 'title' })
+      } else if (mode === 'register') {
+        await register(email, pseudo, pass)
+        audio.init()
+        // étape 02 : choisir son personnage
+        useGame.setState({ screen: 'settings', menuBack: 'title', settingsTab: 0, firstRun: true })
+      } else if (mode === 'forgot') {
+        await forgotPassword(email)
+        setInfo(A.forgotSent)
+      } else {
+        await resetPassword(resetToken ?? '', pass)
+        history.replaceState(null, '', location.pathname)
+        const r = await me()
+        useGame.setState({ user: r.user, screen: 'title' })
+      }
     } catch (e2) {
       const m = e2 as ApiError
       if (m.status === 0) setOffline(true)
@@ -141,76 +132,125 @@ export function Login() {
     }
   }
 
+  const reg = mode === 'register'
+  const st = strength(pass)
+
   return (
-    <div className="login" data-testid="login">
-      <Stars />
-      <Planet />
-      <MoonGround />
-      <img className="login-astro" src="/characters/leo.png" alt="" />
-      <form className="login-card" onSubmit={submit}>
-        <img className="login-logo" src="/logo/badge.png" alt="Cosmotrap" />
-        <h1>{A.welcome}</h1>
-        {googleOn ? (
-          <div ref={gbtn} className="g-holder" />
+    <Stage testId="login">
+      <div className={`au-side ${reg ? 'reg' : ''}`}>
+        {reg || mode === 'forgot' || mode === 'reset' ? (
+          <button type="button" className="au-back" onClick={() => go('login')}>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M11 6l-6 6 6 6" />
+            </svg>
+            {A.backToLogin}
+          </button>
         ) : (
-          <button type="button" className="login-google" onClick={() => setErr(A.googleOff)}>
-            <GoogleG /> {A.google}
-          </button>
+          <div className="au-secure">{A.secure}</div>
         )}
-        <div className="login-or">
-          <span>{A.or}</span>
-        </div>
-        {mode === 'register' && (
-          <label className="login-field">
-            <svg viewBox="0 0 24 24" aria-hidden>
-              <circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" strokeWidth="1.8" />
-              <path d="M4 21c1-4 15-4 16 0" fill="none" stroke="currentColor" strokeWidth="1.8" />
-            </svg>
-            <input data-testid="pseudo" placeholder={A.pseudo} value={pseudo} onChange={(e) => setPseudo(e.target.value)} required minLength={2} maxLength={20} autoComplete="nickname" />
-          </label>
+        <img className="au-logo" src="/logo/badge-dark.png" alt="Cosmotrap" />
+        {reg ? (
+          <>
+            <h1 className="au-title">{A.registerTitle}</h1>
+            <ol className="au-steps">
+              {A.steps.map((step, i) => (
+                <li key={step} className={i === 0 ? 'on' : ''}>
+                  <span>{String(i + 1).padStart(2, '0')}</span>
+                  {step}
+                </li>
+              ))}
+            </ol>
+            <div className="au-bottom">{A.matricule}</div>
+          </>
+        ) : (
+          <>
+            <h1 className="au-title">
+              {A.heroA}
+              <br />
+              <em>{A.heroB}</em>
+            </h1>
+            <p className="au-sub">{A.heroSub}</p>
+            <div className="au-bottom au-stats">
+              <span>{A.statO2}</span>
+              <span>{A.statT}</span>
+              <span>{A.statG}</span>
+            </div>
+          </>
         )}
-        <label className="login-field">
-          <svg viewBox="0 0 24 24" aria-hidden>
-            <rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="1.8" />
-            <path d="m3 7 9 6 9-6" fill="none" stroke="currentColor" strokeWidth="1.8" />
-          </svg>
-          <input data-testid="email" type="email" placeholder={A.email} value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
-        </label>
-        <label className="login-field">
-          <svg viewBox="0 0 24 24" aria-hidden>
-            <path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
-          <input data-testid="password" type="password" placeholder={A.password} value={pass} onChange={(e) => setPass(e.target.value)} required minLength={mode === 'register' ? 8 : 1} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} />
-        </label>
-        {mode === 'register' && (
-          <label className="login-field">
-            <svg viewBox="0 0 24 24" aria-hidden>
-              <path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
-            <input data-testid="password2" type="password" placeholder={A.confirm} value={pass2} onChange={(e) => setPass2(e.target.value)} required minLength={8} autoComplete="new-password" />
-          </label>
+      </div>
+
+      <form className={`x-panel au-card ${mode}`} onSubmit={submit}>
+        <div className="x-kicker">{reg ? A.kickerRegister : mode === 'login' ? A.kickerLogin : A.kickerForgot}</div>
+        <h2>{reg ? A.register : mode === 'login' ? A.login : mode === 'forgot' ? A.forgotTitle : A.resetTitle}</h2>
+
+        {mode === 'login' &&
+          (googleOn ? (
+            <div ref={gbtn} className="au-google-holder" />
+          ) : (
+            <button type="button" className="au-google" onClick={() => setErr(A.googleOff)}>
+              <GoogleG /> {A.google}
+            </button>
+          ))}
+        {mode === 'login' && (
+          <div className="au-or">
+            <span>{A.or}</span>
+          </div>
         )}
-        {err && <div className="login-err">{err}</div>}
-        <button className="login-submit" data-testid="submit" disabled={busy}>
-          {busy ? '…' : mode === 'login' ? A.login : A.register}
-        </button>
-        <p className="login-switch">
-          {mode === 'login' ? A.toRegister : A.toLogin}{' '}
-          <button
-            type="button"
-            data-testid="switch-mode"
-            onClick={() => {
-              setErr(null)
-              setMode(mode === 'login' ? 'register' : 'login')
-            }}
+
+        {reg && (
+          <Field label={A.pseudo} hint={A.pseudoHint}>
+            <input data-testid="pseudo" className="x-input" placeholder="Astro" value={pseudo} onChange={(e) => setPseudo(e.target.value)} required minLength={3} maxLength={16} autoComplete="nickname" />
+          </Field>
+        )}
+        {mode !== 'reset' && (
+          <Field label={mode === 'login' ? A.emailOrPseudo : A.email}>
+            <input data-testid="email" className="x-input" type={mode === 'login' ? 'text' : 'email'} placeholder="astro@cosmotrap.fr" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete={mode === 'login' ? 'username' : 'email'} />
+          </Field>
+        )}
+        {mode !== 'forgot' && (
+          <Field
+            label={A.password}
+            aside={
+              mode === 'login' && (
+                <button type="button" className="au-link" onClick={() => go('forgot')}>
+                  {A.forgot}
+                </button>
+              )
+            }
           >
-            {mode === 'login' ? A.toRegisterLink : A.toLoginLink}
-          </button>
-        </p>
+            <input data-testid="password" className="x-input" type="password" placeholder={reg || mode === 'reset' ? A.passwordMin : '••••••••'} value={pass} onChange={(e) => setPass(e.target.value)} required minLength={reg || mode === 'reset' ? 8 : 1} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} />
+            {(reg || mode === 'reset') && (
+              <div className="au-strength">
+                {[0, 1, 2, 3].map((i) => (
+                  <i key={i} className={i < st ? 'on' : ''} />
+                ))}
+              </div>
+            )}
+          </Field>
+        )}
+        {(reg || mode === 'reset') && (
+          <Field label={A.confirm}>
+            <input data-testid="password2" className="x-input" type="password" placeholder={A.confirmPh} value={pass2} onChange={(e) => setPass2(e.target.value)} required minLength={8} autoComplete="new-password" />
+          </Field>
+        )}
+
+        {err && <div className="x-err">{err}</div>}
+        {info && <div className="x-info">{info}</div>}
+        <button className="x-primary au-submit" data-testid="submit" disabled={busy}>
+          {busy ? '…' : reg ? A.registerBtn : mode === 'login' ? A.loginBtn : mode === 'forgot' ? A.forgotBtn : A.resetBtn} <span aria-hidden>→</span>
+        </button>
+        {mode !== 'forgot' && mode !== 'reset' && (
+          <p className="au-switch">
+            {reg ? A.toLogin : A.toRegister}{' '}
+            <button type="button" data-testid="switch-mode" onClick={() => go(reg ? 'login' : 'register')}>
+              {reg ? A.toLoginLink : A.toRegisterLink}
+            </button>
+          </p>
+        )}
         {offline && (
           <button
             type="button"
-            className="login-guest"
+            className="au-guest"
             data-testid="guest"
             onClick={() => {
               audio.init()
@@ -221,6 +261,6 @@ export function Login() {
           </button>
         )}
       </form>
-    </div>
+    </Stage>
   )
 }

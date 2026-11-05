@@ -3,9 +3,9 @@ import { CapsuleCollider, RigidBody, useRapier, type RapierRigidBody } from '@re
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { audio } from '../game/audio/audio'
-import { act, drinkPouch, entById, labelOf, toggleLamp, useBattery, useO2, useSlot } from '../game/logic'
+import { act, cycleItem, drinkPouch, entById, labelOf, toggleLamp, useBattery, useO2, useSelectedItem, useSlot } from '../game/logic'
 import { GRID_MAPS, roomAt, spawnOf } from '../game/maps'
-import { G, live, toggleFullscreen, useGame } from '../game/state'
+import { G, ability, live, toggleFullscreen, useGame, type TabletTab } from '../game/state'
 import { QUALITY } from '../world/quality'
 import { hitboxes } from '../world/props/EntModels'
 import { lampCookie } from '../world/textures'
@@ -15,12 +15,13 @@ import { markKeyboard, pad } from './gamepad'
 
 const EYE = 0.77 // au-dessus du centre de la capsule → yeux à 1,62 m
 const REACH = 2.7
+const JUMP_SPEED = 4.5 // ~1 m de hauteur, avec la gravité du contrôleur
 
 export const aim = { id: null as string | null, label: null as string | null }
 
 function overlayOpen() {
   const s = G()
-  return s.tabletOpen || !!s.puzzle || !!s.readNote || s.paused || s.settingsOpen
+  return s.loading < 1 || s.tabletOpen || !!s.puzzle || !!s.readNote || s.paused || s.settingsOpen
 }
 
 /** écoute clavier / souris (une seule fois) */
@@ -34,10 +35,13 @@ export function useInputListeners() {
         return
       }
       if (s.screen !== 'playing') return
+      if (s.loading < 1) return
       if ((window as any).__rebinding) return
+      const target = e.target as HTMLElement
+      if (target?.matches('input, textarea, select, [contenteditable="true"]')) return
       markKeyboard()
       const k = s.settings.keys
-      if (e.code === 'Tab' || e.code === 'Space') e.preventDefault()
+      if (!s.tabletOpen && (e.code === 'Tab' || e.code === 'Space')) e.preventDefault()
       input.down.add(e.code)
       if (e.repeat) return
       if (s.cine && s.cine !== 'briefing') return
@@ -48,17 +52,39 @@ export function useInputListeners() {
         else useGame.setState({ paused: !s.paused })
         return
       }
-      if (matches(k, 'tablet', e.code)) {
+      if (matches(k, 'inventory', e.code)) {
+        e.preventDefault()
         if (s.tabletOpen) closeTablet()
-        else if (!s.puzzle && !s.paused) openTablet()
+        else openInventory()
         return
       }
-      if (s.paused || s.puzzle) return
+      if (matches(k, 'hint', e.code)) {
+        e.preventDefault()
+        if (!overlayOpen() || s.tabletOpen) openTablet(1)
+        return
+      }
+      if (matches(k, 'tablet', e.code)) {
+        e.preventDefault()
+        if (s.tabletOpen) closeTablet()
+        else if (!overlayOpen()) openTablet()
+        return
+      }
+      if (s.tabletOpen) {
+        if (s.tabletReady && s.tab === 3 && matches(k, 'useSelected', e.code)) useSelectedItem()
+        return
+      }
+      if (matches(k, 'jump', e.code)) {
+        e.preventDefault()
+        if (!s.cine && !overlayOpen()) input.jumpRequested = true
+        return
+      }
+      if (s.paused || s.puzzle || s.settingsOpen) return
       if (s.readNote && matches(k, 'act', e.code)) {
         useGame.setState({ readNote: null })
         return
       }
-      if (matches(k, 'lamp', e.code)) toggleLamp()
+      if (matches(k, 'useSelected', e.code)) useSelectedItem()
+      else if (matches(k, 'lamp', e.code)) toggleLamp()
       else if (matches(k, 'o2', e.code)) useO2()
       else if (matches(k, 'battery', e.code)) useBattery()
       else if (matches(k, 'drink', e.code)) drinkPouch()
@@ -68,6 +94,11 @@ export function useInputListeners() {
       } else if (/^(Digit|Numpad)[1-9]$/.test(e.code)) useSlot(Number(e.code.slice(-1)) - 1)
     }
     const up = (e: KeyboardEvent) => input.down.delete(e.code)
+    // Ctrl (s'accroupir) + W (avancer en QWERTY) ferme l'onglet : le navigateur demande confirmation en partie
+    const guardLeave = (e: BeforeUnloadEvent) => {
+      if (G().screen === 'playing' && input.down.has('ControlLeft')) e.preventDefault()
+    }
+    window.addEventListener('beforeunload', guardLeave)
     // souris verrouillée (souris ou pavé tactile) ; sinon glisser-cliquer sur la vue
     let dragging = false
     const move = (e: MouseEvent) => {
@@ -81,17 +112,34 @@ export function useInputListeners() {
       if (e.pointerType === 'mouse' && (e.target as HTMLElement)?.tagName === 'CANVAS' && !document.pointerLockElement) dragging = true
     }
     const pup = () => (dragging = false)
-    // pavé tactile : glisser à deux doigts pour regarder (molette : haut / bas)
+    // Wheel selects inventory; Alt + wheel preserves the trackpad camera gesture.
+    let wheelAmount = 0
+    let lastWheel = 0
     const wheel = (e: WheelEvent) => {
       const s = G()
-      if (s.screen !== 'playing' || !s.settings.trackpadLook || overlayOpen() || (s.cine && s.cine !== 'briefing')) return
-      if ((e.target as HTMLElement)?.tagName !== 'CANVAS') return
+      if (s.screen !== 'playing' || overlayOpen() || s.cine || e.ctrlKey || (window as any).__rebinding) return
+      const target = e.target as HTMLElement
+      if (target?.tagName !== 'CANVAS' && !target?.closest('[data-hotbar]') && !document.pointerLockElement) return
       e.preventDefault()
-      const k = e.deltaMode === 1 ? 16 : 1
-      input.look.dx += e.deltaX * k * 0.9
-      input.look.dy += e.deltaY * k * 0.9
+      markKeyboard()
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? window.innerHeight : 1
+      if (e.altKey && s.settings.trackpadLook) {
+        input.look.dx += e.deltaX * unit * 0.9
+        input.look.dy += e.deltaY * unit * 0.9
+        wheelAmount = 0
+        return
+      }
+      const delta = e.deltaY * unit
+      const now = performance.now()
+      if (now - lastWheel > 180 || Math.sign(delta) !== Math.sign(wheelAmount)) wheelAmount = 0
+      lastWheel = now
+      wheelAmount += delta
+      if (Math.abs(wheelAmount) >= 30) {
+        cycleItem(Math.sign(wheelAmount))
+        wheelAmount = 0
+      }
     }
-    const blur = () => input.down.clear()
+    const blur = () => { input.down.clear(); input.jumpRequested = false }
     let lockedAt = 0
     const plc = () => {
       const locked = !!document.pointerLockElement
@@ -117,6 +165,7 @@ export function useInputListeners() {
       window.removeEventListener('pointerup', pup)
       window.removeEventListener('wheel', wheel)
       window.removeEventListener('blur', blur)
+      window.removeEventListener('beforeunload', guardLeave)
       document.removeEventListener('pointerlockchange', plc)
     }
   }, [])
@@ -124,18 +173,32 @@ export function useInputListeners() {
 
 export const isTouch = () => window.matchMedia?.('(pointer: coarse)').matches
 
-export function openTablet() {
-  useGame.setState({ tabletOpen: true })
+export function openTablet(tab: TabletTab = 0) {
+  const s = G()
+  if (s.screen !== 'playing' || s.loading < 1 || s.cine || s.paused || s.puzzle || s.readNote || s.settingsOpen) return
+  if (s.tabletOpen) { useGame.setState({ tab }); return }
+  useGame.setState({ tabletOpen: true, tabletReady: false, tabletOpenedAt: performance.now(), tab })
+  input.down.clear()
+  input.jumpRequested = false
+  input.joy.x = input.joy.y = 0
+  input.touchRun = false
+  input.look.dx = input.look.dy = 0
   audio.sfx('tablet_open')
   document.exitPointerLock?.()
 }
 export function closeTablet() {
-  useGame.setState({ tabletOpen: false })
+  useGame.setState({ tabletOpen: false, tabletReady: false })
+  input.down.clear()
+  input.jumpRequested = false
   audio.sfx('tablet_close')
   requestLock()
 }
+export function openInventory() {
+  openTablet(3)
+}
+export const closeInventory = closeTablet
 export function requestLock() {
-  if (isTouch()) return
+  if (isTouch() || G().screen !== 'playing' || G().cine || overlayOpen()) return
   const c = document.querySelector('canvas')
   try {
     ;(c as any)?.requestPointerLock?.()?.catch?.(() => {})
@@ -152,10 +215,12 @@ export function Player() {
   const tp = useGame((s) => s.tp)
   const quality = useGame((s) => s.settings.quality)
   const q = QUALITY[quality]
-  const st = useRef({ vy: 0, phase: 0, lastStep: 0, roll: 0, lampYaw: 0, lampPitch: 0, flick: 1, breath: 0, prevAim: '' })
+  const st = useRef({ vy: 0, grounded: false, phase: 0, lastStep: 0, roll: 0, lampYaw: 0, lampPitch: 0, flick: 1, breath: 0, prevAim: '', cinematic: false, crouch: 0 })
   const controller = useMemo(() => {
     const c = world.createCharacterController(0.02)
-    c.enableAutostep(0.35, 0.25, true)
+    c.enableAutostep(0.35, 0.25, false)
+    c.setApplyImpulsesToDynamicBodies(true)
+    c.setCharacterMass(80)
     c.enableSnapToGround(0.45)
     c.setMaxSlopeClimbAngle((52 * Math.PI) / 180)
     c.setMinSlopeSlideAngle((60 * Math.PI) / 180)
@@ -163,6 +228,7 @@ export function Player() {
     return c
   }, [world])
   useEffect(() => () => world.removeCharacterController(controller), [world, controller])
+  useEffect(() => () => { live.playerZone = null; input.jumpRequested = false }, [])
 
   // lampe frontale
   const lamp = useMemo(() => {
@@ -199,6 +265,8 @@ export function Player() {
     live.yaw = tp.yaw
     live.pitch = 0
     st.current.vy = 0
+    st.current.grounded = false
+    input.jumpRequested = false
   }, [tp])
 
   const fwd = useMemo(() => new THREE.Vector3(), [])
@@ -211,9 +279,10 @@ export function Player() {
     const s = G()
     const b = body.current
     if (!b) return
+    live.playerZone = zone
     const S = st.current
     const keys = s.settings.keys
-    const frozen = s.screen !== 'playing' || s.paused || !!s.cine || s.tabletOpen || !!s.puzzle || !!s.readNote
+    const frozen = s.screen !== 'playing' || s.loading < 1 || s.paused || !!s.cine || s.tabletOpen || !!s.puzzle || !!s.readNote || s.settingsOpen
 
     // regard
     const sens = 0.0022 * s.settings.sensitivity
@@ -242,18 +311,26 @@ export function Player() {
       iz /= len
     }
     const running = !frozen && (isDown(keys, 'run') || input.touchRun || pad.run || Math.hypot(input.joy.x, input.joy.y) > 0.95)
-    let speed = running ? 4.4 : 2.5
+    // s'accroupir : vue abaissée et marche lente (la capsule de collision ne change pas)
+    const crouching = !frozen && (isDown(keys, 'crouch') || pad.crouch)
+    S.crouch = THREE.MathUtils.damp(S.crouch, crouching ? 1 : 0, 10, dt)
+    let speed = (running && !crouching ? 4.4 : crouching ? 1.4 : 2.5) * ability().speed
     if (s.res.water <= 0) speed *= 0.55
     if (s.zone < 4 && s.res.o2 < 10) speed *= 0.8
     fwd.set(-Math.sin(live.yaw), 0, -Math.cos(live.yaw))
     right.set(Math.cos(live.yaw), 0, -Math.sin(live.yaw))
     mv.set(0, 0, 0).addScaledVector(fwd, -iz * speed * dt).addScaledVector(right, ix * speed * dt)
+    if (input.jumpRequested && !frozen && S.grounded) S.vy = JUMP_SPEED
+    // Consume each press once, including presses in midair or behind an overlay.
+    input.jumpRequested = false
     S.vy = Math.max(S.vy - 9.81 * dt, -20)
     mv.y = S.vy * dt
     const col = b.collider(0)
     controller.computeColliderMovement(col, mv)
     const m = controller.computedMovement()
-    if (controller.computedGrounded()) S.vy = -0.5
+    S.grounded = controller.computedGrounded()
+    if (S.grounded) S.vy = -0.5
+    else if (S.vy > 0 && m.y < mv.y - 0.001) S.vy = 0 // tête contre un plafond
     const t = b.translation()
     let nx = t.x + m.x
     let ny = t.y + m.y
@@ -263,6 +340,8 @@ export function Player() {
       nx = sp.pos[0]
       ny = sp.pos[1] + 1
       nz = sp.pos[2]
+      S.vy = 0
+      S.grounded = false
     }
     b.setNextKinematicTranslation({ x: nx, y: ny, z: nz })
     const horiz = Math.hypot(m.x, m.z) / Math.max(dt, 1e-4)
@@ -270,7 +349,7 @@ export function Player() {
     live.speed = horiz
 
     // tête : balancement, inclinaison en courant, respiration
-    const moving = horiz > 0.4
+    const moving = horiz > 0.4 && S.grounded
     if (moving) S.phase += dt * (running ? 11 : 7.6)
     const k = moving ? Math.min(1, horiz / 2.5) : 0
     const bobY = Math.sin(S.phase * 2) * 0.032 * k
@@ -289,19 +368,20 @@ export function Player() {
     const sx = shake ? (Math.random() - 0.5) * shake * 0.05 : 0
     const sy = shake ? (Math.random() - 0.5) * shake * 0.05 : 0
 
-    if (live.camOverride) {
+    if (s.cine && live.camOverride) {
       camera.position.set(...live.camOverride.pos)
       camera.lookAt(...live.camOverride.look)
     } else {
-      camera.position.set(nx + right.x * bobX + sx, ny + EYE + bobY + breathY + sy, nz + right.z * bobX)
+      camera.position.set(nx + right.x * bobX + sx, ny + EYE - S.crouch * 0.55 + bobY + breathY + sy, nz + right.z * bobX)
       camera.rotation.set(live.pitch + sy * 0.5, live.yaw + sx * 0.3, S.roll, 'YXZ')
     }
     const pc = camera as THREE.PerspectiveCamera
-    const fov = s.settings.fov + (running && moving ? 4 : 0) + lowO2 * 3
+    const fov = (s.cine ? live.camOverride?.fov : undefined) ?? s.settings.fov + (running && moving ? 4 : 0) + lowO2 * 3
     if (Math.abs(pc.fov - fov) > 0.05) {
-      pc.fov = THREE.MathUtils.damp(pc.fov, fov, 5, dt)
+      pc.fov = S.cinematic && !s.cine ? fov : THREE.MathUtils.damp(pc.fov, fov, 5, dt)
       pc.updateProjectionMatrix()
     }
+    S.cinematic = !!s.cine
 
     // lampe : suit la tête avec un léger retard
     S.lampYaw = THREE.MathUtils.damp(S.lampYaw, live.yaw, 14, dt)

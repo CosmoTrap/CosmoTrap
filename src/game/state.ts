@@ -1,14 +1,30 @@
 import { create } from 'zustand'
 import { FLAGS, type Flags, type ItemId, type PuzzleId, type ZoneId } from './types'
-import { DEFAULT_KEYS, type KeyMap } from '../player/input'
+import { DEFAULT_KEYS, DEFAULT_PAD, detectKeyLayout, type KeyLayout, type KeyMap, type PadMap, type PadType } from '../player/input'
 import { DIFFICULTY, type Difficulty } from './difficulty'
+import { LAYOUT_VERSION, migrateStationSave } from './maps/layoutMigration'
 
-export type Screen = 'login' | 'title' | 'charSelect' | 'prologue' | 'playing' | 'end' | 'leaderboard'
+export type Screen = 'launch' | 'login' | 'title' | 'prologue' | 'playing' | 'end' | 'settings' | 'achievements' | 'credits'
+/** carte choisie sur l'écran de lancement */
+export type MissionMap = 'base' | 'station'
 export type Quality = 'low' | 'medium' | 'high' | 'ultra'
-export type CineKind = 'briefing' | 'faint' | 'zoneCard' | 'tour' | 'launch' | 'heli' | 'fail' | null
+export type CineKind = 'briefing' | 'faint' | 'zoneCard' | 'lift' | 'tour' | 'launch' | 'heli' | 'fail' | null
 
 /** limite de temps de la partie (s) selon la difficulté : au-delà, échec */
-export const timeLimit = () => DIFFICULTY[useGame.getState().difficulty ?? 'astronaut'].time
+export const timeLimit = () => DIFFICULTY[useGame.getState().difficulty ?? 'astronaut'].time + (useGame.getState().character === 'ines' ? 180 : 0)
+
+/** capacités des personnages (multiplicateurs) */
+export const ability = () => {
+  const c = useGame.getState().character
+  return {
+    speed: c === 'leo' ? 1.2 : 1,
+    lamp: c === 'nova' ? 0.65 : 1,
+    errorPenalty: c === 'kenji' ? 0.5 : 1,
+    water: c === 'sam' ? 0.6 : 1,
+    faintO2: c === 'sam' ? 75 : 50,
+    o2: c === 'maya' ? 0.75 : 1,
+  }
+}
 export const diff = () => DIFFICULTY[useGame.getState().difficulty ?? 'astronaut']
 export const AUTOSAVE_EVERY = 30
 
@@ -16,17 +32,47 @@ export interface Settings {
   quality: Quality
   sensitivity: number
   invertY: boolean
+  /** volume général (multiplie musique, effets et voix) */
+  master: number
   music: number
   sfx: number
   voice: number
+  /** ambiance spatiale (souffle, réacteurs, dépressurisation) */
+  ambience: number
+  audioOutput: 'headphones' | 'speakers'
+  spatialAudio: boolean
+  /** bip quand l'O₂ passe sous 20 % */
+  o2Alert: boolean
+  /** légendes « [alarme] », « [fuite d'air] »… */
+  soundCaptions: boolean
   fov: number
   colorblind: boolean
   keys: KeyMap
+  /** libellés affichés pour les touches (les touches restent physiques) */
+  keyLayout: KeyLayout
+  pad: PadMap
+  padType: PadType
   showFps: boolean
   /** afficher la réplique fantôme du record */
   ghost: boolean
   /** hauteur de rendu en pixels, ou automatique */
   resolution: 'auto' | number
+  /** personnage choisi dans le profil (invités : local) */
+  character: string
+  /** carte et difficulté retenues sur l'écran de lancement */
+  map: MissionMap
+  difficulty: Difficulty
+  /** niveau d'aide : fréquence et précision des indices */
+  help: 'recrue' | 'pilote' | 'commandant'
+  showChrono: boolean
+  subtitles: boolean
+  /** sauvegarde à chaque énigme résolue (en plus des 30 s) */
+  autosave: boolean
+  lang: 'fr' | 'en'
+  /** luminosité de l'image (0,6 à 1,6) */
+  brightness: number
+  /** voix de synthèse du navigateur quand aucun fichier de voix n'est fourni */
+  browserVoice: boolean
   /** regarder en glissant à deux doigts sur le pavé tactile (ou molette) */
   trackpadLook: boolean
 }
@@ -47,10 +93,12 @@ export const live = {
   inDarkRoom: false,
   roomId: '' as string,
   fps: 60,
+  /** Zone whose physical player has rendered a frame (loading/test readiness). */
+  playerZone: null as ZoneId | null,
   /** décor extérieur pendant les cinématiques (décollage, rentrée) */
   ext: { y: 0, plasma: 0 },
   /** contrôle caméra par une cinématique */
-  camOverride: null as null | { pos: [number, number, number]; look: [number, number, number] },
+  camOverride: null as null | { pos: [number, number, number]; look: [number, number, number]; fov?: number },
   bob: 0,
   /** fondu au noir (0..1) et flash blanc (0..1) pilotés par les cinématiques */
   fade: 0,
@@ -97,14 +145,27 @@ export function pressValveGrid(v: boolean[], r: number, c: number) {
 
 const emptyFlags = () => Object.fromEntries(FLAGS.map((f) => [f, false])) as Flags
 
+export type TabletTab = 0 | 1 | 2 | 3 // Plan, journal, messages, inventaire.
+export interface MissionMessage {
+  id: number
+  text: string
+  kind: 'system' | 'radio' | 'document'
+  zone: ZoneId
+  time: number
+  noteId?: string
+}
+
 export interface GameData {
+  layoutVersion: number
   zone: ZoneId
   character: string
+  map: MissionMap
   flags: Flags
   inv: Partial<Record<ItemId, number>>
   res: { o2: number; lamp: number; water: number }
   lampOn: boolean
   notes: string[]
+  messages: MissionMessage[]
   taken: string[]
   discovered: string[]
   hintsUsed: number
@@ -117,6 +178,7 @@ export interface GameData {
   ended: boolean
   /** objet clé tenu en main (barre 1-9) */
   held: ItemId | null
+  selectedItem: ItemId | null
   /** secondes de pénalité (erreurs, indices) ajoutées au chrono */
   penalty: number
   errors: number
@@ -136,16 +198,23 @@ export interface GameData {
   /** imprévu en cours */
   event: { kind: 'blackout' | 'leak'; until: number } | null
   nextEventAt: number
+  /** positions monde du mobilier déplacé par le joueur */
+  propPositions: Record<string, [number, number, number]>
+  /** temps de jeu (pénalités comprises) à la résolution de chaque énigme, par id */
+  splits: Record<string, number>
 }
 
-export const newGameData = (character = 'nova', difficulty: Difficulty = 'astronaut'): GameData => ({
+export const newGameData = (character = 'nova', difficulty: Difficulty = 'astronaut', map: MissionMap = 'base'): GameData => ({
+  layoutVersion: LAYOUT_VERSION,
   zone: 1,
   character,
+  map,
   flags: emptyFlags(),
   inv: {},
   res: { o2: 100, lamp: 100, water: 100 },
   lampOn: false,
   notes: [],
+  messages: [],
   taken: [],
   discovered: [],
   hintsUsed: 0,
@@ -157,6 +226,7 @@ export const newGameData = (character = 'nova', difficulty: Difficulty = 'astron
   briefed: false,
   ended: false,
   held: null,
+  selectedItem: null,
   penalty: 0,
   errors: 0,
   plan: [],
@@ -169,20 +239,30 @@ export const newGameData = (character = 'nova', difficulty: Difficulty = 'astron
   track: [],
   event: null,
   nextEventAt: DIFFICULTY[difficulty].events * 0.7,
+  propPositions: {},
+  splits: {},
 })
 
 export interface GameState extends GameData {
   screen: Screen
+  /** écran où revient la flèche des pages Paramètres, Succès et Crédits */
+  menuBack: Screen
   paused: boolean
   locked: boolean // pointer lock actif
   tabletOpen: boolean
-  tab: number
+  tabletReady: boolean
+  tabletOpenedAt: number
+  tab: TabletTab
   puzzle: PuzzleId | null
   readNote: string | null
   cine: CineKind
   cineT0: number
   toasts: Toast[]
   settingsOpen: boolean
+  /** onglet de la page Paramètres (0 Profil, 1 Jeu, 2 Touches, 3 Audio) */
+  settingsTab: number
+  /** première connexion : on guide vers le choix du personnage */
+  firstRun: boolean
   creditsOpen: boolean
   tp: { pos: [number, number, number]; yaw: number; n: number } | null
   loading: number // 0..1, 1 = prêt
@@ -194,8 +274,9 @@ export interface GameState extends GameData {
   padActive: boolean
   padSlotTick: number
   resume: { pos: [number, number, number]; yaw: number } | null
-  user: { id: number; email: string; pseudo: string } | null
+  user: { id: number; email: string; pseudo: string; character?: string } | null
   offline: boolean
+  myRank: number | null
   lastResult: { timeMs: number; score: number; rank: number | null } | null
   set: (p: Partial<GameState>) => void
 }
@@ -219,7 +300,9 @@ export function detectQuality(): Quality {
     if (/swiftshader|llvmpipe|software|basic render/.test(r)) return 'low'
     if (/rtx|radeon rx [67]|rx 7|apple m[2-9] (pro|max|ultra)|apple m[3-9]/.test(r)) return 'ultra'
     if (/apple m|apple gpu|geforce gtx 1[0-9]|rx 5|arc a/.test(r)) return 'high'
-    if (/intel|uhd|iris|mali|adreno/.test(r)) return cores >= 8 ? 'medium' : 'low'
+    // CPU thread count is not a measure of integrated graphics performance.
+    if (/uhd|intel.*hd graphics|mali|adreno/.test(r)) return 'low'
+    if (/intel|iris/.test(r)) return 'medium'
     return cores >= 8 ? 'high' : 'medium'
   } catch {
     return 'medium'
@@ -231,21 +314,45 @@ function loadSettings(): Settings {
     quality: detectQuality(),
     sensitivity: 1,
     invertY: false,
-    music: 0.7,
-    sfx: 0.85,
+    master: 0.8,
+    music: 0.6,
+    sfx: 0.75,
     voice: 0.9,
+    ambience: 0.5,
+    audioOutput: 'headphones',
+    spatialAudio: true,
+    o2Alert: true,
+    soundCaptions: true,
     fov: 72,
     colorblind: false,
     keys: DEFAULT_KEYS,
+    keyLayout: detectKeyLayout(),
+    pad: DEFAULT_PAD,
+    padType: 'xbox',
     showFps: false,
     ghost: true,
     resolution: 'auto',
+    character: 'nova',
+    map: 'base',
+    difficulty: 'astronaut',
+    help: 'pilote',
+    showChrono: true,
+    subtitles: true,
+    autosave: true,
+    lang: 'fr',
+    brightness: 1,
+    browserVoice: false,
     trackpadLook: true,
   }
   try {
     const q = new URLSearchParams(location.search).get('quality') as Quality | null
     const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null')
-    const out = { ...def, ...(s || {}), keys: { ...DEFAULT_KEYS, ...(s?.keys || {}) } }
+    const out = { ...def, ...(s || {}), keys: { ...DEFAULT_KEYS, ...(s?.keys || {}) }, pad: { ...DEFAULT_PAD, ...(s?.pad || {}) } }
+    // Before jumping existed, Space was a second interaction key.
+    if (s?.keys && !('jump' in s.keys)) {
+      out.keys.act = out.keys.act.filter((code: string) => code !== 'Space')
+      if (!out.keys.act.length) out.keys.act = [...DEFAULT_KEYS.act]
+    }
     if (q) out.quality = q
     return out
   } catch {
@@ -263,10 +370,14 @@ export function saveSettings(s: Settings) {
 
 export const useGame = create<GameState>((set) => ({
   ...newGameData(),
-  screen: 'login',
+  // un lien de réinitialisation de mot de passe ouvre directement la connexion
+  screen: typeof location !== 'undefined' && new URLSearchParams(location.search).has('reset') ? 'login' : 'launch',
+  menuBack: 'launch',
   paused: false,
   locked: false,
   tabletOpen: false,
+  tabletReady: false,
+  tabletOpenedAt: 0,
   tab: 0,
   puzzle: null,
   readNote: null,
@@ -274,6 +385,8 @@ export const useGame = create<GameState>((set) => ({
   cineT0: 0,
   toasts: [],
   settingsOpen: false,
+  settingsTab: 0,
+  firstRun: false,
   creditsOpen: false,
   tp: null,
   loading: 1,
@@ -286,15 +399,30 @@ export const useGame = create<GameState>((set) => ({
   resume: null,
   user: null,
   offline: false,
+  myRank: null,
   lastResult: null,
   set: (p) => set(p),
 }))
 
 export const G = () => useGame.getState()
 
+/** Archive the text actually delivered to the player, including voiced cinematics. */
+export function recordMessage(text: string, kind: MissionMessage['kind'] = 'system', noteId?: string) {
+  const s = G()
+  if (!text.trim() || !['playing', 'prologue'].includes(s.screen)) return
+  const previous = s.messages.at(-1)
+  if (previous?.text === text && previous.kind === kind && previous.zone === s.zone) return
+  if (noteId && s.messages.some((m) => m.noteId === noteId)) return
+  useGame.setState({ messages: [...s.messages, { id: (previous?.id ?? 0) + 1, text, kind, zone: s.zone, time: s.playTime, ...(noteId ? { noteId } : {}) }] })
+}
+useGame.subscribe((s, previous) => {
+  if (s.subtitle && s.subtitle !== previous.subtitle) recordMessage(s.subtitle, 'radio')
+})
+
 let toastId = 1
 const toastTimers = new Map<number, ReturnType<typeof setTimeout>>()
 export function toast(text: string, kind: Toast['kind'] = 'info', ms = 3200) {
+  recordMessage(text)
   // même message déjà affiché : on prolonge au lieu de l'empiler
   const same = useGame.getState().toasts.find((t) => t.text === text)
   const id = same?.id ?? toastId++
@@ -314,7 +442,7 @@ export function has(item: ItemId) {
 }
 
 export function addItem(item: ItemId, n = 1) {
-  useGame.setState((s) => ({ inv: { ...s.inv, [item]: (s.inv[item] ?? 0) + n } }))
+  useGame.setState((s) => ({ inv: { ...s.inv, [item]: (s.inv[item] ?? 0) + n }, selectedItem: s.selectedItem ?? item }))
 }
 
 export function removeItem(item: ItemId, n = 1) {
@@ -323,7 +451,10 @@ export function removeItem(item: ItemId, n = 1) {
     const inv = { ...s.inv }
     if (c === 0) delete inv[item]
     else inv[item] = c
-    return { inv }
+    const items = Object.keys(inv) as ItemId[]
+    const previousIndex = Object.keys(s.inv).indexOf(item)
+    return { inv, held: c === 0 && s.held === item ? null : s.held,
+      selectedItem: c === 0 && s.selectedItem === item ? items[Math.min(previousIndex, items.length - 1)] ?? null : s.selectedItem }
   })
 }
 
@@ -335,6 +466,7 @@ export function addNote(id: string) {
   const s = G()
   if (s.notes.includes(id)) return false
   useGame.setState({ notes: [...s.notes, id] })
+  recordMessage(id, 'document', id)
   return true
 }
 
@@ -386,7 +518,11 @@ export type SaveFile = GameData & { pos?: [number, number, number]; yaw?: number
 
 export function normalizeSave(d: any): SaveFile | null {
   if (!d || !d.zone) return null
-  return { ...newGameData(d.character), ...d, flags: { ...emptyFlags(), ...d.flags } }
+  const saved = { ...newGameData(d.character), ...d, flags: { ...emptyFlags(), ...d.flags }, messages: Array.isArray(d.messages) ? d.messages : [] }
+  const items = (Object.keys(saved.inv) as ItemId[]).filter((it) => saved.inv[it] > 0)
+  if (!items.includes(saved.selectedItem)) saved.selectedItem = items[0] ?? null
+  if (!items.includes(saved.held)) saved.held = null
+  return migrateStationSave(saved, d.layoutVersion ?? 1)
 }
 
 export function loadSave(): SaveFile | null {

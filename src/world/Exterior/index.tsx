@@ -1,6 +1,7 @@
 import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
+import { CEIL, TILE } from '../../game/maps'
 import { G, live } from '../../game/state'
 import type { GridMap } from '../../game/types'
 import { QUALITY } from '../quality'
@@ -16,6 +17,12 @@ export function Exterior({ map }: { map: GridMap }) {
   const W = Math.max(...map.grid.map((r) => r.length))
   const H = map.grid.length
   const c = useMemo(() => new THREE.Vector3(W, 0, H), [W, H])
+  // Boîte de la station (TILE = 2 : le centre (W, 0, H) est déjà le centre monde).
+  const keepOut = useMemo(() => {
+    const hx = (W * TILE) / 2
+    const hz = (H * TILE) / 2
+    return { cx: hx, cy: CEIL / 2, cz: hz, hx, hy: CEIL / 2, hz }
+  }, [W, H])
   const sun = useMemo(() => new THREE.Vector3(...map.sun).normalize(), [map])
   const group = useRef<THREE.Group>(null)
   useFrame(() => {
@@ -38,7 +45,7 @@ export function Exterior({ map }: { map: GridMap }) {
           <>
             <Moon radius={320} position={c.clone().add(new THREE.Vector3(0.45, -0.3, -0.84).normalize().multiplyScalar(2600)).toArray()} sun={sun} detail={2} />
             <Earth radius={60} position={c.clone().add(new THREE.Vector3(-0.7, 0.1, 0.7).normalize().multiplyScalar(3600)).toArray()} sun={sun} />
-            <Asteroids center={c} count={q.particles > 400 ? 260 : 160} />
+            <Asteroids center={c} keepOut={keepOut} count={q.particles > 400 ? 260 : 160} />
           </>
         )}
         {map.exterior === 'earthrise' && (

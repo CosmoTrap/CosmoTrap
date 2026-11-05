@@ -58,6 +58,7 @@ export interface User {
   id: number
   email: string
   pseudo: string
+  character?: string
 }
 
 export async function me(): Promise<{ user: User | null; google: boolean }> {
@@ -74,6 +75,21 @@ export const login = async (email: string, password: string) => signedIn(await r
 export const register = async (email: string, pseudo: string, password: string) =>
   signedIn(await req('auth.php?action=register', { method: 'POST', body: JSON.stringify({ email, pseudo, password }) }))
 export const googleLogin = async (credential: string) => signedIn(await req('auth.php?action=google', { method: 'POST', body: JSON.stringify({ credential }) }))
+
+export async function updateProfile(p: { pseudo?: string; email?: string; character?: string }) {
+  const r = await req<{ user: User }>('auth.php?action=profile', { method: 'POST', body: JSON.stringify(p) })
+  useGame.setState({ user: r.user })
+  return r.user
+}
+
+export const changePassword = (current: string, password: string) => req('auth.php?action=password', { method: 'POST', body: JSON.stringify({ current, password }) })
+export const forgotPassword = (email: string) => req('auth.php?action=forgot', { method: 'POST', body: JSON.stringify({ email }) })
+export async function resetPassword(token: string, password: string) {
+  const r = await req<{ token: string }>('auth.php?action=reset', { method: 'POST', body: JSON.stringify({ token, password }) })
+  setToken(r.token)
+  return r
+}
+const setToken = (t: string) => token.set(t)
 
 export async function logout() {
   try {
@@ -132,9 +148,12 @@ export interface Row {
   ending: string
   date: number
   me: boolean
+  avatar?: string
+  difficulty?: string
 }
 
-export const leaderboard = (difficulty = 'astronaut') => req<{ rows: Row[] }>(`leaderboard.php?difficulty=${difficulty}`)
+export const leaderboard = (difficulty = 'astronaut', period: 'all' | 'week' = 'all', map?: 'base' | 'station') =>
+  req<{ rows: Row[]; myRank: number | null }>(`leaderboard.php?difficulty=${difficulty}&period=${period}${map ? `&map=${map}` : ''}`)
 
 export async function fetchGhost(difficulty: string) {
   try {
@@ -164,7 +183,7 @@ export async function pushAchievements(codes: string[]) {
   }
 }
 
-export async function submitScore(p: { timeMs: number; hints: number; errors: number; score: number; character: string; ending: string; difficulty: string; ghost?: number[] }) {
+export async function submitScore(p: { timeMs: number; hints: number; errors: number; score: number; character: string; ending: string; difficulty: string; ghost?: number[]; map?: string }) {
   if (!G().user) return null
   try {
     const r = await req<{ rank: number }>('leaderboard.php', { method: 'POST', body: JSON.stringify(p) })

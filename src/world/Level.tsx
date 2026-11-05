@@ -11,6 +11,9 @@ import { LightShafts } from './LightShafts'
 import { RoomCtx, ceilingMaterial, floorMaterial, setRoomLit, useMats, wallMaterial } from './materials'
 import { EntModels } from './props/EntModels'
 import { Props } from './props/Props'
+import { EmergencyLights } from './EmergencyLights'
+import { roomPowerCut } from './roomPower'
+import { RoundHub } from './RoundHub'
 
 export const WIN_R = 0.42
 export const WIN_Y = 1.5
@@ -25,7 +28,7 @@ export interface WindowDef {
 }
 
 interface Built {
-  rooms: Record<string, { floor: THREE.BufferGeometry[]; ceil: THREE.BufferGeometry[]; wall: THREE.BufferGeometry[] }>
+  rooms: Record<string, { floor: THREE.BufferGeometry[]; ceil: THREE.BufferGeometry[]; wall: THREE.BufferGeometry[]; trim: THREE.BufferGeometry[] }>
   windows: WindowDef[]
   colliders: { p: [number, number, number]; h: [number, number, number] }[]
   doors: { id: string; x: number; z: number; alongZ: boolean; room: string }[]
@@ -74,7 +77,7 @@ function buildLevel(map: GridMap): Built {
   const rooms: Built['rooms'] = {}
   const windows: WindowDef[] = []
   const doors: Built['doors'] = []
-  const R = (id: string) => (rooms[id] ??= { floor: [], ceil: [], wall: [] })
+  const R = (id: string) => (rooms[id] ??= { floor: [], ceil: [], wall: [], trim: [] })
   const H = map.grid.length
   const W = Math.max(...map.grid.map((r) => r.length))
 
@@ -101,6 +104,7 @@ function buildLevel(map: GridMap): Built {
       const c = cellAt(map, tx, tz)
       if (!isFloor(c)) continue
       const rid = roomOf(tx, tz)
+      if (map.rooms.find((room) => room.id === rid)?.shape === 'round') continue
       const r = R(rid)
       const [cx, cz] = tileCenter(tx, tz)
       const f = new THREE.PlaneGeometry(TILE, TILE)
@@ -131,6 +135,18 @@ function buildLevel(map: GridMap): Built {
         g.rotateY(dir.rot)
         g.translate(x, 0, z)
         r.wall.push(g)
+        // Real depth at panel seams and skirting: catch grazing light without
+        // adding a draw call per rib. Do not bridge doors or cover the windows.
+        for (const [width, height, depth, px, py] of [
+          [TILE, 0.12, 0.06, 0, 0.06],
+          [TILE, 0.1, 0.1, 0, CEIL - 0.05],
+          [0.045, CEIL, 0.065, -0.97, CEIL / 2],
+        ]) {
+          const rib = new THREE.BoxGeometry(width, height, depth)
+          rib.translate(px, py, depth / 2)
+          rib.rotateY(dir.rot); rib.translate(x, 0, z)
+          r.trim.push(rib)
+        }
       }
     }
 
@@ -170,16 +186,19 @@ function RoomMeshes({ room, geo, shadows }: { room: RoomDef; geo: Built['rooms']
       floor: mergeGeometries(geo.floor),
       ceil: mergeGeometries(geo.ceil),
       wall: geo.wall.length ? mergeGeometries(geo.wall) : null,
+      trim: geo.trim.length ? mergeGeometries(geo.trim) : null,
     }),
     [geo],
   )
   const dark = !!room.dark
   const theme = room.theme ?? 'station'
+  const m = useMats()
   return (
     <group>
       <mesh geometry={merged.floor} material={floorMaterial(floorKind(room), dark, room.id)} receiveShadow castShadow={shadows} />
       <mesh geometry={merged.ceil} material={ceilingMaterial(dark, room.id)} receiveShadow castShadow={shadows} />
       {merged.wall && <mesh geometry={merged.wall} material={wallMaterial(theme, dark, room.id)} receiveShadow castShadow={shadows} />}
+      {merged.trim && <mesh geometry={merged.trim} material={m.painted('#60676b', 0.48, 0.65)} receiveShadow castShadow={shadows} />}
     </group>
   )
 }
@@ -231,22 +250,18 @@ function Canopy({ w }: { w: WindowDef }) {
   )
 }
 
-/** intensité courante de chaque pièce (0..1), partagée entre la lumière et ses néons */
-const roomLevel = new Map<string, number>()
-
-function flickerAt(t: number, seed: number) {
-  // grésillement irrégulier avec de courtes coupures
-  const a = Math.sin(t * 13.1 + seed) * Math.sin(t * 7.7 + seed * 2.3)
-  const cut = Math.sin(t * 0.9 + seed) > 0.82 ? (Math.sin(t * 40) > 0 ? 0.05 : 0.6) : 1
-  return Math.max(0.05, (0.82 + 0.18 * a) * cut)
-}
-
 /** plafonniers émissifs (bloom) */
 function Fixtures({ room, lit }: { room: RoomDef; lit: boolean }) {
   const ref = useRef<THREE.InstancedMesh>(null)
+  const housing = useRef<THREE.InstancedMesh>(null)
+  const materials = useMats()
   const tiles = useMemo(() => {
     const out: [number, number][] = []
     const [x0, z0, x1, z1] = room.rect
+    if (room.shape === 'round') return Array.from({ length: 4 }, (_, i): [number, number] => {
+      const a = i * Math.PI / 2
+      return [(x0 + x1) / 2 + Math.sin(a) * 1.6, (z0 + z1) / 2 + Math.cos(a) * 1.6]
+    })
     const wide = x1 - x0 >= z1 - z0
     for (let tz = z0; tz <= z1; tz++)
       for (let tx = x0; tx <= x1; tx++) {
@@ -262,45 +277,55 @@ function Fixtures({ room, lit }: { room: RoomDef; lit: boolean }) {
     tiles.forEach(([tx, tz], i) => {
       const [cx, cz] = tileCenter(tx, tz)
       m.makeRotationY(wide ? 0 : Math.PI / 2)
-      m.setPosition(cx, CEIL - 0.03, cz)
+      m.setPosition(cx, CEIL - 0.105, cz)
       ref.current!.setMatrixAt(i, m)
+      m.setPosition(cx, CEIL - 0.045, cz)
+      housing.current!.setMatrixAt(i, m)
     })
     ref.current!.instanceMatrix.needsUpdate = true
+    housing.current!.instanceMatrix.needsUpdate = true
   }, [tiles, room])
   const color = room.light ?? '#ffffff'
   const mat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#111', emissive: color, emissiveIntensity: 0 }), [color])
   useFrame(() => {
-    const k = lit ? (roomLevel.get(room.id) ?? 1) : 0
+    const k = lit && !roomPowerCut(room) ? 1 : 0
     mat.emissiveIntensity = 4.2 * k
-    mat.color.set(lit ? '#1a1a1a' : '#0a0a0a')
+    mat.color.set(k ? '#1a1a1a' : '#0a0a0a')
   })
   return (
-    <instancedMesh ref={ref} args={[undefined, undefined, tiles.length]} material={mat}>
-      <boxGeometry args={[1.3, 0.05, 0.22]} />
-    </instancedMesh>
+    <group>
+      <instancedMesh ref={housing} args={[undefined, undefined, tiles.length]} material={materials.painted('#454b50', 0.4, 0.6)} receiveShadow>
+        <boxGeometry args={[1.45, 0.09, 0.32]} />
+      </instancedMesh>
+      <instancedMesh name={`ceiling-light:${room.id}`} ref={ref} args={[undefined, undefined, tiles.length]} material={mat}>
+        <boxGeometry args={[1.3, 0.025, 0.2]} />
+      </instancedMesh>
+    </group>
   )
 }
 
 /** lumière dynamique d'une pièce (nombre constant : on change l'intensité, pas le nombre) */
-function RoomLight({ room, on, flicker }: { room: RoomDef; on: boolean; flicker?: boolean }) {
+function RoomLight({ room, on, offset = [0, 0], share = 1 }: { room: RoomDef; on: boolean; offset?: [number, number]; share?: number }) {
   const ref = useRef<THREE.PointLight>(null)
   const [x0, z0, x1, z1] = room.rect
-  const cx = ((x0 + x1 + 1) * TILE) / 2
-  const cz = ((z0 + z1 + 1) * TILE) / 2
+  const cx = ((x0 + x1 + 1) * TILE) / 2 + offset[0]
+  const cz = ((z0 + z1 + 1) * TILE) / 2 + offset[1]
   const reach = Math.hypot((x1 - x0 + 1) * TILE, (z1 - z0 + 1) * TILE) * 0.55 + 1.5
-  const base = (room.intensity ?? 8) * 2.3
-  useFrame(({ clock }) => {
+  const base = (room.intensity ?? 8) * 2.3 * share
+  useFrame((_, dt) => {
     if (!ref.current) return
-    let k = on ? 1 : 0
-    if (on && flicker) k = flickerAt(clock.elapsedTime, room.rect[0] * 3.1 + room.rect[1])
-    // coupure de courant : quelques sursauts puis le noir
-    if (G().event?.kind === 'blackout') k *= Math.sin(clock.elapsedTime * 31) > 0.97 ? 0.4 : 0.02
-    roomLevel.set(room.id, k)
-    k *= diff().light
-    ref.current.intensity = flicker || G().event ? base * k : THREE.MathUtils.lerp(ref.current.intensity, base * k, 0.15)
+    // The normal circuit really goes dark. Red light comes from the beacons.
+    ref.current.intensity = !on || roomPowerCut(room) ? 0
+      : THREE.MathUtils.damp(ref.current.intensity, base * diff().light, 10, Math.min(dt, 0.1))
   })
-  return <pointLight ref={ref} position={[cx, CEIL - 0.45, cz]} color={room.light} intensity={on ? base : 0} distance={reach} decay={1.5} />
+  return <pointLight name={`room-light:${room.id}`} ref={ref} position={[cx, CEIL - 0.45, cz]} color={room.light} intensity={on ? base : 0} distance={reach} decay={1.5} />
 }
+
+/** A light at the hub's centre would be inside the lift and leave its outer wall black. */
+const HUB_LIGHTS = [0, 1, 2].map((i): [number, number] => {
+  const a = Math.PI / 2 + i * Math.PI * 2 / 3
+  return [Math.sin(a) * 4, Math.cos(a) * 4]
+})
 
 export function Level({ map, shadows }: { map: GridMap; shadows: boolean }) {
   const built = useMemo(() => buildLevel(map), [map])
@@ -318,13 +343,15 @@ export function Level({ map, shadows }: { map: GridMap; shadows: boolean }) {
     <group>
       {map.rooms.map((room) => {
         const geo = built.rooms[room.id]
-        if (!geo) return null
+        if (!geo && room.shape !== 'round') return null
         const lit = lightsOn(room)
         return (
           <RoomCtx.Provider key={room.id} value={{ id: room.id, dark: !!room.dark }}>
-            <RoomMeshes room={room} geo={geo} shadows={shadows} />
+            {room.shape === 'round' ? <RoundHub room={room} shadows={shadows} zone={map.zone} /> : <RoomMeshes room={room} geo={geo} shadows={shadows} />}
             <Fixtures room={room} lit={lit} />
-            {!room.noDynLight && <RoomLight room={room} on={lit} flicker={!!room.flicker || (room.id === 'sas' && map.zone === 1 && !flags.pressurized)} />}
+            {!room.noDynLight && (room.shape === 'round'
+              ? HUB_LIGHTS.map((offset, i) => <RoomLight key={i} room={room} on={lit} offset={offset} share={0.5} />)
+              : <RoomLight room={room} on={lit} />)}
           </RoomCtx.Provider>
         )
       })}
@@ -345,6 +372,7 @@ export function Level({ map, shadows }: { map: GridMap; shadows: boolean }) {
         ))}
       </RigidBody>
       <Props map={map} />
+      <EmergencyLights map={map} />
       <EntModels zone={map.zone} />
     </group>
   )

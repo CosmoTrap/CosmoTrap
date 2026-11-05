@@ -13,8 +13,7 @@ const g = <T = any>(page: Page, fn: string, ...args: unknown[]) => page.evaluate
 const st = (page: Page) => page.evaluate(() => window.__game.state())
 
 async function waitIdle(page: Page, zone: number) {
-  await page.waitForFunction((z) => window.__game.state().zone === z && !window.__game.state().cine, zone, { timeout: 120000 })
-  await page.waitForTimeout(600)
+  await page.waitForFunction((z) => window.__game.state().zone === z && !window.__game.state().cine && window.__game.state().loading === 1, zone, { timeout: 120000 })
 }
 
 async function act(page: Page, id: string) {
@@ -31,7 +30,7 @@ async function holdKey(page: Page, key: string, ms: number) {
 
 async function signedInPage(page: Page, request: any) {
   const email = `pw-${Date.now()}-${Math.floor(Math.random() * 1e6)}@cosmotrap.test`
-  const r = await request.post('http://localhost:5180/api/auth.php?action=register', { data: { email, pseudo: 'Robot', password: 'playwright-orion' } })
+  const r = await request.post('/api/auth.php?action=register', { data: { email, pseudo: `Robot${Math.floor(Math.random() * 1e6)}`, password: 'playwright-orion' } })
   expect(r.ok()).toBeTruthy()
   const { token } = await r.json()
   await page.addInitScript((t) => localStorage.setItem('cosmotrap.token', t), token)
@@ -40,14 +39,16 @@ async function signedInPage(page: Page, request: any) {
   page.on('pageerror', (e) => console.log('Erreur page :', e.message))
   await page.goto('/?quality=low')
   ;(page as any).__loads = () => loads
+  // écran de lancement, puis poste de commande (la session est reprise toute seule)
+  await expect(page.getByTestId('launch')).toBeVisible({ timeout: 30000 })
+  await page.keyboard.press('Space')
   await expect(page.getByTestId('title')).toBeVisible({ timeout: 30000 })
 }
 
 async function startGame(page: Page) {
   await g(page, 'start', 'nova', true)
   await g(page, 'set', { toured: [1, 2, 3, 4] })
-  await page.waitForFunction(() => window.__game.state().screen === 'playing')
-  await page.waitForTimeout(2500)
+  await page.waitForFunction(() => window.__game.state().screen === 'playing' && window.__game.state().loading === 1)
 }
 
 test('partie complète, de la station à la Terre', async ({ page, request }) => {
@@ -56,7 +57,7 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
 
   // ——— Zone 1 ———
   await waitIdle(page, 1)
-  expect(await g(page, 'interact', 'hatch')).toBe(false) // la trappe reste fermée avant la pressurisation
+  expect(await g(page, 'interact', 'lift')).toBe(false) // l'ascenseur reste verrouillé avant la pressurisation
   expect((await st(page)).zone).toBe(1)
   await act(page, 'lamp')
   await page.keyboard.press('f')
@@ -83,15 +84,19 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
   await expect.poll(async () => (await st(page)).flags.pressurized).toBe(true)
   await page.waitForTimeout(1500)
   await page.screenshot({ path: 'test-results/zone1.png' })
-  await act(page, 'hatch')
+  await g(page, 'teleportXZ', 41, 41, -Math.PI / 2)
+  await page.waitForTimeout(250)
+  await g(page, 'interact', 'lift')
 
   // ——— Zone 2 ———
   await waitIdle(page, 2)
   // le disjoncteur est inaccessible avant la vanne : la vapeur bloque le couloir
-  await g(page, 'teleportXZ', 35, 11, -Math.PI / 2)
+  await g(page, 'teleportXZ', 51, 37, -Math.PI / 2)
   await page.waitForTimeout(600)
   await holdKey(page, 'w', 2500)
-  expect((await st(page)).pos[0]).toBeLessThan(39.6)
+  // Steam starts at x=56; capsule radius 0.30 + controller skin 0.02.
+  expect((await st(page)).pos[0]).toBeLessThan(55.75)
+  expect((await st(page)).pos[0]).toBeGreaterThan(51.3)
   await act(page, 'fuse')
   await act(page, 'wrench')
   await act(page, 'steamValve')
@@ -164,8 +169,8 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
   expect(end.ended).toBe(true)
   await page.screenshot({ path: 'test-results/fin.png' })
   // le score est enregistré dans le classement
-  const board = await (await request.get('http://localhost:5180/api/leaderboard.php')).json()
-  expect(board.rows.some((r: any) => r.pseudo === 'Robot')).toBe(true)
+  const board = await (await request.get('/api/leaderboard.php')).json()
+  expect(board.rows.some((r: any) => r.pseudo.startsWith('Robot'))).toBe(true)
 })
 
 test('ressources à zéro, pénalités, indices et limite de temps', async ({ page, request }) => {
@@ -199,6 +204,7 @@ test('ressources à zéro, pénalités, indices et limite de temps', async ({ pa
   // indice léger : compté et pénalisé
   await page.keyboard.press('Tab')
   await expect(page.getByTestId('tablet')).toBeVisible()
+  await page.getByTestId('tab-1').click()
   const before = (await st(page)).penalty
   await page.getByTestId('hint').click()
   s = await st(page)
@@ -212,7 +218,7 @@ test('ressources à zéro, pénalités, indices et limite de temps', async ({ pa
   await g(page, 'drain', 1)
   await page.waitForFunction(() => window.__game.state().cine === 'fail')
   await expect(page.getByTestId('end')).toBeVisible({ timeout: 20000 })
-  await expect(page.getByText('Mission échouée')).toBeVisible()
+  await expect(page.getByText('Temps écoulé…')).toBeVisible()
 })
 
 test('difficulté, imprévus, succès, fantôme et manette', async ({ page, request }) => {
@@ -235,25 +241,25 @@ test('difficulté, imprévus, succès, fantôme et manette', async ({ page, requ
   await expect.poll(async () => (await st(page)).penalty).toBe(45)
   await page.keyboard.press('Escape')
 
-  // manette : stick gauche → le joueur avance, bouton A → ramasse la lampe
+  // manette : stick gauche → le joueur avance, bouton X → ramasse la lampe
   await g(page, 'teleport', 'lamp', 1.2)
   await page.waitForTimeout(600)
   await page.evaluate(() => ((window as any).__game.live.pitch = -0.35))
   await page.waitForTimeout(500)
   expect((await st(page)).aimed).toBe('lamp')
-  await page.evaluate(() => ((window as any).__pad.buttons[0].pressed = true))
+  await page.evaluate(() => ((window as any).__pad.buttons[2].pressed = true))
   await page.waitForTimeout(400)
-  await page.evaluate(() => ((window as any).__pad.buttons[0].pressed = false))
+  await page.evaluate(() => ((window as any).__pad.buttons[2].pressed = false))
   await expect.poll(async () => (await st(page)).inv.lamp).toBe(1)
   const z0 = (await st(page)).pos[2]
   await page.evaluate(() => ((window as any).__pad.axes[1] = 1))
   await page.waitForTimeout(1500)
   await page.evaluate(() => ((window as any).__pad.axes[1] = 0))
   expect((await st(page)).pos[2]).toBeGreaterThan(z0 + 0.5)
-  // bouton X → lampe
-  await page.evaluate(() => ((window as any).__pad.buttons[2].pressed = true))
+  // bouton LB → lampe
+  await page.evaluate(() => ((window as any).__pad.buttons[4].pressed = true))
   await page.waitForTimeout(400)
-  await page.evaluate(() => ((window as any).__pad.buttons[2].pressed = false))
+  await page.evaluate(() => ((window as any).__pad.buttons[4].pressed = false))
   await expect.poll(async () => (await st(page)).lampOn).toBe(true)
 
   // imprévu : micro-fuite colmatée au ruban adhésif → succès « Bricoleur »
@@ -268,16 +274,50 @@ test('difficulté, imprévus, succès, fantôme et manette', async ({ page, requ
   await g(page, 'startEvent', 'blackout')
   expect((await st(page)).event?.kind).toBe('blackout')
   await g(page, 'drain', 25)
+  expect((await st(page)).event?.kind).toBe('blackout')
+  await g(page, 'drain', 10)
   expect((await st(page)).event).toBeNull()
 
   // trajectoire enregistrée pour la réplique fantôme
   expect((await st(page)).trackLen).toBeGreaterThan(8)
   // un fantôme existe après la partie complète du 1er test (difficulté Astronaute)
-  const ghost = await (await request.get('http://localhost:5180/api/leaderboard.php?ghost=1&difficulty=astronaut')).json()
+  const ghost = await (await request.get('/api/leaderboard.php?ghost=1&difficulty=astronaut')).json()
   expect(ghost.ghost?.track?.length ?? 0).toBeGreaterThan(8)
 
   // menu des succès
-  await page.evaluate(() => (window as any).__game.set({ screen: 'title' }))
+  await page.evaluate(() => (window as any).__game.set({ screen: 'launch' }))
   await page.getByTestId('open-ach').click()
   await expect(page.getByTestId('achievements')).toContainText('Bricoleur')
+})
+
+test('menu principal, nouvelle partie, paramètres et langue', async ({ page, request }) => {
+  await signedInPage(page, request)
+  await expect(page.getByTestId('leaderboard')).toBeVisible()
+  // paramètres : profil → choix d'un personnage à capacité
+  await page.getByTestId('open-settings').click()
+  await page.getByRole('button', { name: /Léo/ }).click()
+  await expect.poll(async () => (await st(page)).settings.character).toBe('leo')
+  // l'avantage du personnage choisi est affiché
+  await expect(page.getByTestId('char-ability')).toContainText('Sprinteur')
+  await expect(page.getByTestId('char-ability')).toContainText('20 %')
+  // K12's new jump action also appears in main's redesigned settings page.
+  await page.getByTestId('stab-2').click()
+  await expect(page.getByTestId('bind-jump-0')).toContainText('Espace')
+  // onglet Jeu : passage en anglais puis retour
+  await page.getByTestId('stab-1').click()
+  await page.getByRole('button', { name: 'English' }).click()
+  await expect(page.getByText('Help level')).toBeVisible()
+  await page.getByRole('button', { name: 'Français' }).click()
+  await expect(page.getByText('Niveau d’aide')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Se déconnecter/ })).toBeVisible()
+  await page.evaluate(() => window.__game.set({ screen: 'title' }))
+  // nouvelle partie : retour à l'écran de lancement, choix de la carte et de la difficulté
+  await page.getByTestId('new-game').first().click()
+  await page.getByTestId('map-station').click()
+  await page.getByTestId('diff-explorer').click()
+  await page.getByTestId('start').click()
+  await page.waitForFunction(() => window.__game.state().screen === 'prologue')
+  expect((await st(page)).difficulty).toBe('explorer')
+  expect((await st(page)).character).toBe('leo')
+  expect(await page.evaluate(() => (window as any).__game.state().map)).toBe('station')
 })

@@ -2,7 +2,7 @@
 
 Cosmo Team · Cercle de projets 2026 · Institut G4 Marseille
 
-Un astronaute se réveille seul sur la station Orion, en orbite basse autour de la Lune, après l'impact d'une micro-météorite. Il doit gérer son oxygène, sa lampe et son eau, résoudre les énigmes de 4 zones et rentrer sur Terre avant la fin du chronomètre (30 min).
+Un astronaute se réveille seul sur la base lunaire Selene-7, après l'impact d'une micro-météorite. Il doit gérer son oxygène, sa lampe et son eau, résoudre les énigmes de 4 zones et rentrer sur Terre avant la fin du chronomètre (30 min).
 
 Le jeu est en 3D à la première personne. Il se joue dans le navigateur, sans installation, sur ordinateur et sur mobile en mode paysage.
 
@@ -10,11 +10,37 @@ Le jeu est en 3D à la première personne. Il se joue dans le navigateur, sans i
 
 ### En ligne (jury)
 
-Ouvrir l'URL publique : `https://royalblue-wolverine-280146.hostingersite.com`. Créer un compte (pseudo, e-mail, mot de passe), puis cliquer sur **Nouvelle partie**.
+Ouvrir l'URL publique : `https://royalblue-wolverine-280146.hostingersite.com`. Créer un compte (pseudo, e-mail, mot de passe), choisir son personnage, puis cliquer sur **Lancer la mission**.
+
+**Parcours.** Connexion (e-mail ou pseudo, mot de passe oublié) → inscription en 3 étapes → menu principal « Poste de commande » (partie en cours, classement Global / Semaine) → Paramètres (Profil, Jeu, Touches, Audio).
+
+**Personnages et capacités** (Paramètres → Profil) :
+
+| Personnage | Capacité |
+|---|---|
+| Léo | Sprinteur : +20 % de vitesse |
+| Nova | Économe : la lampe consomme 35 % de piles en moins |
+| Kenji | Décodeur : pénalités d'erreur divisées par 2 |
+| Inès | Sang-froid : +3 min au chrono |
+| Sam | Endurant : −40 % d'eau, 75 % d'O₂ après un malaise |
+| Maya | Souffle long : −25 % d'O₂ |
+
+**Paramètres → Jeu.** Niveau d'aide (Recrue : 1er indice gratuit ; Pilote : 30 s / 60 s ; Commandant : 60 s / 120 s), chronomètre, sous-titres, sauvegarde à chaque énigme, langue FR / EN, qualité, luminosité, sensibilité, champ de vision (70–110°), plein écran et résolution.
 
 ### En local (moins de 2 minutes)
 
-Prérequis : Node 20 ou plus, et PHP 8 avec `pdo_sqlite` (installé par défaut sur macOS avec Homebrew et sur la plupart des Linux).
+Prérequis : Node 20 ou plus, et PHP 8 avec `pdo_sqlite` et `mbstring`.
+
+Sous **Windows / PowerShell**, si PHP n'est pas installé :
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/setup-php.ps1
+```
+
+Ce script télécharge PHP 8.4 portable depuis le site officiel, vérifie son SHA256,
+et active `pdo_sqlite` et `mbstring` dans `.tools/php/` (ignoré par Git).
+`npm run local` le détecte automatiquement, sans modifier le PATH de Windows.
+Un PHP déjà installé peut aussi être choisi avec la variable `PHP_BINARY`.
 
 ```bash
 npm install
@@ -28,7 +54,30 @@ Cette commande lance l'API PHP et le jeu, puis affiche deux adresses :
 - `http://localhost:5180` sur ton ordinateur ;
 - `http://<ton-ip>:5180` pour les collègues connectés au **même Wi-Fi**.
 
-L'API crée seule sa base SQLite dans `../cosmotrap-data/`, hors du dossier web. Sur l'adresse réseau en `http://`, la manette et le verrouillage de la souris peuvent être bloqués par le navigateur (contexte non sécurisé). Tout marche en `https` une fois le site en ligne.
+Sous PowerShell, `./scripts/start-local.ps1` lance également les deux serveurs
+depuis le bon dossier. Garder cette fenêtre ouverte ; **Ctrl+C** les arrête.
+
+L'API crée seule sa base SQLite dans `cosmotrap-data/` à la racine du projet, hors du dossier web. Sur l'adresse réseau en `http://`, la manette et le verrouillage de la souris peuvent être bloqués par le navigateur (contexte non sécurisé). Tout marche en `https` une fois le site en ligne.
+
+### Vérifier une modification
+
+```powershell
+npm run build
+npm run test:e2e
+```
+
+Playwright lance les serveurs s'ils ne tournent pas déjà. Installer son navigateur
+avec `npx playwright install chromium`, ou utiliser Chrome installé :
+`$env:PLAYWRIGHT_CHANNEL = 'chrome'` avant la commande de test.
+Les tests couvrent le parcours complet, les ressources, les cinématiques passées
+et les collisions du mobilier. Les textures PBR sont incluses dans `public/textures/` ;
+leurs sources et licences sont dans `LICENCES.md`.
+
+La qualité initiale tient compte du GPU : les Intel UHD démarrent en **Basse**.
+Les textures de surface restent présentes dans tous les modes. Les modes
+**Haute / Ultra** ajoutent notamment les ombres fines et l'occlusion ambiante,
+et demandent une carte graphique plus puissante. Garder la résolution sur
+**Automatique** permet d'adapter aussi les effets à la charge de rendu.
 
 ## Commandes
 
@@ -37,28 +86,46 @@ L'API crée seule sa base SQLite dans `../cosmotrap-data/`, hors du dossier web.
 | Se déplacer | ZQSD / WASD ou flèches (position physique : AZERTY et QWERTY marchent) | Joystick à gauche |
 | Regarder | Souris | Glisser à droite |
 | Courir | Maj | Pousser le joystick à fond |
-| Agir | E ou Espace | Bouton « Agir » |
+| Sauter | Espace | — |
+| S’accroupir | Ctrl | — |
+| Agir | E | Bouton « Agir » |
 | Lampe | F | Bouton « Lampe » |
-| Oxygène, piles, boire | O, R, B | Tablette → Sac |
-| Barre d'inventaire | 1 à 9 : un consommable est utilisé, un objet clé est mis en main | Touche sur l'emplacement |
-| Tablette | Tab | Bouton « Tablette » |
+| Oxygène, piles, boire | O, R, B | Tablette → Inventaire |
+| Tablette → Inventaire | I (ou touche personnalisée), I / Échap pour fermer | Bouton Inventaire |
+| Sélection d’objet | Molette ou 1 à 9, sans consommer | Toucher une case / flèches de la barre |
+| Utiliser la sélection | X, ou bouton dans l’inventaire | Bouton d’utilisation |
+| Tablette → Plan | Tab | Bouton « Tablette » |
+| Tablette → Journal et indices | H | Onglet « Journal » |
 | Pause | P ou Échap | Bouton « Pause » |
 | Passer une cinématique | Entrée ou bouton « Passer » | Bouton « Passer » |
 
-**Regard.** Il marche à la souris (clic pour la verrouiller), au glisser-cliquer, et au glisser à deux doigts sur le pavé tactile (réglage activé par défaut).
+**Regard.** Il marche à la souris (clic pour la verrouiller), au glisser-cliquer, et à Alt + glisser à deux doigts sur le pavé tactile (réglage activé par défaut).
+
+**Tablette de poignet.** Le bras gauche se lève avant l'ouverture du terminal.
+Ses quatre onglets regroupent le **Plan** (pièces réelles, position et orientation,
+choix du niveau, zoom et recentrage), le **Journal** (missions, progression et
+indices), les **Messages** (transmissions, alertes et documents reçus, conservés
+dans la sauvegarde) et l'**Inventaire** (objets, quantités et utilisation).
+La barre d'objets reste accessible à la molette pendant le jeu.
+
+**Chariot de la serre (zone 2).** Avancer contre l'étagère à légumes sur roulettes
+pour la pousser et dégager l'entrée. Sa position est conservée dans la sauvegarde.
 
 **Manette Xbox / PlayStation** (branchée en USB ou Bluetooth) :
 
 | Action | Manette |
 |---|---|
 | Bouger / regarder | Stick gauche / stick droit |
-| Agir · retour | A (✕) · B (○) |
-| Lampe · tablette | X (□) · Y (△) |
-| Oxygène · piles · boire | LB · RB · RT |
+| Sauter · s’accroupir / retour | A (✕) · B (○) |
+| Agir · inventaire complet | X (□) · Y (△) |
+| Lampe · tablette · indice | LB (L1) · Vue (pavé tactile) · RB (R1) |
+| Oxygène · piles · boire | Croix ↓ · clic du stick droit · RT (R2) |
 | Courir | LT ou clic du stick gauche |
 | Barre d'objets | Croix ← → pour choisir, ↑ pour utiliser |
 | Pause · passer une cinématique | Start · Select |
 | Menus et énigmes | Croix ou stick pour se déplacer, A pour valider |
+
+Les commandes de jeu sont réaffectables dans Paramètres → Touches. La barre d’inventaire affiche les boutons configurés.
 
 ## Règles du jeu
 
@@ -77,8 +144,8 @@ Le classement est séparé par difficulté.
 
 ### Imprévus (zones 1 à 3)
 
-- **Coupure de courant** (22 s) : la station plonge dans le noir, il faut la lampe.
-- **Micro-fuite** (28 s) : l'O₂ baisse 2,2 fois plus vite. Le ruban adhésif (objet de survie, Tablette → Sac → Colmater) l'arrête tout de suite.
+- **Coupure de courant** (32 s) : l’éclairage normal s’éteint et les gyrophares rouges prennent le relais. Les coupures locales des couloirs durent 16 s ; la lampe reste utilisable.
+- **Micro-fuite** (28 s) : l'O₂ baisse 2,2 fois plus vite. Le ruban adhésif (objet de survie, Tablette → Inventaire → Colmater) l'arrête tout de suite.
 
 ### Succès et réplique fantôme
 
@@ -90,7 +157,7 @@ Le classement est séparé par difficulté.
   - Code faux, mauvaise séquence ou programme mal exécuté : −30 s.
   - Tâche lancée trop tôt dans le planning : −20 s.
   - Mauvaise fréquence radio : −20 s.
-- **Indices.** Il y a 2 niveaux par étape, dans la tablette, onglet Mission :
+- **Indices.** Il y a 2 niveaux par étape, dans la tablette, onglet Journal :
   - indice léger : −30 s ;
   - indice fort : −60 s.
 
@@ -105,7 +172,7 @@ Le classement est séparé par difficulté.
 
 ## Scénario
 
-1. **Prologue** (passable) : 2041, station Orion. Le labo de Maya vient de trouver de l'eau sous le pôle Sud. Une micro-météorite frappe la station.
+1. **Prologue** (passable) : 2041, base lunaire Selene-7. Le labo de Maya vient de trouver de l'eau sous le pôle Sud. Une micro-météorite frappe la station.
 2. **Zone 1 · Quartiers d'équipage.** Visite cinématique de la zone. Briefing holographique de la commandante. Il faut sortir du dortoir et pressuriser le sas.
 3. **Zone 2 · Labo & machinerie.** Il faut couper la fuite de vapeur, réparer le disjoncteur, faire un choix d'énergie, puis décoder le programme de lancement.
 4. **Zone 3 · Fusée Hermès.** Il faut trouver la cellule, planifier le pré-vol, prendre une décision sur les échantillons et lancer la séquence. Suivent le décollage et la rentrée atmosphérique.
@@ -127,7 +194,7 @@ Le classement est séparé par difficulté.
 4. **Énigme 1, observation visuelle.** Taper **2041** sur le casier du dortoir pour récupérer le badge.
 5. Badger la porte du **sas**, à l'est du couloir.
 6. **Énigme 2, logique (Lights Out 3×3).** Appuyer sur les vannes de la diagonale : haut-gauche, centre, bas-droite.
-7. Descendre par la **trappe**.
+7. Prendre l'**ascenseur** du nœud central, déverrouillé par la pressurisation, pour descendre à l'étage 2. On peut ensuite circuler librement entre les étages 1 et 2.
 
 ### Zone 2 — Labo & machinerie
 
@@ -174,27 +241,34 @@ Une partie parfaite, sans erreur ni indice et en passant les cinématiques, dure
 ## Technique
 
 - **Front.** Vite, React 18, TypeScript, React Three Fiber, drei, postprocessing et Rapier (collisions, contrôleur de personnage), zustand et howler.
-- **Rendu.** Tout est procédural :
+- **Rendu.** Décors procéduraux et matériaux photographiques :
   - textures PBR générées sur canvas (panneaux, tôle striée, rivets, salissures, normal maps) ;
+  - textures CC0 locales pour métal, tissu, bois, roche, écorce et terrain ;
+  - mobilier à arêtes adoucies, couvertures plissées et volumes de collision ;
+  - arbres instanciés avec branches et feuillage découpé, sans couronnes en cônes ;
   - Lune en shader (cratères multi-échelles, photométrie Lommel-Seeliger) ;
   - Terre avec atmosphère, nuages et villes la nuit ;
   - rayons de soleil volumétriques à travers les hublots ;
   - herbe instanciée animée par le vent, rivière en shader.
+  - fond 3D de la base lunaire Selene-7 derrière la connexion, le menu et les paramètres.
+
+  Pour régénérer les ressources : `npm run assets` (télécharge dans `asset-src/`, ignoré par git, puis écrit dans `public/assets/`).
+- **Cinématiques.** Chaque zone s'ouvre sur une scène découpée en plans (réveil au sol, travellings, plans serrés, plan large sur le personnage) : bandes cinémascope 2,39:1, grain de pellicule, bords d'objectif adoucis. Sur Terre, la capsule Hermès traverse le ciel en feu et s'écrase dans la clairière (traînée, souffle, colonne de fumée), puis le personnage se relève.
 - **Post-traitement.** ACES, N8AO, bloom, étalonnage « clair-obscur », aberration chromatique et SMAA.
 - **Qualité.** 4 niveaux : Basse, Moyenne, Haute, Ultra. Le niveau est détecté automatiquement selon la carte graphique, et la résolution baisse seule si les images par seconde chutent.
-- **Audio.** Tout est synthétisé en Web Audio : bruitages et musique adaptative. Le tempo et le cœur accélèrent quand l'O₂ baisse et quand le chrono s'épuise. Les voix utilisent la meilleure voix française du navigateur.
+- **Audio.** Tout est synthétisé en Web Audio : bruitages et musique adaptative. Le tempo et le cœur accélèrent quand l'O₂ baisse et quand le chrono s'épuise. Chaque zone a plusieurs morceaux qui changent toutes les 2 à 3 min en fondu, dont des thèmes « orgue cosmique » originaux (orgue à tuyaux, tic-tac d'horloge, ostinato, grande réverbération). Les voix et bruitages sont de vrais enregistrements ElevenLabs (`public/audio`, 87 fichiers) : une voix par rôle (narrateur, commandante, voix intérieure masculine ou féminine selon le personnage), en français et en anglais. La voix de synthèse du navigateur est désactivée par défaut (Paramètres → Audio).
 
-  Pour de vraies voix et de vrais bruitages, lancer le script ci-dessous. Il génère tous les bruitages et toutes les répliques avec ElevenLabs dans `public/audio` et met à jour `manifest.json`. Le jeu les utilise alors automatiquement à la place de la synthèse.
+  Pour régénérer après une modification des textes : supprimer les fichiers concernés dans `public/audio` (ou passer `--force`), puis lancer le script ci-dessous (`--voices` : répliques seulement). Il met à jour `manifest.json`. Le forfait gratuit n'autorise via l'API que les voix « premade » d'ElevenLabs, pas celles de la bibliothèque. Si Node échoue avec un délai de connexion, ajouter `NODE_OPTIONS=--dns-result-order=ipv4first`.
 
   ```bash
   ELEVENLABS_API_KEY=ta_cle npm run audio
   ```
 
-  Option : `-- --voice <id>` pour choisir la voix. La musique Suno (prompts ci-dessus) se dépose à la main sous la forme `music_orion_calm.mp3`, etc., puis il faut relancer le script pour mettre à jour le manifeste.
+  Les voix utilisées sont définies dans `CAST` (`scripts/generate-audio.ts`). La musique Suno (prompts ci-dessus) se dépose à la main sous la forme `music_orion_calm.mp3`, etc., puis il faut relancer le script pour mettre à jour le manifeste.
 - **Back.** API PHP (`public/api`), en PDO SQLite en local et MySQL en production.
-  - `auth.php` : inscription, connexion, Google.
+  - `auth.php` : inscription, connexion (e-mail ou pseudo), Google, profil (pseudo, e-mail, personnage), changement et réinitialisation du mot de passe. Le lien de réinitialisation part avec la fonction PHP `mail()` (active sur Hostinger) ; en local, il est écrit dans le journal PHP.
   - `save.php` : sauvegarde.
-  - `leaderboard.php` : classement par difficulté et trajectoire du record (réplique fantôme).
+  - `leaderboard.php` : classement global ou de la semaine, rang du joueur, trajectoire du record (réplique fantôme).
   - `achievements.php` : succès.
 
   Les mots de passe sont hachés avec `password_hash`, la session passe par un jeton porteur.
@@ -219,7 +293,7 @@ npx playwright test
 
 `tests/playthrough.spec.ts` crée un compte et joue toute la partie en se téléportant devant chaque objectif. Il résout les énigmes par l'interface et vérifie les verrous :
 
-- la trappe reste fermée avant la pressurisation ;
+- l'ascenseur reste verrouillé avant la pressurisation ;
 - la vapeur bloque l'accès au disjoncteur ;
 - le sas reste fermé tant que le terminal n'est pas décodé ;
 - la rivière est infranchissable avant le pont.

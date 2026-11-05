@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { fr } from '../i18n/fr'
-import { hotbarItems, stepsState, useItem } from '../game/logic'
+import { stepsState } from '../game/logic'
+import { Hotbar } from './Inventory'
 import { timeLimit, live, useGame } from '../game/state'
 import { isTouch, requestLock } from '../player/Player'
-import { keyName } from '../player/input'
-import { GaugeIcon, ItemIcon } from './Icons'
+import { keyName, padButtonName } from '../player/input'
+import { GaugeIcon } from './Icons'
 import { fmtTime } from '../game/api'
+import { gridMap } from '../game/maps'
 
 function Gauge({ kind, value, color, label }: { kind: 'o2' | 'lamp' | 'water'; value: number; color: string; label: string }) {
   const low = value < 25
@@ -38,44 +40,8 @@ function Objective() {
         {fr.zones[zone].name} · {fr.zones[zone].sub}
       </b>
       {cur && <span>{cur.text}</span>}
-      {room && <div className="room">{fr.rooms[room] ?? ''}</div>}
+      {room && <div className="room">{fr.rooms[gridMap(zone)?.rooms.find((r) => r.id === room)?.name ?? room] ?? ''}</div>}
     </div>
-  )
-}
-
-function Hotbar() {
-  const inv = useGame((s) => s.inv)
-  const held = useGame((s) => s.held)
-  const lampOn = useGame((s) => s.lampOn)
-  const padActive = useGame((s) => s.padActive)
-  useGame((s) => s.padSlotTick)
-  void inv
-  const items = hotbarItems()
-  if (!items.length) return null
-  return (
-    <>
-      {held && <div className="held-name">{fr.items[held].name}</div>}
-      <div className="hotbar">
-        {items.map((it, i) => (
-          <button
-            key={it}
-            className={`slot ${held === it || (it === 'lamp' && lampOn) ? 'held' : ''} ${padActive && i === Math.min(live.padSlot, items.length - 1) ? 'pad-cursor' : ''}`}
-            onClick={(e) => {
-              e.stopPropagation()
-              useItem(it)
-            }}
-          >
-            <span className="num">{padActive ? '' : i + 1}</span>
-            <ItemIcon item={it} />
-            {(inv[it] ?? 0) > 1 && <span className="cnt">×{inv[it]}</span>}
-            <span className="tip">
-              {fr.items[it].name}
-              {fr.items[it].action ? ` · ${fr.items[it].action}` : ''}
-            </span>
-          </button>
-        ))}
-      </div>
-    </>
   )
 }
 
@@ -217,8 +183,12 @@ export function Hud() {
   const overlay = useGame((s) => s.tabletOpen || !!s.puzzle || !!s.readNote || s.paused || s.settingsOpen)
   const keys = useGame((s) => s.settings.keys)
   const padActive = useGame((s) => s.padActive)
+  const padType = useGame((s) => s.settings.padType)
+  const padAct = useGame((s) => s.settings.pad.act)
   const character = useGame((s) => s.character)
   const briefer = character === 'ines' ? 'kenji' : 'ines'
+  const showChrono = useGame((s) => s.settings.showChrono)
+  const subsOn = useGame((s) => s.settings.subtitles)
   const touch = isTouch()
   const showUi = !cine || cine === 'briefing'
   return (
@@ -231,13 +201,13 @@ export function Hud() {
             <Gauge kind="water" value={res.water} color="#5aa8ff" label={fr.hud.water} />
           </div>
           <Objective />
-          <Chrono />
+          {showChrono && <Chrono />}
           {!overlay && (
             <>
               <div className={`reticle ${label ? 'on' : ''}`} />
               {label && (
                 <div className="prompt">
-                  <span className={`key ${padActive ? 'pad-a' : ''}`}>{padActive ? 'A' : touch ? fr.hud.act : keyName(keys.act[0])}</span>
+                  <span className={`key ${padActive ? 'pad-a' : ''}`}>{padActive ? padButtonName(padType, padAct) : touch ? fr.hud.act : keyName(keys.act[0])}</span>
                   {label}
                 </div>
               )}
@@ -253,7 +223,7 @@ export function Hud() {
           </div>
         ))}
       </div>
-      {subtitle && (
+      {subtitle && (subsOn || cine === 'briefing' || cine === 'tour') && (
         <div className="subtitle">
           {cine === 'briefing' && <small>{fr.briefingFrom(fr.characters[briefer].name)}</small>}
           {subtitle}

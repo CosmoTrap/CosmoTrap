@@ -82,6 +82,8 @@ export interface Ent {
 
 export interface Prop {
   model: string
+  /** identifiant stable du mobilier poussable, utilisé pour sa sauvegarde */
+  pushable?: string
   tile?: [number, number]
   pos?: [number, number, number]
   wall?: Wall
@@ -101,6 +103,7 @@ export interface DoorDef {
 export interface RoomDef {
   id: string
   name: string
+  shape?: 'round'
   /** rectangle en tuiles : x0, z0, x1, z1 (inclus) */
   rect: [number, number, number, number]
   /** pièce sombre (lampe nécessaire pour lire / ramasser) */
