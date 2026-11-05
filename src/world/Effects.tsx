@@ -3,7 +3,7 @@ import { Bloom, ChromaticAberration, EffectComposer, N8AO, SMAA, ToneMapping, Vi
 import { BlendFunction, Effect, EffectComposer as Composer, ToneMappingMode } from 'postprocessing'
 import { forwardRef, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { G, useGame } from '../game/state'
+import { G, live, useGame } from '../game/state'
 import { QUALITY } from './quality'
 import { film } from './FilmScenes'
 import { installStaticShadowPass } from './props/StaticShadows'
@@ -82,13 +82,13 @@ const Grade = forwardRef<GradeEffect>(function Grade(_, ref) {
     u.get('uBright')!.value = s.settings.brightness ?? 1
     const lowO2 = s.zone < 4 && s.screen === 'playing' ? THREE.MathUtils.clamp(1 - s.res.o2 / 25, 0, 1) : 0
     const r = u.get('uRed')!
-    r.value = THREE.MathUtils.lerp(r.value, lowO2 * 0.9, 0.05)
+    r.value = Math.max(THREE.MathUtils.lerp(r.value, lowO2 * 0.9, 0.05), live.hurt * 0.9)
     const b = u.get('uBlur')!
     const breath = lowO2 > 0.6 ? (0.5 + 0.5 * Math.sin(clock.elapsedTime * 2.2)) * lowO2 : 0
     // Cinematic blur must disappear on the very first gameplay frame. Smoothing
     // the previous film value left the image blurred for seconds on slower GPUs.
     const filmic = s.cine === 'tour' || s.cine === 'heli' || s.cine === 'launch' || s.screen === 'prologue'
-    b.value = Math.max(filmic ? film.blur : 0, breath * 0.8)
+    b.value = Math.max(filmic ? film.blur : 0, breath * 0.8, live.hurt * 0.7)
     // Preserve the subtle K12 grading alongside main's cinematic lens effects.
     u.get('uGrain')!.value = filmic ? 0.003 : 0.0015
     const l = u.get('uLens')!

@@ -1,5 +1,5 @@
-import { useFrame } from '@react-three/fiber'
-import { useMemo, useRef } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
+import { useLayoutEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { NOISE } from './glsl'
 
@@ -7,28 +7,44 @@ import { NOISE } from './glsl'
 
 const R = 9000
 
+/** Same sky at every launch: a small seeded generator instead of Math.random. */
+function seeded(seed: number) {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+const GALACTIC_POLE = new THREE.Vector3(0.3, 0.9, 0.3).normalize()
+/** Star colours by temperature, weighted as seen in the sky: mostly white and pale gold, a few blue or orange. */
+const STAR_TINTS: [number, string][] = [[0.08, '#a9c1ff'], [0.26, '#d6e2ff'], [0.62, '#fffaf2'], [0.86, '#ffeccb'], [1, '#ffc592']]
+
 export function Stars({ count = 9000 }: { count?: number }) {
   const geo = useMemo(() => {
+    const random = seeded(7)
     const pos = new Float32Array(count * 3)
     const col = new Float32Array(count * 3)
     const size = new Float32Array(count)
-    const galN = new THREE.Vector3(0.3, 0.9, 0.3).normalize()
     const c = new THREE.Color()
+    const v = new THREE.Vector3()
     for (let i = 0; i < count; i++) {
-      let v = new THREE.Vector3()
-      // concentration le long du plan galactique
-      for (let k = 0; k < 4; k++) {
-        v.set(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1).normalize()
-        if (Math.random() > 0.45 || Math.abs(v.dot(galN)) < 0.25) break
+      // Uniform over the sphere, with most stars gathered along the galactic plane.
+      for (let k = 0; k < 6; k++) {
+        const y = random() * 2 - 1, a = random() * Math.PI * 2, r = Math.sqrt(1 - y * y)
+        v.set(Math.cos(a) * r, y, Math.sin(a) * r)
+        if (Math.abs(v.dot(GALACTIC_POLE)) < 0.22 || random() < 0.3) break
       }
-      v = v.multiplyScalar(R * 0.95)
-      pos.set([v.x, v.y, v.z], i * 3)
-      const t = Math.random()
-      c.set(t < 0.1 ? '#9bb5ff' : t < 0.55 ? '#fff4e8' : t < 0.85 ? '#ffe3b0' : '#ffb27a')
-      const mag = Math.pow(Math.random(), 7)
-      const b = 0.35 + mag * 3.5
+      pos.set([v.x * R * 0.95, v.y * R * 0.95, v.z * R * 0.95], i * 3)
+      const t = random()
+      c.set(STAR_TINTS.find(([limit]) => t <= limit)![1])
+      // Real magnitudes: a sky of very faint dust, a few clear stars, a handful of bright ones.
+      const mag = Math.pow(random(), 34)
+      const b = 0.2 + Math.pow(random(), 2.5) * 0.65 + mag * 1.3
       col.set([c.r * b, c.g * b, c.b * b], i * 3)
-      size[i] = 1.2 + mag * 4.5
+      size[i] = 1.5 + Math.pow(random(), 5) * 1.1 + mag * 5.5
     }
     const g = new THREE.BufferGeometry()
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3))
@@ -39,19 +55,23 @@ export function Stars({ count = 9000 }: { count?: number }) {
   const mat = useMemo(
     () =>
       new THREE.ShaderMaterial({
-        uniforms: { uTime: { value: 0 }, uPx: { value: Math.min(window.devicePixelRatio, 2) } },
-        vertexShader: `attribute float size; attribute vec3 color; varying vec3 vC; uniform float uTime; uniform float uPx;
-          void main(){ vC = color * (0.85 + 0.15 * sin(uTime * 2.0 + position.x * 0.01));
-            vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = size * uPx; }`,
-        fragmentShader: `varying vec3 vC; void main(){ vec2 d = gl_PointCoord - 0.5; float r = length(d);
-          float a = exp(-r * r * 40.0) + 0.15 * exp(-r * r * 6.0); gl_FragColor = vec4(vC * a, 1.0); }`,
+        uniforms: { uPx: { value: Math.min(window.devicePixelRatio, 2) } },
+        // No twinkle: without an atmosphere, stars hold perfectly steady.
+        vertexShader: `attribute float size; attribute vec3 color; varying vec3 vC; varying float vS; uniform float uPx;
+          void main(){ vC = color; vS = size; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = size * uPx; }`,
+        // A sharp core, a soft halo, and fine diffraction spikes on the brightest stars only.
+        fragmentShader: `varying vec3 vC; varying float vS; void main(){ vec2 d = gl_PointCoord - 0.5; float r = length(d);
+          float core = exp(-r * r * 60.0); float halo = 0.08 * exp(-r * r * 12.0) * smoothstep(0.5, 0.3, r);
+          float big = smoothstep(3.6, 6.5, vS);
+          float spike = big * 0.5 * (exp(-abs(d.x) * 70.0) * exp(-abs(d.y) * 7.0) + exp(-abs(d.y) * 70.0) * exp(-abs(d.x) * 7.0)) * smoothstep(0.5, 0.25, r);
+          gl_FragColor = vec4(vC * (core + halo + spike), 1.0); }`,
         transparent: true,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
+        fog: false,
       }),
     [],
   )
-  useFrame(({ clock }) => (mat.uniforms.uTime.value = clock.elapsedTime))
   const ref = useRef<THREE.Points>(null)
   useFrame(({ camera }) => ref.current?.position.copy(camera.position))
   return <points ref={ref} geometry={geo} material={mat} frustumCulled={false} renderOrder={-10} />
@@ -64,34 +84,66 @@ void main(){
   vec3 d = normalize(vDir);
   vec3 gN = normalize(vec3(0.3, 0.9, 0.3));
   float b = dot(d, gN);
-  float band = exp(-b * b * 18.0);
-  float core = exp(-pow(length(d - normalize(vec3(-0.6, 0.15, -0.78))), 2.0) * 2.0);
-  float n = fbm(d * 6.0);
-  float dust = smoothstep(0.45, 0.7, fbm(d * 9.0 + 3.0));
-  float glow = band * (0.35 + 0.65 * n) * (1.0 - dust * 0.75) + core * band * 0.8;
-  vec3 col = mix(vec3(0.35, 0.4, 0.55), vec3(0.95, 0.8, 0.6), core) * glow * 0.09;
-  col += vec3(0.006, 0.008, 0.016);
+  // The Milky Way: a soft band, torn by dark dust lanes, swelling towards the galactic core.
+  vec3 warp = d * 3.5 + fbm(d * 2.5) * 1.1;
+  float n = fbm(warp);
+  float band = exp(-b * b * 22.0) * (0.3 + 0.7 * n);
+  float core = exp(-pow(length(d - normalize(vec3(-0.6, 0.15, -0.78))), 2.0) * 2.4);
+  float dust = smoothstep(0.42, 0.68, fbm(warp * 2.6 + 3.0)) * exp(-b * b * 50.0);
+  float glow = band * (1.0 - dust * 0.85) + core * exp(-b * b * 9.0) * (1.0 - dust * 0.7) * 0.9;
+  vec3 col = mix(vec3(0.36, 0.43, 0.62), vec3(1.0, 0.8, 0.58), core) * glow * 0.11;
+  // Faint coloured nebulae, far from the band: barely there, as to the naked eye.
+  float cloud = smoothstep(0.5, 0.82, fbm(d * 1.9 + 11.0));
+  col += mix(vec3(0.05, 0.11, 0.17), vec3(0.15, 0.04, 0.12), smoothstep(0.35, 0.7, fbm(d * 1.3 + 5.0))) * cloud * 0.22;
+  // Deep black, with just a hint of blue: never a flat grey.
+  col += vec3(0.0015, 0.002, 0.0045);
   gl_FragColor = vec4(col, 1.0);
 }`
 
+/**
+ * The sky's noise is far too costly to run on every pixel of every frame, and it never changes:
+ * it is painted once into a cube texture, which then only needs reading.
+ */
 export function MilkyWay() {
+  const gl = useThree((state) => state.gl)
   const ref = useRef<THREE.Mesh>(null)
+  const target = useMemo(() => new THREE.WebGLCubeRenderTarget(1024, { type: THREE.HalfFloatType, generateMipmaps: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter }), [])
   const mat = useMemo(
     () =>
       new THREE.ShaderMaterial({
+        uniforms: { uSky: { value: target.texture } },
         vertexShader: `varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-        fragmentShader: skyFrag,
+        fragmentShader: `uniform samplerCube uSky; varying vec3 vDir; void main(){ gl_FragColor = vec4(textureCube(uSky, normalize(vDir)).rgb, 1.0); }`,
         side: THREE.BackSide,
         depthWrite: false,
+        fog: false,
       }),
-    [],
+    [target],
   )
+  useLayoutEffect(() => {
+    const paint = new THREE.ShaderMaterial({
+      vertexShader: `varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+      fragmentShader: skyFrag,
+      side: THREE.BackSide,
+      depthWrite: false,
+    })
+    const scene = new THREE.Scene()
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(10, 32, 24), paint)
+    scene.add(dome)
+    const toneMapping = gl.toneMapping
+    gl.toneMapping = THREE.NoToneMapping
+    new THREE.CubeCamera(0.1, 100, target).update(gl, scene)
+    gl.toneMapping = toneMapping
+    dome.geometry.dispose()
+    paint.dispose()
+    return () => { target.dispose(); mat.dispose() }
+  }, [gl, target, mat])
   useFrame(({ camera }) => ref.current?.position.copy(camera.position))
   return (
     // Let opaque walls/planets fill depth first: the procedural sky is only
     // shaded in the remaining pixels, including the real window openings.
     <mesh ref={ref} material={mat} renderOrder={101} frustumCulled={false}>
-      <sphereGeometry args={[R, 48, 32]} />
+      <sphereGeometry args={[R, 32, 24]} />
     </mesh>
   )
 }

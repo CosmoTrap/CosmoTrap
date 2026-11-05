@@ -1,5 +1,5 @@
 import { useFrame } from '@react-three/fiber'
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { audio } from '../game/audio/audio'
 import { enterZone, pendingZone, tick } from '../game/logic'
@@ -18,6 +18,22 @@ import { ROCKET } from '../game/lunar/map'
 // décollage + rentrée atmosphérique, arrivée de l'hélicoptère et fin.
 
 const sm = THREE.MathUtils.smoothstep
+
+/** Camera bearing around the player during the rescue; the flare flies away from it. */
+const FLARE_ORBIT = 0.6
+/** Time (s) at which the flare reaches its peak and bursts. */
+const FLARE_APEX = 3
+/** Where the flare is, t seconds after the shot: up and away from the camera, then drifting down. */
+function flarePosition(t: number) {
+  const up = Math.min(t, FLARE_APEX)
+  const after = Math.max(0, t - FLARE_APEX)
+  const out = 0.4 + 9 * up + 0.5 * after
+  return new THREE.Vector3(
+    live.pos[0] - Math.sin(FLARE_ORBIT) * out,
+    live.pos[1] + 2 + 30 * up - 5 * up * up - 1.2 * after,
+    live.pos[2] - Math.cos(FLARE_ORBIT) * out,
+  )
+}
 /** when the lift's arrival began, measured after the new floor finished loading */
 let liftArrival = 0
 
@@ -193,14 +209,17 @@ export function CineDirector() {
       heli.yaw = Math.atan2(hover.x - from.x, hover.z - from.z) * (1 - sm(t, 11, 15)) + sm(t, 11, 15) * 0.6
       if (t > 2) once('heliSnd', () => audio.loop('rotor', 'rotor', { vol: 0.2 }))
       audio.loopVol('rotor', 0.2 + k * 1.2)
-      // caméra 3e personne
-      if (t > 8) {
-        const a = 0.6 + (t - 8) * 0.05
-        const c = new THREE.Vector3(live.pos[0], live.pos[1], live.pos[2])
-        live.camOverride = {
-          pos: [c.x + Math.sin(a) * 4.2, c.y + 1.6, c.z + Math.cos(a) * 4.2],
-          look: [c.x, c.y + 1.3 + sm(t, 8, 12) * 0.6, c.z],
-        }
+      // caméra 3e personne : d'abord le tir, qu'elle suit dans le ciel, puis l'arrivée de l'hélicoptère
+      const a = t > 8 ? FLARE_ORBIT + (t - 8) * 0.05 : FLARE_ORBIT
+      const c = new THREE.Vector3(live.pos[0], live.pos[1], live.pos[2])
+      const follow = sm(t, 0.25, 1.1) * (1 - sm(t, 5.5, 7.5))
+      const rest = new THREE.Vector3(c.x, c.y + 1.3 + sm(t, 8, 12) * 0.6, c.z)
+      const look = rest.lerp(flarePosition(t), follow)
+      const camX = c.x + Math.sin(a) * 4.2, camZ = c.z + Math.cos(a) * 4.2
+      live.camOverride = {
+        // The ground can rise behind the player: the camera must never end up under the hill.
+        pos: [camX, Math.max(c.y + 0.9 + sm(t, 6, 8) * 0.7, terrainHeight(camX, camZ) + 0.8), camZ],
+        look: [look.x, look.y, look.z],
       }
       if (t > 19) live.fade = sm(t, 19, 21)
       if (t > 21.2)
@@ -294,10 +313,14 @@ export function EndAvatar() {
     if (!show) return
     const t = (performance.now() - t0) / 1000
     g.current.position.set(live.pos[0], live.pos[1], live.pos[2])
-    g.current.rotation.y = Math.atan2(heli.x - live.pos[0], heli.z - live.pos[2])
+    // Dos à la caméra pour le tir, puis tourné vers l'hélicoptère.
+    const towardsFlare = FLARE_ORBIT + Math.PI
+    const towardsHeli = Math.atan2(heli.x - live.pos[0], heli.z - live.pos[2])
+    const turn = Math.atan2(Math.sin(towardsHeli - towardsFlare), Math.cos(towardsHeli - towardsFlare))
+    g.current.rotation.y = towardsFlare + turn * sm(t, 6, 8)
     const a = ref.current
     if (a?.armR) {
-      const k = sm(t, 9, 10.5)
+      const k = Math.max(sm(t, 9, 10.5), sm(t, 0, 0.35) * (1 - sm(t, 1.6, 2.4)))
       a.armR.rotation.x = -k * 2.7 + Math.sin(t * 5) * 0.15 * k
       a.armR.rotation.z = k * 0.3
     }
@@ -310,28 +333,120 @@ export function EndAvatar() {
   )
 }
 
-/** fusée éclairante tirée à l'hélisurface */
+/** Soft round glow for the flare and its muzzle flash. */
+function glowTexture() {
+  const c = document.createElement('canvas')
+  c.width = c.height = 64
+  const ctx = c.getContext('2d')!
+  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32)
+  g.addColorStop(0, 'rgba(255,255,255,1)')
+  g.addColorStop(0.25, 'rgba(255,255,255,0.55)')
+  g.addColorStop(1, 'rgba(255,255,255,0)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, 64, 64)
+  return new THREE.CanvasTexture(c)
+}
+
+const TRAIL = 48
+const SPARKS = 90
+
+/** fusée de détresse tirée à l'hélisurface : départ, traînée, explosion rouge, puis lente retombée */
 export function Flare() {
   const cine = useGame((s) => s.cine)
   const t0 = useGame((s) => s.cineT0)
   const g = useRef<THREE.Group>(null)
   const light = useRef<THREE.PointLight>(null)
+  const star = useRef<THREE.Sprite>(null)
+  const core = useRef<THREE.Sprite>(null)
+  const muzzle = useRef<THREE.Sprite>(null)
+  const parts = useMemo(() => {
+    const tex = glowTexture()
+    // Plain blending: added to a bright daytime sky, red would wash out to white.
+    const glow = { map: tex, transparent: true, depthWrite: false, toneMapped: false }
+    const trail = new THREE.BufferGeometry()
+    trail.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(TRAIL * 3), 3))
+    trail.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(TRAIL * 3), 3))
+    const sparks = new THREE.BufferGeometry()
+    sparks.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(SPARKS * 3), 3))
+    return {
+      trail,
+      sparks,
+      trailMat: new THREE.PointsMaterial({ ...glow, size: 1.6, vertexColors: true }),
+      sparkMat: new THREE.PointsMaterial({ ...glow, size: 1.8, color: '#ff3a14' }),
+      starMat: new THREE.SpriteMaterial({ ...glow, color: '#ff2410' }),
+      coreMat: new THREE.SpriteMaterial({ ...glow, color: '#fff0c8' }),
+      muzzleMat: new THREE.SpriteMaterial({ ...glow, color: '#ffd080' }),
+      dirs: Array.from({ length: SPARKS }, (_, i) => {
+        // Evenly spread over a sphere; each spark has its own speed.
+        const y = 1 - (2 * (i + 0.5)) / SPARKS, r = Math.sqrt(1 - y * y), a = i * 2.399963
+        return [Math.cos(a) * r, y, Math.sin(a) * r, 6 + (i * 37 % 11) * 0.8]
+      }),
+    }
+  }, [])
+  useEffect(() => () => {
+    parts.trail.dispose(); parts.sparks.dispose(); parts.trailMat.map?.dispose()
+    parts.trailMat.dispose(); parts.sparkMat.dispose(); parts.starMat.dispose(); parts.coreMat.dispose(); parts.muzzleMat.dispose()
+  }, [parts])
   useFrame(() => {
     if (!g.current) return
     const t = (performance.now() - t0) / 1000
-    const on = cine === 'heli' && t < 9
+    const on = cine === 'heli' && t < 10
     g.current.visible = on
     if (!on) return
-    const h = Math.min(60, t * 28 - t * t * 1.6)
-    g.current.position.set(live.pos[0] + 1 + t * 0.3, live.pos[1] + 1.6 + h, live.pos[2] - 2)
-    if (light.current) light.current.intensity = 400 * (1 - t / 9)
+    const pos = flarePosition(t)
+    const burst = Math.max(0, t - FLARE_APEX)
+    const fading = 1 - sm(t, 7.5, 10)
+    if (star.current) {
+      star.current.position.copy(pos)
+      const size = burst > 0 ? 9 + 7 * Math.exp(-burst * 2.5) : 3
+      star.current.scale.set(size, size, 1)
+      parts.starMat.opacity = fading
+    }
+    if (core.current) {
+      core.current.position.copy(pos)
+      const size = burst > 0 ? 3 + 3 * Math.exp(-burst * 2.5) : 1.2
+      core.current.scale.set(size, size, 1)
+      parts.coreMat.opacity = fading
+    }
+    if (muzzle.current) {
+      const flash = Math.max(0, 1 - t / 0.3)
+      muzzle.current.position.copy(flarePosition(0))
+      muzzle.current.scale.setScalar(0.1 + flash * 2.4)
+      parts.muzzleMat.opacity = flash
+    }
+    if (light.current) {
+      light.current.position.copy(pos)
+      light.current.intensity = 400 * fading * (burst > 0 ? 1 : 0.4)
+    }
+    // The trail: pale smoke along the flare's path, orange at its head, thinning out after the burst.
+    const tp = parts.trail.attributes.position as THREE.BufferAttribute
+    const tc = parts.trail.attributes.color as THREE.BufferAttribute
+    const end = Math.min(t, FLARE_APEX)
+    parts.trailMat.opacity = Math.max(0, 1 - burst / 2.5)
+    for (let i = 0; i < TRAIL; i++) {
+      const k = i / (TRAIL - 1)
+      const p = flarePosition(end * k)
+      tp.setXYZ(i, p.x, p.y, p.z)
+      const hot = k * k
+      tc.setXYZ(i, 0.92 + 0.08 * hot, 0.88 - 0.5 * hot, 0.84 - 0.68 * hot)
+    }
+    tp.needsUpdate = true
+    tc.needsUpdate = true
+    // Stars thrown out by the burst, slowed by the air and falling.
+    const sp = parts.sparks.attributes.position as THREE.BufferAttribute
+    const apex = flarePosition(FLARE_APEX)
+    const reach = 1 - Math.exp(-burst * 1.4)
+    parts.dirs.forEach(([x, y, z, v], i) => sp.setXYZ(i, apex.x + x * v * reach, apex.y + y * v * reach - burst * burst * 0.45, apex.z + z * v * reach))
+    sp.needsUpdate = true
+    parts.sparkMat.opacity = burst > 0 ? Math.max(0, 1 - burst / 4) : 0
   })
   return (
     <group ref={g} visible={false}>
-      <mesh>
-        <sphereGeometry args={[0.25, 10, 8]} />
-        <meshBasicMaterial color={new THREE.Color(30, 4, 2)} />
-      </mesh>
+      <points geometry={parts.trail} material={parts.trailMat} frustumCulled={false} />
+      <points geometry={parts.sparks} material={parts.sparkMat} frustumCulled={false} />
+      <sprite ref={star} material={parts.starMat} renderOrder={1} />
+      <sprite ref={core} material={parts.coreMat} renderOrder={2} />
+      <sprite ref={muzzle} material={parts.muzzleMat} />
       <pointLight ref={light} color="#ff3a20" distance={120} decay={1.4} />
     </group>
   )

@@ -6,7 +6,7 @@ import { G, live } from '../game/state'
 import type { GridMap, RoomDef } from '../game/types'
 import { useMats } from './materials'
 import { Cyl, Lathe } from './props/models'
-import { blackoutActive, lampPositions, roomPowerCut, stationPowerDown } from './roomPower'
+import { beaconAngle, beaconsOn, lampPositions, mainsOut, stationPowerDown } from './roomPower'
 import { localPoint, lunarMap, MODULES } from '../game/lunar/map'
 
 type BeaconDef = { room: RoomDef; pos: [number, number, number]; id: string }
@@ -25,7 +25,7 @@ function beaconsFor(room: RoomDef): BeaconDef[] {
     return { room, id: `${room.id}:${i}`, pos: [x, CEIL, z] }
   })
 }
-const angle = (room: RoomDef) => G().playTime * 1.65 + room.rect[0] * 0.7
+const angle = (room: RoomDef) => beaconAngle() + room.rect[0] * 0.7
 
 function Beacon({ room, pos, id }: BeaconDef) {
   const rotor = useRef<THREE.Group>(null)
@@ -35,7 +35,7 @@ function Beacon({ room, pos, id }: BeaconDef) {
   lens.userData.backupCircuit = true
   useEffect(() => () => lens.dispose(), [lens])
   useFrame(() => {
-    const on = roomPowerCut(room)
+    const on = beaconsOn(room)
     lens.emissiveIntensity = on ? 2.6 : 0
     // Out of alarm the beacon is simply switched off: no light and no turning.
     if (on && rotor.current) rotor.current.rotation.y = angle(room)
@@ -68,7 +68,7 @@ function Beacon({ room, pos, id }: BeaconDef) {
 function Darkness() {
   const scene = useThree((state) => state.scene)
   useFrame((_, dt) => {
-    const out = blackoutActive()
+    const out = mainsOut()
     scene.environmentIntensity = stationPowerDown() ? 0 : THREE.MathUtils.damp(scene.environmentIntensity, out ? 0.26 : 1, 4, Math.min(dt, 0.1))
   })
   useEffect(() => () => { scene.environmentIntensity = 1 }, [scene])
@@ -102,7 +102,7 @@ export function EmergencyLights({ map }: { map: GridMap }) {
   useFrame(() => {
     const distance = (b: BeaconDef) => Math.hypot(b.pos[0] - live.pos[0], b.pos[2] - live.pos[2]) + (b.room.id === live.roomId ? 0 : 30)
     // These lights cast no shadows, so a beam from next door would shine straight through the wall.
-    const active = beacons.filter(({ room }) => roomPowerCut(room, map.zone) && (room.id === live.roomId || !live.roomId)).sort((a, b) => distance(a) - distance(b))
+    const active = beacons.filter(({ room }) => beaconsOn(room, map.zone) && (room.id === live.roomId || !live.roomId)).sort((a, b) => distance(a) - distance(b))
     beams.forEach(({ light, spill, target }, i) => {
       const entry = active[i]
       // Warm maps under the loader, then render them only while the beacon is lit.

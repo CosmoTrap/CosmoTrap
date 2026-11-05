@@ -27,10 +27,8 @@ export function roomSteps(zone: ZoneId, room: RoomDef) {
 }
 
 export function roomLocked(zone: ZoneId, room: RoomDef) {
-  const f = useGame.getState().flags
   if (zone === 1 && room.id === 'sas') return !doorUnlocked('door_d1')
   if (zone === 2 && room.id === 'amarrage') return !doorUnlocked('door_dock')
-  if (zone === 2 && room.id === 'disjoncteur') return !f.steamFixed
   return false
 }
 
@@ -52,6 +50,7 @@ const WHITE = '#d9dee6', STEEL = '#7d8798', DARK = '#3a4356', WOOD = '#a9825a', 
 /** Icon of each model, in metres; +z points into the room, as in the 3D props. */
 const ICONS: Record<string, () => ReactNode> = {
   bunk: () => <>{r(0, .48, 1.95, .94, STEEL)}{r(.25, .48, 1.3, .82, BLUE)}{r(-.7, .48, .4, .62, WHITE)}</>,
+  bunkMirrored: () => <>{r(0, .48, 1.95, .94, STEEL)}{r(-.25, .48, 1.3, .82, BLUE)}{r(.7, .48, .4, .62, WHITE)}</>,
   table: () => <>{r(0, 0, 1.7, .85, WHITE, .14)}{dot(0, 0, .1, STEEL)}</>,
   chair: () => <>{r(0, 0, .45, .45, DARK, .08)}{r(0, -.17, .42, .1, '#232a3a')}</>,
   stool: () => dot(0, 0, .17, WOOD), metalStool: () => dot(0, 0, .2, WOOD),

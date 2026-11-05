@@ -1,4 +1,4 @@
-import { blackoutActive, stationPowerDown } from './roomPower'
+import { mainsOut, stationPowerDown } from './roomPower'
 import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
@@ -91,7 +91,7 @@ export function LightShafts({ windows, sun }: { windows: WindowDef[]; sun: [numb
   useFrame(({ clock }) => {
     mat.uniforms.uTime.value = clock.elapsedTime
     // With the lights out the portholes barely light anything: only a faint shaft remains.
-    mat.uniforms.uIntensity.value = fullBeam.current * (stationPowerDown() ? 0 : blackoutActive() ? 0.28 : 1)
+    mat.uniforms.uIntensity.value = fullBeam.current * (stationPowerDown() ? 0 : mainsOut() ? 0.28 : 1)
     dust.visible = !stationPowerDown()
     const p = dust.geometry.attributes.position as THREE.BufferAttribute
     const t = clock.elapsedTime

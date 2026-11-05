@@ -18,7 +18,7 @@ const fr = {
   selectRoom: 'Choisir une pièce', scroll: 'Molette : zoom', navigate: 'Clic : sélectionner',
   mapHelp: 'Plan de la station · objets visibles dans les zones explorées',
   survival: 'Équipement de survie', briefing: 'Dossier de mission',
-  alarm: 'ALARME · NIVEAU 1', blackout: 'ÉNERGIE COUPÉE', leak: 'FUITE D’AIR', noPower: 'ÉNERGIE COUPÉE',
+  alarm: 'ALARME', blackout: 'ÉNERGIE COUPÉE', leak: 'FUITE D’AIR', noPower: 'ÉNERGIE COUPÉE',
   mapModes: 'Mode d’affichage', modes: ['Plan', 'Énergie', 'Oxygène'], pressure: 'Pression',
   legendSolved: 'Énigme résolue', legendCurrent: 'Énigme en cours', legendLocked: 'Module verrouillé', legendEvac: 'Évacuation', progressLabel: 'PROGRESSION',
   statusLocked: 'Module verrouillé', statusSolved: 'Énigme résolue', statusCurrent: 'Énigme en cours', moduleLocked: 'Module verrouillé',

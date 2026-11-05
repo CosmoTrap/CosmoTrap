@@ -33,8 +33,9 @@ for (const map of [zone1, zone2]) test(`niveau ${map.zone} : quatre branches con
   expect(reachable(map, [gate.tile.join(',')]).has(exit.tile!.join(','))).toBe(false)
   if (map.zone === 2) {
     const beforeSteam = reachable(map, [map.ents.find((e) => e.id === 'steam')!.tile!.join(',')])
-    for (const id of ['wrench', 'fuse', 'steamValve']) expect(beforeSteam.has(map.ents.find((e) => e.id === id)!.tile!.join(','))).toBe(true)
-    expect(beforeSteam.has(map.ents.find((e) => e.id === 'breaker')!.tile!.join(','))).toBe(false)
+    for (const id of ['wrench', 'fuse']) expect(beforeSteam.has(map.ents.find((e) => e.id === id)!.tile!.join(','))).toBe(true)
+    // La vanne et le disjoncteur sont de l'autre côté du gaz.
+    for (const id of ['steamValve', 'breaker']) expect(beforeSteam.has(map.ents.find((e) => e.id === id)!.tile!.join(','))).toBe(false)
   }
 })
 
@@ -115,4 +116,62 @@ test('circuler physiquement entre le nœud, les salles et les compartiments des 
   await walk(page, [46, 37], -Math.PI / 2, 0, 63.5, 1) // Breaker after repaired steam leak.
   await walk(page, [40, 37], Math.PI / 2, 0, 22, -1) // Docking airlock.
   expect(errors).toEqual([])
+})
+
+test('la station extérieure montre l’autre niveau et les panneaux solaires du plan', async ({ page }) => {
+  await page.route('**/api/**', (r) => r.fulfill({ status: 503, body: '{}' }))
+  await page.addInitScript(() => localStorage.setItem('cosmotrap.settings.v1', JSON.stringify({ quality: 'low', music: 0, sfx: 0, voice: 0 })))
+  await page.goto('/')
+  await expect(page.getByTestId('launch')).toBeVisible()
+  await page.keyboard.press('Space')
+  await page.getByTestId('guest').click()
+  await page.evaluate(() => { window.__game.start(); window.__game.set({ toured: [1, 2, 3, 4] }) })
+  await page.waitForFunction(() => window.__game.state().playerZone === 1 && window.__game.state().loading === 1)
+  const station = () => page.evaluate(async () => {
+    const { _roots } = await import('/node_modules/.vite/deps/@react-three_fiber.js' as string)
+    const scene = _roots.get(document.querySelector('canvas')).store.getState().scene
+    const g = scene.getObjectByName('station-exterior')
+    g.updateWorldMatrix(true, true)
+    const y = (name: string) => { const m = g.getObjectByName(name); m.geometry.computeBoundingBox(); return [m.geometry.boundingBox.min.y + g.position.y, m.geometry.boundingBox.max.y + g.position.y] }
+    const solar = g.getObjectByName('station:solar')
+    return { hull: y('station:hull'), solarVerts: solar.geometry.attributes.position.count }
+  })
+  // Aucune pièce de l'extérieur ne doit entrer dans une case de sol : elle se verrait sur les murs intérieurs.
+  const intruders = (zone: 1 | 2) => page.evaluate(async (zone) => {
+    const { _roots } = await import('/node_modules/.vite/deps/@react-three_fiber.js' as string)
+    const { GRID_MAPS, isFloor } = await import('/src/game/maps/index.ts' as string)
+    const scene = _roots.get(document.querySelector('canvas')).store.getState().scene
+    const g = scene.getObjectByName('station-exterior')
+    const map = GRID_MAPS[zone]
+    const out: string[] = []
+    // La coque des pièces compte aussi : sa tranche se voyait à côté des portes.
+    const roomHull = scene.getObjectByName('hull')
+    const check = (mesh: any, ox: number, oy: number, oz: number) => {
+      const p = mesh.geometry.attributes.position
+      for (let i = 0; i < p.count; i++) {
+        const x = p.getX(i) + ox, y = p.getY(i) + oy, z = p.getZ(i) + oz
+        if (y < 0.1 || y > 2.7) continue
+        const tx = Math.floor(x / 2), tz = Math.floor(z / 2)
+        const fx = x / 2 - tx, fz = z / 2 - tz
+        // Une marge d'un demi-millimètre : un mur posé pile sur le bord d'une case n'y entre pas.
+        if (fx < 0.00025 || fx > 0.99975 || fz < 0.00025 || fz > 0.99975) continue
+        if (isFloor(map.grid[tz]?.[tx] ?? ' ')) out.push(`${mesh.name} (${x.toFixed(2)}, ${y.toFixed(1)}, ${z.toFixed(2)})`)
+      }
+    }
+    for (const mesh of g.children) check(mesh, g.position.x, g.position.y, g.position.z)
+    check(roomHull, 0, 0, 0)
+    return [...new Set(out)].slice(0, 12)
+  }, zone)
+  expect(await intruders(1)).toEqual([])
+  // 2 rangées de 5 cellules, 4 panneaux par niveau, 6 sommets par cellule.
+  const expected = 2 * 5 * 8 * 6
+  const up = await station()
+  expect(up.solarVerts).toBe(expected)
+  expect(up.hull[0]).toBeLessThan(-1) // Du niveau 1, le niveau 2 est en dessous.
+  await page.evaluate(() => { window.__game.goto(2); window.__game.set({ cine: null }) })
+  await page.waitForFunction(() => window.__game.state().playerZone === 2 && window.__game.state().loading === 1)
+  const down = await station()
+  expect(down.solarVerts).toBe(expected)
+  expect(down.hull[1]).toBeGreaterThan(5) // Du niveau 2, le niveau 1 est au-dessus.
+  expect(await intruders(2)).toEqual([])
 })

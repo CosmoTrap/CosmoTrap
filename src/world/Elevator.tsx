@@ -4,11 +4,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { audio } from '../game/audio/audio'
 import { liftUnlocked } from '../game/logic'
+import { beaconAngle, liftAlert } from './roomPower'
 import { CEIL } from '../game/maps'
 import { G, live, useGame } from '../game/state'
 import { useMats } from './materials'
 import { Box, Cyl, Screen } from './props/models'
-import { stationPowerDown } from './roomPower'
 
 /** Fixed glass wall of the shaft, and the cab's own glass wall inside it. */
 const SHAFT_R = 1.7
@@ -58,6 +58,9 @@ function GlassWall({ r, glass, frame }: { r: number; glass: THREE.Material; fram
 }
 
 /** Glass lift at the centre of the hub. It stays closed until the floor's puzzles are solved. */
+/** How far the control tablet leans back from upright (rad). */
+const TABLET_TILT = 0.65
+
 export function Elevator({ zone, cx, cz }: { zone: number; cx: number; cz: number }) {
   const m = useMats()
   const unlocked = useGame((s) => liftUnlocked(s.zone, s.flags.pressurized))
@@ -71,6 +74,17 @@ export function Elevator({ zone, cx, cz }: { zone: number; cx: number; cz: numbe
   const glassBase = m.glass('#aac9da', 0.14)
   const alarm = useMemo(() => new THREE.MeshStandardMaterial({ color: '#080202', emissive: '#ff1a0a', emissiveIntensity: 1 }), [])
   const cabLight = useRef<THREE.PointLight>(null)
+  // The pillar's top is cut along the tablet's slope, so that the tablet carries straight on from it.
+  const pillar = useMemo(() => {
+    const g = new THREE.CylinderGeometry(0.045, 0.06, PILLAR_H, 24, 1, true)
+    g.translate(0, PILLAR_H / 2, 0)
+    const p = g.attributes.position as THREE.BufferAttribute
+    const y0 = PILLAR_H + 0.03 - 0.0175 * Math.sin(TABLET_TILT), z0 = 0.02 - 0.0175 * Math.cos(TABLET_TILT)
+    for (let i = 0; i < p.count; i++) if (p.getY(i) > PILLAR_H / 2) p.setY(i, y0 - (p.getZ(i) - z0) / Math.tan(TABLET_TILT))
+    g.computeVertexNormals()
+    return g
+  }, [])
+  useEffect(() => () => pillar.dispose(), [pillar])
   const inner = useMemo(() => {
     const c = shell.clone()
     c.side = THREE.BackSide
@@ -90,18 +104,17 @@ export function Elevator({ zone, cx, cz }: { zone: number; cx: number; cz: numbe
   }, [glassBase])
   useEffect(() => () => { lamp.dispose(); alarm.dispose(); inner.dispose(); glass.dispose() }, [lamp, alarm, inner, glass])
 
-  useFrame(({ clock }, dt) => {
-    // A slow swell, about three seconds per cycle, on its own circuit: it never stops.
-    const locked = !liftUnlocked(G().zone, G().flags.pressurized)
-    const emergency = locked || stationPowerDown()
-    const pulse = 0.5 + 0.5 * Math.sin(clock.elapsedTime * 2.2)
-    alarm.emissive.set(emergency ? '#ff1a0a' : '#eef4ff')
-    alarm.emissiveIntensity = emergency ? 0.2 + 2.6 * pulse : 1.3
-    inner.emissive.set(emergency ? '#ff2a1a' : '#eef4ff')
-    inner.emissiveIntensity = emergency ? 0.06 + 0.34 * pulse : 0.12
+  useFrame((_, dt) => {
+    // Red and swelling in time with the beacons while they turn, plain white otherwise.
+    const alert = liftAlert()
+    const pulse = 0.5 + 0.5 * Math.sin(beaconAngle())
+    alarm.emissive.set(alert ? '#ff1a0a' : '#eef4ff')
+    alarm.emissiveIntensity = alert ? 0.2 + 2.6 * pulse : 1.3
+    inner.emissive.set(alert ? '#ff2a1a' : '#eef4ff')
+    inner.emissiveIntensity = alert ? 0.06 + 0.34 * pulse : 0.12
     if (cabLight.current) {
-      cabLight.current.color.set(emergency ? '#ff1a0a' : '#f2f6ff')
-      cabLight.current.intensity = emergency ? 0.5 + 6 * pulse : 4
+      cabLight.current.color.set(alert ? '#ff1a0a' : '#f2f6ff')
+      cabLight.current.intensity = alert ? 0.5 + 6 * pulse : 4
     }
     const open = liftUnlocked(G().zone, G().flags.pressurized) && G().cine !== 'lift'
       && Math.hypot(live.pos[0] - (cx + SHAFT_R), live.pos[2] - cz) < OPEN_DISTANCE
@@ -117,7 +130,7 @@ export function Elevator({ zone, cx, cz }: { zone: number; cx: number; cz: numbe
     if (right.current) right.current.rotation.y = -k
     const isClosed = anim.current < 0.55
     if (isClosed !== closed) setClosed(isClosed)
-    lamp.emissive.set(stationPowerDown() ? '#ff1a0a' : liftUnlocked(G().zone, G().flags.pressurized) ? '#62d6b1' : '#ff4128')
+    lamp.emissive.set(alert ? '#ff4128' : '#eef4ff')
   })
 
   const segments = useMemo(() => {
@@ -175,8 +188,8 @@ export function Elevator({ zone, cx, cz }: { zone: number; cx: number; cz: numbe
       {/* Control tablet on a pillar anchored in the floor, facing the door. */}
       <group name="elevator-control" position={[PILLAR_X, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
         <Cyl a={[0.2, 0.24, 0.04]} p={[0, 0.032, 0]} m={frame} seg={32} />
-        <Cyl a={[0.045, 0.06, PILLAR_H]} p={[0, PILLAR_H / 2, 0]} m={steel} seg={20} />
-        <group position={[0, PILLAR_H + 0.03, 0.02]} rotation={[-0.65, 0, 0]}>
+        <mesh geometry={pillar} material={steel} castShadow receiveShadow />
+        <group position={[0, PILLAR_H + 0.03, 0.02]} rotation={[-TABLET_TILT, 0, 0]}>
           <Box s={[0.44, 0.38, 0.035]} m={frame} />
           <Screen w={0.38} h={0.25} p={[0, 0.04, 0.02]} lines={[`ETAGE ${zone}`, destination]} intensity={0.9} fg="#62d6b1" />
           <Cyl a={[0.028, 0.028, 0.012]} p={[0, -0.135, 0.022]} r={[Math.PI / 2, 0, 0]} m={m.glow('#62d6b1', 2)} />

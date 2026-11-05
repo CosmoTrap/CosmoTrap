@@ -30,7 +30,7 @@ const FLOOR_FIT: Record<string, number> = {
 }
 
 const BULKY = new Set([
-  'bunk', 'personalLocker', 'cabinet', 'labBench', 'counter', 'elecCabinet', 'suitRack', 'rack',
+  'bunk', 'bunkMirrored', 'personalLocker', 'cabinet', 'labBench', 'counter', 'elecCabinet', 'suitRack', 'rack',
   'plantRack', 'medbed', 'console', 'pilotSeat', 'crewSeats', 'engineCore', 'treadmill', 'ergBike',
   'sideConsole', 'toolChest', 'generator', 'lounge', 'shelfUnit', 'gasTank',
 ])

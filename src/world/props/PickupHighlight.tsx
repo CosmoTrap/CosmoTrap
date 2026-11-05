@@ -2,6 +2,9 @@ import { useFrame } from '@react-three/fiber'
 import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import * as THREE from 'three'
 
+/** The rhythm shared by every pickup, so they all breathe together. */
+const pulse = { value: 1 }
+
 const BORDER = new THREE.MeshBasicMaterial({
   color: '#d7f3fb',
   side: THREE.BackSide,
@@ -11,7 +14,7 @@ const BORDER = new THREE.MeshBasicMaterial({
   toneMapped: false,
 })
 
-/** A thin shell around each recoverable mesh. Shared furniture and the item in hand stay plain. */
+/** A thin shell around each recoverable mesh, breathing slowly. Shared furniture and the item in hand stay plain. */
 export function highlightPickups(root: THREE.Group) {
   const shells: THREE.Mesh[] = []
   return {
@@ -51,6 +54,8 @@ export function PickupHighlight({ children }: { children: ReactNode }) {
     return () => { effect.current = null; highlight.dispose() }
   }, [children])
   useFrame(({ clock }) => {
+    pulse.value = 0.45 + 0.55 * Math.pow(0.5 + 0.5 * Math.sin(clock.elapsedTime * 2.4), 2)
+    BORDER.opacity = 0.55 * pulse.value
     // A GLTF may appear later inside its own Suspense boundary. Check twice per
     // second, reusing all existing materials instead of traversing every frame.
     if (clock.elapsedTime < nextCheck.current) return
