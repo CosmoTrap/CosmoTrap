@@ -2,6 +2,23 @@ import { expect, test } from '@playwright/test'
 import * as THREE from 'three'
 import { batchStaticMeshes } from '../src/world/props/StaticBatch'
 import { spatialBatches } from '../src/world/zone4/spatialBatches'
+import { batchStaticShadows } from '../src/world/props/StaticShadows'
+
+test('les ombres regroupées excluent les découpes, les objets animés et restaurent les sources', () => {
+  const root = new THREE.Group(), geometry = new THREE.BoxGeometry()
+  const a = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial()), b = a.clone()
+  const cutout = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ alphaTest: 0.5 }))
+  const glass = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ transparent: true }))
+  for (const mesh of [a, b, cutout, glass]) { mesh.castShadow = true; root.add(mesh) }
+  const result = batchStaticShadows(root)
+  expect(result.originals).toEqual([a, b])
+  expect(result.batches).toHaveLength(1)
+  expect(result.batches[0].visible).toBe(false)
+  expect(cutout.castShadow && glass.castShadow).toBe(true)
+  result.dispose()
+  expect(a.castShadow && b.castShadow).toBe(true)
+  expect(result.batches[0].parent).toBeNull()
+})
 
 test('regrouper les décors conserve sommets, UV, matériaux, ombres et nettoyage', () => {
   const root = new THREE.Group(), parent = new THREE.Group()
@@ -31,6 +48,7 @@ test('regrouper les décors conserve sommets, UV, matériaux, ombres et nettoyag
   expect(merged.material).toBe(material)
   expect(merged.castShadow && merged.receiveShadow).toBe(true)
   expect(originals.every(m => !m.visible)).toBe(true)
+  expect(originals.every(m => !m.matrixAutoUpdate)).toBe(true)
   expect(originals.every(m => m.userData.staticBatchSource)).toBe(true)
   expect(merged.userData.staticBatch).toBe(true)
   let mergedDisposed = false, sourceDisposed = false
@@ -38,6 +56,7 @@ test('regrouper les décors conserve sommets, UV, matériaux, ombres et nettoyag
   originals[0].geometry.addEventListener('dispose', () => { sourceDisposed = true })
   batch.dispose()
   expect(originals.every(m => m.visible)).toBe(true)
+  expect(originals.every(m => m.matrixAutoUpdate)).toBe(true)
   expect(originals.every(m => !m.userData.staticBatchSource)).toBe(true)
   expect(merged.parent).toBeNull()
   expect(mergedDisposed).toBe(true)
@@ -119,6 +138,8 @@ test('le calcul optimisé des lumières conserve les pixels du rendu PBR', async
   const difference = await page.evaluate(async () => {
     const T = await import('/node_modules/.vite/deps/three.js' as string)
     const optimized = T.ShaderChunk.lights_fragment_begin
+    const optimizedPars = T.ShaderChunk.lights_pars_begin
+    const { default: originalPars } = await import('/node_modules/three/src/renderers/shaders/ShaderChunk/lights_pars_begin.glsl.js' as string)
     const original = optimized.replaceAll('if ( directLight.visible ) { RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight ); }', 'RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );')
     if (original === optimized) throw new Error('Optimisation absente du shader testé')
     const renderer = new T.WebGLRenderer(), target = new T.WebGLRenderTarget(256, 192)
@@ -134,16 +155,22 @@ test('le calcul optimisé des lumières conserve les pixels du rendu PBR', async
       mesh.position.x = (i - 2) * 1.05; mesh.castShadow = mesh.receiveShadow = true
       scene.add(mesh)
     }
-    for (const [x, y, z, intensity, distance] of [[-2, 2, 2, 8, 8], [1, 2, 0, 5, 2], [5, 3, 8, 4, 1], [1, 1, 1, 0, 10]]) {
+    for (const [x, y, z, intensity, distance] of [[-2, 2, 2, 8, 8], [1, 2, 0, 5, 2], [5, 3, 8, 4, 1], [1, 1, 1, 0, 10], [0, 4, 0, 2, 0]]) {
       const light = new T.PointLight(0xffbb88, intensity, distance)
       light.position.set(x, y, z); scene.add(light)
     }
     const spot = new T.SpotLight(0x6688ff, 15, 15, 0.4, 0.5)
     spot.position.set(2, 4, 3); spot.castShadow = true; scene.add(spot, spot.target)
+    for (const intensity of [0, 20]) {
+      const inactiveSpot = new T.SpotLight(0xff0000, intensity, 0.1, 0.4, 0.5)
+      inactiveSpot.position.set(0, 8, 0); scene.add(inactiveSpot, inactiveSpot.target)
+    }
+    scene.add(new T.DirectionalLight(0xff0000, 0))
     const pixels: Uint8Array[] = []
     try {
       for (const [key, source] of [['original', original], ['optimized', optimized]]) {
         T.ShaderChunk.lights_fragment_begin = source
+        T.ShaderChunk.lights_pars_begin = key === 'original' ? originalPars : optimizedPars
         materials.forEach(mat => { mat.customProgramCacheKey = () => key; mat.needsUpdate = true })
         renderer.setRenderTarget(target); renderer.render(scene, camera)
         const p = new Uint8Array(256 * 192 * 4)
@@ -157,6 +184,7 @@ test('le calcul optimisé des lumières conserve les pixels du rendu PBR', async
       return { max, mean: total / pixels[0].length, bright }
     } finally {
       T.ShaderChunk.lights_fragment_begin = optimized
+      T.ShaderChunk.lights_pars_begin = optimizedPars
       scene.traverse((o: any) => { o.geometry?.dispose(); o.material?.dispose(); o.shadow?.map?.dispose() })
       target.dispose(); renderer.dispose(); renderer.forceContextLoss()
     }
@@ -212,4 +240,60 @@ test('le rendu des instances conserve les textures, normales et ombres du décor
   expect(difference.bright).toBeGreaterThan(10000)
   expect(difference.mean).toBeLessThan(0.05)
   expect(difference.different).toBeLessThan(0.001)
+})
+
+test('les ombres regroupées gardent les mêmes pixels avec moins de dessins GPU', async ({ page }) => {
+  await page.route('**/api/**', r => r.fulfill({ status: 503, body: '{}' }))
+  await page.goto('/')
+  const result = await page.evaluate(async () => {
+    const T = await import('/node_modules/.vite/deps/three.js' as string)
+    const { batchStaticShadows, installStaticShadowPass } = await import('/src/world/props/StaticShadows.ts' as string)
+    const renderer = new T.WebGLRenderer(), target = new T.WebGLRenderTarget(320, 240)
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap; renderer.info.autoReset = false
+    const uninstall = installStaticShadowPass(renderer)
+    const scene = new T.Scene(), camera = new T.PerspectiveCamera(60, 320 / 240, 0.1, 50)
+    camera.position.set(0, 6, 8); camera.lookAt(0, 0, 0)
+    scene.add(new T.HemisphereLight(0xffffff, 0x273544, 0.5))
+    const sun = new T.DirectionalLight(0xffeedd, 2)
+    sun.position.set(3, 6, 2); sun.castShadow = true; scene.add(sun)
+    const point = new T.PointLight(0x66bbff, 20, 20)
+    point.position.set(-3, 4, 1); point.castShadow = true; scene.add(point)
+    const spot = new T.SpotLight(0xffdd88, 25, 20, 1, .5)
+    spot.position.set(2, 5, 3); spot.castShadow = true; scene.add(spot, spot.target)
+    const root = new T.Group(); root.rotation.y = .3; scene.add(root)
+    const geometry = new T.BoxGeometry(.4, 1, .4)
+    for (let i = 0; i < 24; i++) {
+      const mat = new T.MeshStandardMaterial({ color: new T.Color().setHSL(i / 24, .5, .6), side: i % 2 ? T.DoubleSide : T.FrontSide })
+      const mesh = new T.Mesh(geometry, mat)
+      mesh.position.set(i % 6 - 2.5, .5, Math.floor(i / 6) - 1.5)
+      mesh.rotation.y = i * .2; mesh.castShadow = mesh.receiveShadow = true; root.add(mesh)
+    }
+    const repeated = new T.InstancedMesh(geometry, new T.MeshStandardMaterial({ color: 0x778899 }), 3)
+    for (let i = 0; i < 3; i++) repeated.setMatrixAt(i, new T.Matrix4().makeTranslation(i - 1, .5, 3))
+    repeated.castShadow = true; root.add(repeated)
+    const floor = new T.Mesh(new T.PlaneGeometry(30, 30), new T.MeshStandardMaterial({ color: 0x888888 }))
+    floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor)
+    const pixels: Uint8Array[] = [], calls: number[] = []; let batch: any
+    try {
+      for (let i = 0; i < 2; i++) {
+        if (i) batch = batchStaticShadows(root)
+        renderer.info.reset(); renderer.setRenderTarget(target); renderer.render(scene, camera)
+        calls.push(renderer.info.render.calls)
+        const p = new Uint8Array(320 * 240 * 4)
+        renderer.readRenderTargetPixels(target, 0, 0, 320, 240, p); pixels.push(p)
+      }
+      let sum = 0, different = 0, bright = 0
+      pixels[0].forEach((v, i) => { const d = Math.abs(v - pixels[1][i]); sum += d; if (d > 2) different++; if (i % 4 !== 3) bright += v })
+      return { calls, mean: sum / pixels[0].length, different: different / pixels[0].length, bright, hidden: batch.batches.every((m: any) => !m.visible) }
+    } finally {
+      batch?.dispose(); uninstall()
+      scene.traverse((o: any) => { o.geometry?.dispose(); o.material?.dispose(); o.shadow?.map?.dispose() })
+      target.dispose(); renderer.dispose(); renderer.forceContextLoss()
+    }
+  })
+  expect(result.hidden).toBe(true)
+  expect(result.bright).toBeGreaterThan(10000)
+  expect(result.mean).toBeLessThan(.05)
+  expect(result.different).toBeLessThan(.001)
+  expect(result.calls[1]).toBeLessThan(result.calls[0] * .6)
 })

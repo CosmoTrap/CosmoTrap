@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useProgress } from '@react-three/drei'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import { batchStaticShadows } from './StaticShadows'
 
 export const StaticBatchContext = createContext<(() => void) | null>(null)
 
@@ -43,9 +44,16 @@ export function batchStaticMeshes(root: THREE.Group) {
     group.push({ mesh, geometry }); groups.set(key, group)
   })
   const hidden: THREE.Mesh[] = []
+  const transforms = new Map<THREE.Mesh, boolean>()
   const batches: THREE.Mesh[] = []
   const instancedSources = new Set<THREE.Mesh>()
-  const hide = (mesh: THREE.Mesh) => { mesh.visible = false; mesh.userData.staticBatchSource = true; hidden.push(mesh) }
+  const hide = (mesh: THREE.Mesh) => {
+    mesh.visible = false; mesh.userData.staticBatchSource = true; hidden.push(mesh)
+    // The source remains available to bounds/picking tools, but its fixed local
+    // transform need not be recomposed for every render and shadow pass.
+    transforms.set(mesh, mesh.matrixAutoUpdate)
+    mesh.matrixAutoUpdate = false
+  }
   for (const meshes of instances.values()) {
     if (meshes.length < 2) continue
     const source = meshes[0]
@@ -82,7 +90,7 @@ export function batchStaticMeshes(root: THREE.Group) {
     entries.forEach(({ mesh }) => hide(mesh))
   }
   return { originals: hidden, batches, dispose() {
-    hidden.forEach(mesh => { mesh.visible = true; delete mesh.userData.staticBatchSource })
+    hidden.forEach(mesh => { mesh.visible = true; mesh.matrixAutoUpdate = transforms.get(mesh)!; delete mesh.userData.staticBatchSource })
     batches.forEach(mesh => {
       root.remove(mesh)
       if ((mesh as THREE.InstancedMesh).isInstancedMesh) (mesh as THREE.InstancedMesh).dispose()
@@ -94,17 +102,20 @@ export function batchStaticMeshes(root: THREE.Group) {
 export function StaticBatch({ children }: { children: ReactNode }) {
   const root = useRef<THREE.Group>(null)
   const batch = useRef<ReturnType<typeof batchStaticMeshes> | null>(null)
+  const shadows = useRef<ReturnType<typeof batchStaticShadows> | null>(null)
   const dirty = useRef(true)
   const active = useProgress(s => s.active)
   const invalidate = useCallback(() => { dirty.current = true }, [])
   useLayoutEffect(() => {
     dirty.current = true
-    return () => { batch.current?.dispose(); batch.current = null }
+    return () => { shadows.current?.dispose(); shadows.current = null; batch.current?.dispose(); batch.current = null }
   }, [children])
   useFrame(() => {
     if (active || !dirty.current || !root.current) return
+    shadows.current?.dispose()
     batch.current?.dispose()
     batch.current = batchStaticMeshes(root.current)
+    shadows.current = batchStaticShadows(root.current)
     dirty.current = false
   }, -90)
   return <StaticBatchContext.Provider value={invalidate}><group ref={root} name="static-decoration">{children}</group></StaticBatchContext.Provider>
