@@ -58,6 +58,46 @@ test('les vitrages, éléments masqués et instances gardent leur rendu indépen
   expect(hidden.visible).toBe(false)
 })
 
+test('les décors répétés conservent leurs données quantifiées, transformations et ressources partagées', () => {
+  const root = new THREE.Group(), parent = new THREE.Group()
+  root.position.set(8, 2, -4); root.rotation.y = 0.6
+  parent.position.set(-1, 0.4, 2); parent.rotation.z = 0.2
+  root.add(parent)
+  const geometry = new THREE.BoxGeometry(), material = new THREE.MeshStandardMaterial()
+  const positions = geometry.attributes.position
+  geometry.setAttribute('position', new THREE.Int16BufferAttribute(Array.from(positions.array, x => Math.round(x * 32766)), 3, true))
+  const meshes = [0, 1, 2].map(i => {
+    const mesh = new THREE.Mesh(geometry, material)
+    mesh.position.set(i * 2, i, -i); mesh.rotation.y = i * 0.4
+    mesh.scale.set(1 + i, 2, 0.7); mesh.castShadow = mesh.receiveShadow = true
+    parent.add(mesh); return mesh
+  })
+  root.updateWorldMatrix(true, true)
+  const matrices = meshes.map(m => m.matrixWorld.clone())
+  const result = batchStaticMeshes(root)
+  expect(result.batches).toHaveLength(1)
+  const batch = result.batches[0] as THREE.InstancedMesh
+  expect(batch.isInstancedMesh).toBe(true)
+  expect(batch.geometry).toBe(geometry)
+  expect(batch.material).toBe(material)
+  expect(batch.count).toBe(3)
+  batch.updateWorldMatrix(true, false)
+  const local = new THREE.Matrix4()
+  matrices.forEach((matrix, i) => {
+    batch.getMatrixAt(i, local)
+    const actual = batch.matrixWorld.clone().multiply(local)
+    matrix.elements.forEach((v, j) => expect(Math.abs(v - actual.elements[j])).toBeLessThan(0.00001))
+  })
+  let disposed = false, instanceDisposed = false
+  geometry.addEventListener('dispose', () => { disposed = true })
+  batch.addEventListener('dispose', () => { instanceDisposed = true })
+  result.dispose()
+  expect(disposed).toBe(false)
+  expect(instanceDisposed).toBe(true)
+  expect(meshes.every(m => m.visible && !m.userData.staticBatchSource)).toBe(true)
+  expect(batch.parent).toBeNull()
+})
+
 test('les cellules de végétation conservent chaque instance et ses coordonnées exactes', () => {
   const items = Array.from({ length: 500 }, (_, i) => ({ x: (i * 17) % 140 - 70, z: (i * 7) % 130 - 90, id: i }))
   const cells = spatialBatches(items)
@@ -125,4 +165,51 @@ test('le calcul optimisé des lumières conserve les pixels du rendu PBR', async
   expect(difference.max).toBeLessThanOrEqual(1)
   expect(difference.mean).toBeLessThan(0.01)
   expect(errors).toEqual([])
+})
+
+test('le rendu des instances conserve les textures, normales et ombres du décor original', async ({ page }) => {
+  await page.route('**/api/**', r => r.fulfill({ status: 503, body: '{}' }))
+  await page.goto('/')
+  const difference = await page.evaluate(async () => {
+    const T = await import('/node_modules/.vite/deps/three.js' as string)
+    const { batchStaticMeshes } = await import('/src/world/props/StaticBatch.tsx' as string)
+    const renderer = new T.WebGLRenderer(), target = new T.WebGLRenderTarget(256, 192)
+    renderer.shadowMap.enabled = true
+    const scene = new T.Scene(), camera = new T.PerspectiveCamera(60, 256 / 192, 0.1, 40)
+    camera.position.set(0, 4, 7); camera.lookAt(0, 0, 0)
+    scene.add(new T.HemisphereLight(0xffffff, 0x273544, 0.8))
+    const sun = new T.DirectionalLight(0xffeedd, 2)
+    sun.position.set(3, 6, 2); sun.castShadow = true; scene.add(sun)
+    const material = new T.MeshStandardMaterial({ color: 0x8199a1, roughness: 0.4, metalness: 0.3 })
+    const geometry = new T.TorusGeometry(0.55, 0.16, 12, 28)
+    const root = new T.Group(); root.rotation.y = 0.3; scene.add(root)
+    for (let i = 0; i < 3; i++) {
+      const mesh = new T.Mesh(geometry, material)
+      mesh.position.set((i - 1) * 1.6, 0.9, 0); mesh.rotation.set(i * 0.2, i * 0.5, 0)
+      mesh.scale.set(1, 0.7 + i * 0.2, 0.8); mesh.castShadow = mesh.receiveShadow = true
+      root.add(mesh)
+    }
+    const floor = new T.Mesh(new T.PlaneGeometry(20, 20), new T.MeshStandardMaterial({ color: 0x929292 }))
+    floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor)
+    const pixels: Uint8Array[] = []
+    let batch: any
+    try {
+      for (let pass = 0; pass < 2; pass++) {
+        if (pass) batch = batchStaticMeshes(root)
+        renderer.setRenderTarget(target); renderer.render(scene, camera)
+        const p = new Uint8Array(256 * 192 * 4)
+        renderer.readRenderTargetPixels(target, 0, 0, 256, 192, p); pixels.push(p)
+      }
+      let total = 0, different = 0, bright = 0
+      pixels[0].forEach((v, i) => { const d = Math.abs(v - pixels[1][i]); total += d; if (d > 2) different++; if (i % 4 !== 3) bright += v })
+      return { mean: total / pixels[0].length, different: different / pixels[0].length, bright, count: batch.batches.length }
+    } finally {
+      batch?.dispose(); geometry.dispose(); material.dispose(); floor.geometry.dispose(); floor.material.dispose()
+      sun.shadow.map?.dispose(); target.dispose(); renderer.dispose(); renderer.forceContextLoss()
+    }
+  })
+  expect(difference.count).toBe(1)
+  expect(difference.bright).toBeGreaterThan(10000)
+  expect(difference.mean).toBeLessThan(0.05)
+  expect(difference.different).toBeLessThan(0.001)
 })

@@ -33,6 +33,12 @@ test('la coque masque les pièces depuis l’extérieur, sauf aux véritables fe
       scene.traverse((o: any) => { if (o.isMesh && materials.has(o.material)) shell.push(o) })
       scene.updateMatrixWorld(true)
       const walls = shell.filter(o => wallMaterials.has(o.material))
+      const outer: any[] = []
+      scene.traverse((o: any) => { if (o.isMesh && ['hull', 'hub-hull', 'hub-sun-stop'].includes(o.name)) outer.push(o) })
+      for (const mesh of outer) for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+        if (!material.map || !material.normalMap || !material.roughnessMap) throw new Error(`Coque sans textures PBR : ${mesh.name}`)
+        if (material.transparent || !material.depthWrite) throw new Error('Coque extérieure transparente')
+      }
       const ray = new T.Raycaster(), a = new T.Vector3(), b = new T.Vector3(), c = new T.Vector3()
       let panels = 0, missed = 0, oldBackfaceMisses = 0
       // Probe the real room meshes on BOTH sides, including roofs, floors and
@@ -62,9 +68,9 @@ test('la coque masque les pièces depuis l’extérieur, sauf aux véritables fe
       }
       let openings = 0, covered = 0, missingSills = 0
       const probe = (x: number, y: number, z: number, nx: number, nz: number) => {
-        ray.set(new T.Vector3(x - nx * 0.08, y, z - nz * 0.08), new T.Vector3(nx, 0, nz))
-        ray.far = 0.16
-        return ray.intersectObjects(walls, false).length > 0
+        ray.set(new T.Vector3(x - nx * 0.7, y, z - nz * 0.7), new T.Vector3(nx, 0, nz))
+        ray.far = 1.4
+        return ray.intersectObjects([...walls, ...outer], false).length > 0
       }
       for (let z = 0; z < map.grid.length; z++) for (let x = 0; x < map.grid[z].length; x++) {
         const cell = cellAt(map, x, z)
@@ -88,9 +94,11 @@ test('la coque masque les pièces depuis l’extérieur, sauf aux véritables fe
           if (!probe(cx + dx * radius, 0.45, cz + dz * radius, -dx, -dz)) missingSills++
         }
       }
-      return { surfaces: shell.length, panels, missed, oldBackfaceMisses, openings, covered, missingSills }
+      ;(window as any).hullMaterialIds = outer.flatMap(o => (Array.isArray(o.material) ? o.material : [o.material]).map((m: any) => m.uuid))
+      return { exteriorSurfaces: outer.length, surfaces: shell.length, panels, missed, oldBackfaceMisses, openings, covered, missingSills }
     }, zone)
     expect(result.surfaces).toBeGreaterThan(5)
+    expect(result.exteriorSurfaces).toBeGreaterThan(0)
     expect(result.panels).toBeGreaterThan(100)
     expect(result.oldBackfaceMisses).toBeGreaterThan(50) // Reproduces the old bug.
     expect(result.missed, `zone ${zone}: faces extérieures manquantes`).toBe(0)
@@ -107,6 +115,18 @@ test('la coque masque les pièces depuis l’extérieur, sauf aux véritables fe
       }, { x, z, yaw: Math.atan2(x - targetX, z - targetZ) })
       await page.waitForTimeout(800)
       await page.screenshot({ path: `test-results/station-hull-${zone}.png` })
+      // Looking through another room's window must not switch the hull to black.
+      await page.evaluate(z => window.__game.teleportXZ(z === 1 ? 15 : 27, z === 1 ? 41 : 13, 0), zone)
+      await page.waitForTimeout(300)
+      expect(await page.evaluate(async () => {
+        const { _roots } = await import('/node_modules/.vite/deps/@react-three_fiber.js' as string)
+        const scene = _roots.get(document.querySelector('canvas')).store.getState().scene
+        const ids: string[] = []
+        scene.traverse((o: any) => {
+          if (o.isMesh && ['hull', 'hub-hull', 'hub-sun-stop'].includes(o.name)) ids.push(...(Array.isArray(o.material) ? o.material : [o.material]).map((m: any) => m.uuid))
+        })
+        return JSON.stringify(ids) === JSON.stringify((window as any).hullMaterialIds)
+      })).toBe(true)
     }
   }
   expect(errors).toEqual([])

@@ -4,11 +4,11 @@ import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { CEIL, TILE, cellAt, isFloor, isSolid, roomAt, tileCenter } from '../game/maps'
-import { G, diff, live, useGame } from '../game/state'
+import { diff, useGame } from '../game/state'
 import type { GridMap, RoomDef } from '../game/types'
 import { Door } from './Door'
 import { LightShafts } from './LightShafts'
-import { RoomCtx, ceilingMaterial, floorMaterial, setRoomLit, useMats, wallMaterial } from './materials'
+import { RoomCtx, ceilingMaterial, floorMaterial, hullMaterial, setRoomLit, useMats, wallMaterial } from './materials'
 import { EntModels } from './props/EntModels'
 import { Props } from './props/Props'
 import { EmergencyLights } from './EmergencyLights'
@@ -175,6 +175,7 @@ function buildLevel(map: GridMap): Built {
   colliders.push({ p: [(W * TILE) / 2, -0.25, (H * TILE) / 2], h: [(W * TILE) / 2 + 4, 0.25, (H * TILE) / 2 + 4] })
   colliders.push({ p: [(W * TILE) / 2, CEIL + 0.25, (H * TILE) / 2], h: [(W * TILE) / 2 + 4, 0.25, (H * TILE) / 2 + 4] })
   const hull: THREE.BufferGeometry[] = []
+  const hullRoofs: THREE.BufferGeometry[] = []
   const solidBehind = (c: string) => c === '#'
   // The round hub has its own hull and looks out through its windows: nothing may stand in front of space there.
   const hubs = map.rooms.filter((room) => room.shape === 'round').map((room) => room.rect)
@@ -188,7 +189,7 @@ function buildLevel(map: GridMap): Built {
       for (const y of [-0.025, CEIL + 0.025]) {
         const plane = new THREE.PlaneGeometry(TILE + 0.04, TILE + 0.04)
         plane.rotateX(-Math.PI / 2); plane.translate(cx, y, cz)
-        hull.push(plane)
+        hullRoofs.push(plane)
       }
     } else if (solidBehind(c) && near(tx, tz)) {
       // Stops just short of any wall facing a room, overlaps its neighbours everywhere else.
@@ -199,7 +200,12 @@ function buildLevel(map: GridMap): Built {
       hull.push(box)
     }
   }
-  return { rooms, windows, colliders, doors, hull: hull.length ? mergeGeometries(hull.map((g) => g.toNonIndexed())) : null }
+  const walls = hull.length ? mergeGeometries(hull.map((g) => g.toNonIndexed())) : null
+  const roofs = hullRoofs.length ? mergeGeometries(hullRoofs.map((g) => g.toNonIndexed())) : null
+  const shell = walls && roofs ? mergeGeometries([walls, roofs], true) : walls ?? roofs
+  if (walls && roofs) { walls.dispose(); roofs.dispose() }
+  hull.forEach(g => g.dispose()); hullRoofs.forEach(g => g.dispose())
+  return { rooms, windows, colliders, doors, hull: shell }
 }
 
 function floorKind(room: RoomDef): 'plate' | 'rubber' | 'grate' {
@@ -223,9 +229,10 @@ function RoomMeshes({ room, geo, shadows }: { room: RoomDef; geo: Built['rooms']
   const m = useMats()
   return (
     <group>
-      <mesh geometry={merged.floor} material={floorMaterial(floorKind(room), dark, room.id)} receiveShadow castShadow />
-      <mesh geometry={merged.ceil} material={ceilingMaterial(dark, room.id)} receiveShadow castShadow />
-      {merged.wall && <mesh geometry={merged.wall} material={wallMaterial(theme, dark, room.id)} receiveShadow castShadow />}
+      {/* Write the opaque room envelope before shading the furniture behind it. */}
+      <mesh renderOrder={-1} geometry={merged.floor} material={floorMaterial(floorKind(room), dark, room.id)} receiveShadow castShadow />
+      <mesh renderOrder={-1} geometry={merged.ceil} material={ceilingMaterial(dark, room.id)} receiveShadow castShadow />
+      {merged.wall && <mesh renderOrder={-1} geometry={merged.wall} material={wallMaterial(theme, dark, room.id)} receiveShadow castShadow />}
       {merged.trim && <mesh geometry={merged.trim} material={m.painted('#60676b', 0.48, 0.65)} receiveShadow castShadow />}
     </group>
   )
@@ -349,36 +356,25 @@ const HUB_LIGHTS = [0, 1, 2].map((i): [number, number] => {
 })
 
 /**
- * Shell behind the walls: it hides the seams and stops the sun. Black from inside the modules; seen through
- * the round hub's windows it is the station's outer skin, so the corridors look like what they are.
+ * A permanently textured outer shell seals seams and stops sunlight.
+ * Its appearance must not change when the player moves between rooms.
  */
 function Hull({ geometry, map }: { geometry: THREE.BufferGeometry; map: GridMap }) {
-  const mesh = useRef<THREE.Mesh>(null)
-  const [black, skin] = useMemo(() => [
-    new THREE.MeshBasicMaterial({ color: '#000000', side: THREE.DoubleSide }),
-    new THREE.MeshStandardMaterial({ color: '#79828e', roughness: 0.62, metalness: 0.35, side: THREE.DoubleSide }),
-  ], [])
-  useEffect(() => () => { black.dispose(); skin.dispose() }, [black, skin])
-  const hub = map.rooms.find((room) => room.shape === 'round')?.rect
-  useFrame(() => {
-    const [x, , z] = live.pos
-    const inside = !!hub && x >= hub[0] * TILE && x <= (hub[2] + 1) * TILE && z >= hub[1] * TILE && z <= (hub[3] + 1) * TILE
-    if (mesh.current) mesh.current.material = inside ? skin : black
-  })
-  return <mesh ref={mesh} name="hull" geometry={geometry} material={black} frustumCulled={false} castShadow />
+  const materials = useMemo(() => [hullMaterial('wall', map.zone === 3 ? 'rocket' : 'station'), hullMaterial('roof')], [map.zone])
+  return <mesh name="hull" geometry={geometry} material={materials} castShadow receiveShadow />
 }
 
 export function Level({ map, shadows }: { map: GridMap; shadows: boolean }) {
   const built = useMemo(() => buildLevel(map), [map])
-  const flags = useGame((s) => s.flags)
+  const machineryLit = useGame((s) => s.flags.power && s.flags.pw_lights)
   const lightsOn = (r: RoomDef) => {
     if (r.noDynLight) return false
-    if (r.id === 'machinerie') return flags.power && flags.pw_lights
+    if (r.id === 'machinerie') return machineryLit
     return true
   }
   useEffect(() => {
-    setRoomLit('machinerie', flags.power && flags.pw_lights)
-  }, [flags.power, flags.pw_lights])
+    setRoomLit('machinerie', machineryLit)
+  }, [machineryLit])
 
   return (
     <group>

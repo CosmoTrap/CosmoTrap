@@ -62,6 +62,18 @@ export function ceilingMaterial(dark: boolean, roomId: string) {
   })
 }
 
+/** Exterior panels reuse the interior PBR detail, with a permanent material.
+ * Both shadow faces seal seams; the window openings remain in the geometry. */
+export function hullMaterial(kind: 'wall' | 'roof' = 'wall', theme: WallTheme = 'station') {
+  return cached(`hull:${kind}:${theme}`, false, '', () => {
+    const source = kind === 'wall' ? wallMaterial(theme, false, '') : ceilingMaterial(false, '')
+    const material = source.clone()
+    material.name = `station-hull-${kind}`
+    material.shadowSide = THREE.DoubleSide
+    return material
+  })
+}
+
 /** hook pour les accessoires : matériau adapté à la pièce courante */
 export function useMats() {
   const room = useContext(RoomCtx)
