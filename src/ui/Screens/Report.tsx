@@ -10,6 +10,7 @@ import { Avatar, startNewGame } from './Menu'
 import { update } from './Settings'
 import { Range, Row, SensitivityRange, Toggle } from './SettingsPage'
 import { Stage } from './Stage'
+import { missionPuzzles } from '../../game/lunar/logic'
 
 // Écrans « Mission accomplie », « Temps écoulé » et « Mission en pause » (maquettes) :
 // progression énigme par énigme avec le temps passé, classement ou réglages rapides.
@@ -58,7 +59,7 @@ function missionSteps(s: GameData): Step[] {
   const dur: Record<string, number> = {}
   order.forEach(([id, t], i) => (dur[id] = t - (i ? order[i - 1][1] : 0)))
   let currentSet = false
-  return fr.puzzleList.map((p) => {
+  return missionPuzzles().map((p) => {
     const done = splits[p.id] != null || solvedByFlags(p.id, s)
     let status: Status = done ? 'done' : 'locked'
     if (!done && !currentSet) {
@@ -78,7 +79,7 @@ function Progress({ mode, steps }: { mode: Mode; steps: Step[] }) {
   const cur = steps.find((x) => x.status === 'current')
   const s = G()
   return (
-    <section className={`x-panel rp-progress ${steps.length > 6 ? 'dense' : ''}`}>
+    <section className={`x-panel rp-progress ${steps.length > 6 ? 'dense' : ''} ${steps.length > 10 ? 'long' : ''}`}>
       <header>
         <h2>{mode === 'win' ? R.perPuzzle : R.progress}</h2>
         <span className={`rp-count ${mode}`}>{R.solved(done.length, steps.length)}</span>
@@ -219,7 +220,7 @@ export function End() {
         mode={mode}
         kicker={fail ? (earth ? lost.kickerEarth : lost.kicker) : R.winKicker}
         title={fail ? lost.title : R.winTitle}
-        sub={fail ? (earth ? lost.subEarth : lost.sub) : R.winSub}
+        sub={fail ? (earth ? lost.subEarth : lost.sub) : s.map === 'base' ? 'La fusée LV-1 a quitté Séléné-7. Les systèmes sont sécurisés et l’équipage est hors de danger.' : R.winSub}
         clockLabel={fail ? (outOfTime ? R.limit : R.remaining) : R.total}
         clock={fail ? hms(timeLimit() - total) : hms(total)}
         testId="end-time"

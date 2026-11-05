@@ -1885,6 +1885,13 @@
 .rp-progress.dense .rp-steps {
   --pitch: 48px;
 }
+.rp-progress.long .rp-steps {
+  --pitch: 38px;
+}
+.rp-progress.long .rp-num {
+  width: 30px;
+  height: 30px;
+}
 .rp-step {
   position: relative;
   display: flex;

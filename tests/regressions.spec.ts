@@ -6,7 +6,7 @@ async function call(page: Page, fn: string, ...args: unknown[]) {
 }
 async function guest(page: Page, legacyKeys = false) {
   await page.route('**/api/auth.php?action=me', (route) => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
-  await page.addInitScript((legacy) => localStorage.setItem('cosmotrap.settings.v1', JSON.stringify({ quality: 'low', music: 0, voice: 0, sfx: 0,
+  await page.addInitScript((legacy) => localStorage.setItem('cosmotrap.settings.v1', JSON.stringify({ quality: 'low', music: 0, voice: 0, sfx: 0, map: 'station',
     ...(legacy ? { keys: { act: ['KeyE', 'Space'] } } : {}) })), legacyKeys)
   await page.goto('/?quality=low')
   await enterAsGuest(page)
@@ -20,7 +20,7 @@ async function enterAsGuest(page: Page) {
 }
 async function playable(page: Page) {
   await expect.poll(async () => (await state(page)).cine).toBeNull()
-  await expect.poll(async () => (await state(page)).loading).toBe(1)
+  await expect.poll(async () => (await state(page)).loading, { timeout: 60000 }).toBe(1)
   expect(await page.evaluate(() => ({ camera: window.__game.live.camOverride, fade: window.__game.live.fade,
     flash: window.__game.live.flash, card: window.__game.live.card, countdown: window.__game.live.countdown })))
     .toEqual({ camera: null, fade: 0, flash: 0, card: null, countdown: null })

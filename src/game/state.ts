@@ -4,6 +4,7 @@ import { DEFAULT_KEYS, DEFAULT_PAD, detectKeyLayout, type KeyLayout, type KeyMap
 import { DIFFICULTY, type Difficulty } from './difficulty'
 import { LAYOUT_VERSION, migrateStationSave } from './maps/layoutMigration'
 import { initialValves } from './valves'
+import { newLunarProgress, type LunarProgress } from './lunar/puzzles'
 
 export { pressValveGrid } from './valves'
 
@@ -12,7 +13,7 @@ export type Screen = 'launch' | 'login' | 'title' | 'prologue' | 'playing' | 'en
 export type MissionMap = 'base' | 'station'
 export type Quality = 'low' | 'medium' | 'high' | 'ultra'
 export type FailCause = 'time' | 'o2' | 'hp' | 'water'
-export type CineKind = 'briefing' | 'zoneCard' | 'lift' | 'tour' | 'launch' | 'heli' | 'fail' | null
+export type CineKind = 'briefing' | 'zoneCard' | 'lift' | 'tour' | 'launch' | 'heli' | 'fail' | 'lunarLaunch' | null
 
 /** limite de temps de la partie (s) selon la difficulté : au-delà, échec */
 export const timeLimit = () => DIFFICULTY[useGame.getState().difficulty ?? 'astronaut'].time + (useGame.getState().character === 'ines' ? 180 : 0)
@@ -137,6 +138,8 @@ export interface MissionMessage {
 }
 
 export interface GameData {
+  campaignVersion: number
+  lunar: LunarProgress
   layoutVersion: number
   zone: ZoneId
   character: string
@@ -191,9 +194,11 @@ export interface GameData {
   splits: Record<string, number>
 }
 
-export const newGameData = (character = 'nova', difficulty: Difficulty = 'astronaut', map: MissionMap = 'base'): GameData => {
+export const newGameData = (character = 'nova', difficulty: Difficulty = 'astronaut', map: MissionMap = 'station'): GameData => {
   const valves = initialValves()
   return {
+  campaignVersion: 1,
+  lunar: newLunarProgress(),
   layoutVersion: LAYOUT_VERSION,
   zone: 1,
   character,
@@ -545,12 +550,23 @@ export function normalizeSave(d: any): SaveFile | null {
   const fresh = newGameData(d.character)
   // Les sauvegardes d'avant la jauge de vie n'ont pas de res.hp.
   const saved = { ...fresh, ...d, res: { ...fresh.res, ...d.res }, flags: { ...emptyFlags(), ...d.flags }, messages: Array.isArray(d.messages) ? d.messages : [] }
+  // Before lunar missions existed, both menu cards launched the orbital game.
+  // Keep those saves in that original world instead of relocating the player.
+  if (!d.campaignVersion) saved.map = 'station'
+  saved.campaignVersion = 1
+  if (saved.map === 'base') {
+    saved.zone = 1
+    const l = d.lunar
+    saved.lunar = { ...newLunarProgress(Number.isFinite(l?.seed) ? l.seed : 1),
+      solved: Array.isArray(l?.solved) ? l.solved.filter((x: unknown) => typeof x === 'string') : [],
+      drafts: l?.drafts && typeof l.drafts === 'object' ? l.drafts : {}, current: null }
+  }
   if (!Array.isArray(d.valveStart) || d.valveStart.length !== 9)
     saved.valveStart = Array.isArray(saved.valves) && saved.valves.length === 9 ? [...saved.valves] : [...saved.valveStart]
   const items = (Object.keys(saved.inv) as ItemId[]).filter((it) => saved.inv[it] > 0)
   if (!items.includes(saved.selectedItem)) saved.selectedItem = items[0] ?? null
   if (!items.includes(saved.held)) saved.held = null
-  return migrateStationSave(saved, d.layoutVersion ?? 1)
+  return saved.map === 'base' ? saved : migrateStationSave(saved, d.layoutVersion ?? 1)
 }
 
 export function loadSave(): SaveFile | null {

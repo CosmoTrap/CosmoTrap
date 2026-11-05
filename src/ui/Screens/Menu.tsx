@@ -3,7 +3,8 @@ import { deleteCloudSave, fetchCloudSave, leaderboard, type Row } from '../../ga
 import { audio } from '../../game/audio/audio'
 import { DIFFICULTY, type Difficulty } from '../../game/difficulty'
 import { loadExplored } from '../../game/explore'
-import { clearSave, isResumable, live, loadSave, newGameData, useGame, type MissionMap, type SaveFile } from '../../game/state'
+import { clearSave, isResumable, live, loadSave, newGameData, recordMessage, useGame, type MissionMap, type SaveFile } from '../../game/state'
+import { TASKS } from '../../game/lunar/puzzles'
 import { fr } from '../../i18n/fr'
 import { requestLock } from '../../player/Player'
 import { GearIcon, openPage, Stage } from './Stage'
@@ -26,6 +27,7 @@ export const hms = (ms: number) => {
 
 /** énigmes résolues d'après une sauvegarde */
 export function solvedCount(s: SaveFile) {
+  if (s.map === 'base' && s.campaignVersion) return { done: s.lunar.solved.length, total: TASKS.length }
   const f = s.flags
   const list = [f.lockerOpen, f.pressurized, f.steamFixed, f.power && f.pw_sas && f.pw_terminal, f.readTerminal, s.planDone, f.engine, s.zone > 3, f.bridge, f.beacon]
   return { done: list.filter(Boolean).length, total: list.length }
@@ -38,7 +40,8 @@ export async function startNewGame(character: string, d: Difficulty, map: Missio
   deleteCloudSave()
   loadExplored([])
   live.noEvents = false
-  useGame.setState({ ...newGameData(character, d, map), screen: 'prologue', paused: false, tp: null, resume: null, tabletOpen: false, puzzle: null, readNote: null, lastResult: null })
+  useGame.setState({ ...newGameData(character, d, map), screen: map === 'base' ? 'playing' : 'prologue', loading: 0, cine: null, toured: map === 'base' ? [1] : [], briefed: map === 'base', paused: false, tp: null, resume: null, tabletOpen: false, puzzle: null, readNote: null, lastResult: null })
+  if (map === 'base') recordMessage('SELENE-7 — Une micrométéorite a sectionné la liaison solaire. Rétablis les systèmes, certifie ta combinaison et rejoins la fusée LV-1. Lis le manifeste de la chambre. La tablette regroupe plan, consignes, missions et résultats.', 'radio')
 }
 
 /** supprime la partie en cours, sur cet appareil et dans le compte */
@@ -56,6 +59,8 @@ export async function resumeGame(save: SaveFile) {
   live.noEvents = false
   data.nextEventAt = Math.min(data.nextEventAt ?? Infinity, data.playTime + 45)
   useGame.setState({ ...data, screen: 'playing', loading: 0, paused: false, cine: null, resume: pos ? { pos, yaw: yaw ?? 0 } : null, tp: null, tabletOpen: false, puzzle: null, readNote: null })
+  // A save made just before ignition must still finish the adventure on resume.
+  if (data.map === 'base' && TASKS.every(t => data.lunar.solved.includes(t.id))) useGame.setState({ cine: 'lunarLaunch', cineT0: performance.now() })
   requestLock()
 }
 
@@ -105,7 +110,7 @@ function Board() {
         </div>
       </header>
       <div className="mm-maps">
-        {(['base', 'station'] as MissionMap[]).map((id, i) => (
+        {(['station', 'base'] as MissionMap[]).map((id, i) => (
           <button key={id} type="button" data-testid={`board-map-${id}`} className={map === id ? 'on' : ''} onClick={() => setMap(id)}>
             <small>0{i + 1}</small> {L.maps[id].name}
           </button>
@@ -186,7 +191,7 @@ export function MainMenu() {
         </div>
         <h1>{mapInfo.mission}</h1>
         <div className="mm-chip">
-          <span>{L.card(shownMap === 'base' ? 1 : 2)}</span>
+          <span>{L.card(shownMap === 'station' ? 1 : 2)}</span>
           <b>{mapInfo.name}</b>
           <small>{mapInfo.chip}</small>
         </div>

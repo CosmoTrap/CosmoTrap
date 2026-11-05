@@ -26,6 +26,8 @@ function Gauge({ kind, color, label }: { kind: 'hp' | 'o2' | 'lamp' | 'water'; c
 
 function Objective() {
   const zone = useGame((s) => s.zone)
+  const mission = useGame(s => s.map)
+  useGame(s => s.lunar.solved)
   useGame((s) => s.flags)
   useGame((s) => s.inv)
   useGame((s) => s.notes)
@@ -38,10 +40,10 @@ function Objective() {
   return (
     <div className="objective">
       <b>
-        {fr.zones[zone].name} · {fr.zones[zone].sub}
+        {mission === 'base' ? 'Séléné-7 · Base lunaire' : `${fr.zones[zone].name} · ${fr.zones[zone].sub}`}
       </b>
       {cur && <span>{cur.text}</span>}
-      {room && <div className="room">{fr.rooms[gridMap(zone)?.rooms.find((r) => r.id === room)?.name ?? room] ?? ''}</div>}
+      {room && <div className="room">{fr.rooms[gridMap(zone)?.rooms.find((r) => r.id === room)?.name ?? room] ?? gridMap(zone)?.rooms.find(r => r.id === room)?.name ?? ''}</div>}
     </div>
   )
 }
