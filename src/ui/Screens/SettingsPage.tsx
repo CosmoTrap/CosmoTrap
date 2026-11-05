@@ -5,6 +5,7 @@ import { toggleFullscreen, useGame, type Quality } from '../../game/state'
 import { fr } from '../../i18n/fr'
 import { detectPadType } from '../../player/gamepad'
 import { DEFAULT_KEYS, DEFAULT_PAD, detectKeyLayout, keyName, padButtonName, type Action, type PadAction, type PadType } from '../../player/input'
+import { startNewGame } from './Menu'
 import { update } from './Settings'
 import { closePage, PageHead, Skin, Stage } from './Stage'
 
@@ -73,6 +74,7 @@ const ABILITY_ICON: Record<string, ReactNode> = {
 function Profile() {
   const user = useGame((s) => s.user)
   const firstRun = useGame((s) => s.firstRun)
+  const missionPick = useGame((s) => s.missionPick)
   const current = useGame((s) => s.user?.character ?? s.settings.character)
   const [pseudo, setPseudo] = useState(user?.pseudo ?? '')
   const [email, setEmail] = useState(user?.email ?? '')
@@ -86,6 +88,7 @@ function Profile() {
     audio.sfx('click')
     update({ character: id })
     if (user) {
+      useGame.setState({ user: { ...user, character: id } })
       try {
         await updateProfile({ character: id })
       } catch (e) {
@@ -122,7 +125,7 @@ function Profile() {
           {S.selection} · {CHAR_ORDER.indexOf(current) + 1} / 6
         </span>
       </header>
-      {firstRun && <div className="sp-banner">{S.firstRun}</div>}
+      {(firstRun || missionPick) && <div className="sp-banner">{S.firstRun}</div>}
       <div className="sp-chars">
         <div className="sp-preview" data-testid="char-preview">
           <Skin id={current} />
@@ -153,9 +156,14 @@ function Profile() {
           <b>{c.ability}</b>
           <p>{c.abilityDesc}</p>
         </div>
-        {firstRun && (
-          <button type="button" className="x-primary sp-first" data-testid="first-run-done" onClick={() => useGame.setState({ screen: 'title', firstRun: false })}>
-            {S.firstRunBtn} <span aria-hidden>→</span>
+        {(firstRun || missionPick) && (
+          <button type="button" className="x-primary sp-first" data-testid={missionPick ? 'confirm-character' : 'first-run-done'} onClick={() => {
+            if (!missionPick) { useGame.setState({ screen: 'title', firstRun: false }); return }
+            const s = useGame.getState()
+            useGame.setState({ missionPick: false, firstRun: false })
+            startNewGame(s.user?.character ?? s.settings.character, s.settings.difficulty, s.settings.map)
+          }}>
+            {missionPick ? fr.menu2.launchMission : S.firstRunBtn} <span aria-hidden>→</span>
           </button>
         )}
       </div>

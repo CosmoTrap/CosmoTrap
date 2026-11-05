@@ -42,6 +42,7 @@ test('nouveaux skins et touches configurables avec les mains détaillées et le 
   await pressPad(page, 12) // Swap inventory with use-selected: no accidental consumption.
   await page.getByTestId('page-back').click()
   await page.getByTestId('launch-mission').click()
+  await page.getByTestId('confirm-character').click()
   await page.getByTestId('skip-prologue').click()
   await page.waitForFunction(() => window.__game.state().loading === 1)
   expect(await page.evaluate(() => window.__game.state().character)).toBe('leo')

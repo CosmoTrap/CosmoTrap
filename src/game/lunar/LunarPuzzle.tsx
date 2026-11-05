@@ -48,7 +48,7 @@ export function LunarPuzzle() {
     <div className="lunar-eyebrow">SELENE-7 / {task.room.toUpperCase()} / {progress.solved.length} SUR 12</div>
     <h2>{task.name}</h2>
     <p>{task.hint}</p>
-    {hasNote ? <details className="lunar-clue" open><summary>{note.title}</summary><p>{note.text}</p></details> : <p className="lunar-clue">Consigne à retrouver dans la base : <b>{note.title}</b>. Lis les plaques éclairées près des postes ; elles seront conservées dans le journal.</p>}
+    {hasNote ? <details className="lunar-clue" open><summary>{note.title}</summary><p>{note.text}</p></details> : <p className="lunar-clue">Consigne à retrouver dans la base : <b>{note.title}</b>. Lis les plaques éclairées près des postes ; elles restent dans les messages.</p>}
     {solved && <p className="lunar-success">Système validé · résultat archivé. Tu peux le consulter sans le modifier.</p>}
     <fieldset disabled={solved}>
       {task.kind === 'code' && <label className="lunar-code">Autorisation à quatre chiffres<input data-testid="lunar-code" inputMode="numeric" autoComplete="off" maxLength={4} value={a.join('')} onChange={e => update(e.target.value.replace(/\D/g, '').slice(0, 4).split('').map(Number))} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); submit() } }} /></label>}

@@ -3,7 +3,7 @@ import { me, token } from '../../game/api'
 import { DIFF_ORDER, type Difficulty } from '../../game/difficulty'
 import { useGame, type MissionMap } from '../../game/state'
 import { fr } from '../../i18n/fr'
-import { deleteCurrentSave, hms, resumeGame, solvedCount, startNewGame, useCurrentSave } from './Menu'
+import { deleteCurrentSave, hms, openCharacterPick, resumeGame, solvedCount, useCurrentSave } from './Menu'
 import { update } from './Settings'
 import { GearIcon, openPage, Stage } from './Stage'
 
@@ -18,7 +18,6 @@ export function Launch() {
   const offline = useGame((s) => s.offline)
   const map = useGame((s) => s.settings.map)
   const difficulty = useGame((s) => s.settings.difficulty)
-  const character = useGame((s) => s.user?.character ?? s.settings.character)
   const current = useCurrentSave()
   const [deleted, setDeleted] = useState(false)
   // A slow answer from the account's save must not bring a deleted game back on screen.
@@ -42,7 +41,7 @@ export function Launch() {
   const enter = () => useGame.setState({ screen: session ? 'title' : 'login' })
   const launch = () => {
     if (!session) return enter()
-    startNewGame(character, difficulty, map)
+    openCharacterPick()
   }
 
   useEffect(() => {

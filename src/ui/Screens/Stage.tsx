@@ -44,7 +44,7 @@ export function openPage(screen: Screen, extra: Partial<ReturnType<typeof useGam
 }
 
 export function closePage() {
-  useGame.setState({ screen: useGame.getState().menuBack, firstRun: false })
+  useGame.setState({ screen: useGame.getState().menuBack, firstRun: false, missionPick: false })
 }
 
 export function PageHead({ kicker, title, onBack }: { kicker: string; title: string; onBack: () => void }) {

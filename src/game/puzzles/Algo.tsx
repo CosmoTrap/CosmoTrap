@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { fr } from '../../i18n/fr'
 import { audio } from '../audio/audio'
 import { submitAlgo } from '../logic'
+import { useGame } from '../state'
 
 // Énigme d'algorithmique (zone 2) : exécuter le pseudo-code du terminal à la main.
 const NAMES: Record<string, string> = { blue: 'BLEU', yellow: 'JAUNE', red: 'ROUGE', green: 'VERT' }
 const CSS: Record<string, string> = { blue: '#2f6bff', yellow: '#e0b000', red: '#d0281a', green: '#18a64e' }
 
 export function Algo() {
+  const order = useGame((s) => s.algoOrder)
   const [out, setOut] = useState<string[]>([])
   const add = (c: string) => {
     audio.sfx('keypad')
@@ -34,7 +36,7 @@ export function Algo() {
         ))}
       </div>
       <div className="radio-btns" style={{ marginTop: 14 }}>
-        {Object.keys(NAMES).map((c) => (
+        {order.map((c) => (
           <button key={c} className="btn" data-testid={`algo-${c}`} style={{ borderColor: CSS[c], color: CSS[c] }} onClick={() => add(c)}>
             {NAMES[c]}
           </button>
