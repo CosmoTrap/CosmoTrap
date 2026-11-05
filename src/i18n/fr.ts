@@ -15,7 +15,7 @@ export const fr = {
     back: 'Retour',
     chooseChar: 'Choisis ton astronaute',
     start: 'Commencer la mission',
-    clickToPlay: 'Clique pour verrouiller la souris · ou fais glisser la vue · pavé tactile : Alt + glisser à deux doigts',
+    clickToPlay: 'Clique pour reprendre la vue · Échap pour mettre en pause',
     loading: 'Chargement',
     rotate: 'Tourne ton téléphone',
     rotateSub: 'Cosmotrap se joue en mode paysage.',
@@ -212,7 +212,7 @@ export const fr = {
     needFlare: 'Il te faut un pistolet de détresse.',
     saved: 'Partie sauvegardée',
     hintUsed: 'Indice ajouté',
-    noteAdded: 'Ajouté au carnet',
+    noteAdded: 'Document archivé dans les messages',
   },
 
   notes: {
@@ -303,7 +303,7 @@ export const fr = {
     },
     sequence: {
       title: 'Séquence de lancement',
-      sub: 'Décompte de lancement : entre la séquence du carnet, à l’envers.',
+      sub: 'Décompte de lancement : reprends le résultat du terminal, dans Messages, à l’envers.',
       colors: { blue: 'BLEU', yellow: 'JAUNE', red: 'ROUGE', green: 'VERT' } as Record<string, string>,
     },
     radio: {
@@ -325,7 +325,7 @@ export const fr = {
     { id: 'p_algo', zone: 2, domain: 'Algorithmique', name: 'Le programme du terminal', hint: 'Déroule la boucle à la main : calcule j pour i = 0, 1, 2 puis 3.', hint2: 'j vaut 2, 1, 0 puis 3 : BLEU, JAUNE, ROUGE, VERT.' },
     { id: 'p_plan', zone: 3, domain: 'Gestion de projet', name: 'Le planning pré-vol', hint: 'Une tâche ne peut commencer que quand tous ses prérequis sont faits. Commence par ce qui ne dépend de rien : il y en a trois. L’affichage est mélangé.', hint2: 'Écoutille → Trajectoire → Carburant → Pressurisation → Centrale inertielle → Contrôle O₂ → Désamarrage → Allumage (d’autres ordres valides existent).' },
     { id: 'p_engine', zone: 3, domain: 'Observation visuelle', name: 'Le moteur', hint: 'Le bordereau de la soute indique où trouver une cellule.', hint2: 'La cellule est dans la caisse au fond à gauche de la soute (sombre).' },
-    { id: 'p_sequence', zone: 3, domain: 'Logique', name: 'La séquence de lancement', hint: 'C’est le résultat du programme du terminal, noté dans ton carnet. Le lancement est un décompte.', hint2: 'Le carnet donne BLEU · JAUNE · ROUGE · VERT : entre-le à l’envers, VERT · ROUGE · JAUNE · BLEU.' },
+    { id: 'p_sequence', zone: 3, domain: 'Logique', name: 'La séquence de lancement', hint: 'Le document du terminal de la machinerie (zone 2) est dans Messages. Le lancement est un décompte.', hint2: 'Ce document donne BLEU · JAUNE · ROUGE · VERT : entre-le à l’envers, VERT · ROUGE · JAUNE · BLEU.' },
     { id: 'p_bridge', zone: 4, domain: 'Observation visuelle', name: 'Le pont de cordes', hint: 'La capsule contient du matériel de survie.', hint2: 'Fouille la capsule pour récupérer la corde, puis répare le pont au nord.' },
     { id: 'p_radio', zone: 4, domain: 'Logique', name: 'La balise radio', hint: 'Le manuel de la capsule donne la fréquence militaire de détresse. La balise civile utilise la moitié. Le bruit ne guide qu’à moins de 2 MHz.', hint2: '243 ÷ 2 = 121,5 : règle la balise sur 121,5 MHz et émets.' },
   ],

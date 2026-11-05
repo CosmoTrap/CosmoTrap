@@ -121,26 +121,26 @@ Le daily de 9 h 15 dure 15 min ; le responsable qualité le résume ici avant 9 
 
 | | |
 | --- | --- |
-| **Présents** | |
-| **Absents (motif)** | |
+| **Présents** | Volle Clément , Angot-Chabanol Ethan, Loïc Chauvelot, Orsal Kilian , Chaibrassou Hamza(retard)  |
+| **Absents (motif)** | Leplat Simon (Absent pour son travail) |
 
 ### Daily
 
 | Membre | Fait hier | Prévu aujourd’hui | Blocage (étape de déblocage atteinte) |
 | --- | --- | --- | --- |
-| | | | |
-| | | | |
-| | | | |
-| | | | |
-| | | | |
+| Volle Clément | Correction des bugs du jeu, notamment celui des météorites qui traversent le vaisseau... | Remplir la L3 et aider les développeurs à corriger les bugs et à améliorer les énigmes | |
+| Chaibrassou Hamza | Complexifier les énigmes qui étaient trop faciles  | Remplir les documents, tester le jeu avec Loïc et vérifier la L3 avec Loïc | |
+| Angot-Chabanol Ethan | Finaliser l’intégration des maquettes à l’écran d’accueil et dans le jeu, améliorer les paramètres, ajouter la compatibilité avec les manettes et permettre la personnalisation des touches du clavier et des boutons de la manette | Développer et corriger les animations des personnages et de leurs mains, puis finir de créer les fonds d’écran de victoire et de défaite | |
+| Loïc Chauvelot | Remplissage du journal de bord, testeur du jeu et speedrunner du jeu  | Remplir les documents + journaldebord , tester le jeu avec Hamza et vérifier la L3 avec Hamza | |
+| Orsal Kilian | Développement de toutes les textures, des alarmes, des portes, etc....  | Développer la map et corriger les bugs de lumière et de textures  | |
 
 ### Bilan
 
 | | |
 | --- | --- |
-| **Décisions prises** | |
-| **Fin de journée : fait, reste à faire** | |
-| **Avancement du sprint (%)** | |
+| **Décisions prises** | Refaire les animations, corriger les bugs existants et améliorer la qualité globale du jeu |
+| **Fin de journée : fait, reste à faire** | Finir de régler tous les bugs, les textures... et dev un petit bonus ;) |
+| **Avancement du sprint (%)** | 80 % |
 
 ---
 

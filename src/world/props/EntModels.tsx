@@ -4,7 +4,8 @@ import { Suspense, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { audio } from '../../game/audio/audio'
 import { fr } from '../../i18n/fr'
-import { GRID_MAPS, placeOf, roomAt } from '../../game/maps'
+import { gridMap, placeOf, roomAt } from '../../game/maps'
+import { LunarNote, LunarTerminal } from './LunarModels'
 import { allEnts, canSeeInDark, entActive } from '../../game/logic'
 import { ITEM_KIND } from '../../game/items'
 import { live, useGame } from '../../game/state'
@@ -17,6 +18,7 @@ import { RealModel } from './RealModel'
 import { ZONE4_ENT_MODELS } from '../zone4/Zone4Ents'
 import { SolidProp } from './SolidProps'
 import { PickupHighlight } from './PickupHighlight'
+import { stationPowerDown } from '../roomPower'
 
 // Objets interactifs + zones de détection invisibles (raycast).
 
@@ -509,6 +511,7 @@ function SteamValve() {
 /** fuite de gaz : particules + son spatial ; on peut la traverser, au prix d'une brûlure (voir tick) */
 function Steam({ e }: { e: Ent }) {
   const fixed = useGame((s) => s.flags.steamFixed)
+  const light = useRef<THREE.PointLight>(null)
   const pts = useRef<THREE.Points>(null)
   const N = 220
   const { geo, mat, seeds } = useMemo(() => {
@@ -528,6 +531,7 @@ function Steam({ e }: { e: Ent }) {
   const fade = useRef(1)
   useFrame(({ clock }, dt) => {
     fade.current = THREE.MathUtils.damp(fade.current, fixed ? 0 : 1, 1.2, dt)
+    if (light.current) light.current.intensity = fixed || stationPowerDown() ? 0 : 1.5
     mat.opacity = 0.55 * fade.current
     const p = geo.attributes.position as THREE.BufferAttribute
     const t = clock.elapsedTime
@@ -551,7 +555,12 @@ function Steam({ e }: { e: Ent }) {
   return (
     <group>
       <points ref={pts} geometry={geo} material={mat} frustumCulled={false} />
-      {!fixed && <pointLight color="#ffd2a8" intensity={1.5} distance={4} position={[0, 1.6, 0]} />}
+      {!fixed && (
+        <RigidBody type="fixed" colliders={false}>
+          <CuboidCollider args={[1, 1.4, 1]} position={[0, 1.4, 0]} />
+        </RigidBody>
+      )}
+      <pointLight ref={light} name="steam-service-light" color="#ffd2a8" intensity={0} distance={4} position={[0, 1.6, 0]} />
     </group>
   )
 }
@@ -726,6 +735,8 @@ const DATAPADS: Record<string, string[]> = {
 }
 
 export const ENT_MODELS: Record<string, (e: Ent) => ReactNode> = {
+  lunarTerminal: e => <LunarTerminal id={e.id} />,
+  lunarNote: e => <LunarNote id={e.id} />,
   o2: () => <O2Bottle />,
   battery: () => <Batteries />,
   water: () => <WaterPouch />,
@@ -768,7 +779,7 @@ function EntNode({ e, zone }: { e: Ent; zone: ZoneId }) {
   useGame((s) => s.taken.length + Object.values(s.flags).filter(Boolean).length)
   const active = entActive(e)
   const { p, r } = placeOf(e, 0)
-  const map = zone === 4 ? null : GRID_MAPS[zone]
+  const map = gridMap(zone)
   const room = map ? roomAt(map, p[0] + (e.wall ? Math.sin(r) * 0.3 : 0), p[2] + (e.wall ? Math.cos(r) * 0.3 : 0)) : null
   const model = ENT_MODELS[e.model]
   const keepWhenDone = !e.item

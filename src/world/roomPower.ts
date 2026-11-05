@@ -12,7 +12,7 @@ const METEOR_ALARM = 5 * 60
  */
 export function alarmOn(zone = G().zone) {
   const s = G()
-  if (zone >= 4) return false
+  if (s.map === 'base' || zone >= 4) return false
   if (zone === 1 && !s.flags.pressurized) return true
   if (zone === 2 && !s.flags.steamFixed) return true
   if (s.event?.kind === 'leak' && s.playTime < s.event.until) return true
@@ -24,12 +24,17 @@ export function blackoutActive() {
   return s.zone < 4 && s.event?.kind === 'blackout' && s.playTime < s.event.until
 }
 
+/** The whole second station deck is on emergency power until the breaker is repaired. */
+export function stationPowerDown(zone = G().zone) {
+  return G().map === 'station' && zone === 2 && !G().flags.power
+}
+
 /**
  * The mains are down: during a temporary outage, and on floor 2 from the moment you arrive
  * until its breaker is repaired. The ceiling lights go out and only the beacons remain.
  */
 export function mainsOut(zone = G().zone) {
-  return blackoutActive() || (zone === 2 && !G().flags.power)
+  return blackoutActive() || stationPowerDown(zone)
 }
 
 /** Where the beacons' mirrors are in their turn; the lift's red light swells to the same beat. */
@@ -38,6 +43,8 @@ export const beaconAngle = () => G().playTime * 1.65
 /** One power state for the ceiling lights and the service panels. */
 export function roomPowerCut(room: RoomDef, zone = G().zone) {
   const s = G()
+  if (s.map === 'base') return blackoutActive() || room.id !== 'habitat' && !s.lunar.solved.includes('loads')
+  if (stationPowerDown(zone)) return true
   if (room.noDynLight) return false // Deliberately dark storage rooms have no backup circuit.
   if (mainsOut(zone)) return true
   return zone === 2 && room.id === 'machinerie' && !(s.flags.power && s.flags.pw_lights)

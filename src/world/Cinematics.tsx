@@ -11,6 +11,8 @@ import { Astronaut, type AstronautHandle } from './Astronaut'
 import { endScene, runScene } from './FilmScenes'
 import { heli } from './zone4/Zone4'
 import { input } from '../player/input'
+import { finishLunar } from '../game/lunar/logic'
+import { ROCKET } from '../game/lunar/map'
 
 // Metteur en scène : briefing holographique, transitions de zone,
 // décollage + rentrée atmosphérique, arrivée de l'hélicoptère et fin.
@@ -82,6 +84,13 @@ export function CineDirector() {
     if (!cine) {
       live.fade = Math.max(0, live.fade - 0.03)
       live.flash = Math.max(0, live.flash - 0.03)
+      return
+    }
+    if (cine === 'lunarLaunch') {
+      live.camOverride = { pos: [ROCKET[0] - 12, 5 + t * 1.2, ROCKET[1] - 16], look: [ROCKET[0], 4 + Math.max(0, t - 3) ** 2 * 1.3, ROCKET[1]], fov: 62 }
+      live.countdown = t < 3 ? String(3 - Math.floor(t)) : null
+      once('ignition', () => { audio.sfx('airlock'); audio.playMusic('hermes') })
+      if (t > 9) once('lunar-finish', finishLunar)
       return
     }
     if (cine === 'briefing') {
@@ -274,6 +283,7 @@ function resumePlaying(briefed = G().briefed) {
 /** Skip is a complete transition, never a timer adjustment waiting on WebGL. */
 export function skipCine() {
   const s = G()
+  if (s.cine === 'lunarLaunch') { finishLunar(); return }
   if (!s.cine || s.cine === 'fail' || s.cine === 'lift') return
   if (s.cine === 'zoneCard' && pendingZone) enterZone(pendingZone)
   if (s.cine === 'launch') enterZone(4)

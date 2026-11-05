@@ -93,6 +93,7 @@ export function Elevator({ zone, cx, cz }: { zone: number; cx: number; cz: numbe
     c.emissiveIntensity = 0.2
     return c
   }, [shell])
+  lamp.userData.backupCircuit = alarm.userData.backupCircuit = inner.userData.backupCircuit = true
   // Seen from both the hub and the cab.
   const glass = useMemo(() => {
     const c = glassBase.clone()

@@ -26,6 +26,8 @@ function Gauge({ kind, color, label }: { kind: 'hp' | 'o2' | 'lamp' | 'water'; c
 
 function Objective() {
   const zone = useGame((s) => s.zone)
+  const mission = useGame(s => s.map)
+  useGame(s => s.lunar.solved)
   useGame((s) => s.flags)
   useGame((s) => s.inv)
   useGame((s) => s.notes)
@@ -38,10 +40,10 @@ function Objective() {
   return (
     <div className="objective">
       <b>
-        {fr.zones[zone].name} · {fr.zones[zone].sub}
+        {mission === 'base' ? 'Séléné-7 · Base lunaire' : `${fr.zones[zone].name} · ${fr.zones[zone].sub}`}
       </b>
       {cur && <span>{cur.text}</span>}
-      {room && <div className="room">{fr.rooms[gridMap(zone)?.rooms.find((r) => r.id === room)?.name ?? room] ?? ''}</div>}
+      {room && <div className="room">{fr.rooms[gridMap(zone)?.rooms.find((r) => r.id === room)?.name ?? room] ?? gridMap(zone)?.rooms.find(r => r.id === room)?.name ?? ''}</div>}
     </div>
   )
 }
@@ -160,16 +162,10 @@ function PenaltyFlash() {
   return <div className="penalty-flash" ref={ref} style={{ opacity: 0 }} />
 }
 
-/** rappel « verrouiller la souris » : affiché quelques secondes seulement, puis disparaît */
+/** Remain available if browser policy requires one fresh click to capture. */
 function LockHint() {
-  const [show, setShow] = useState(true)
-  useEffect(() => {
-    const t = setTimeout(() => setShow(false), 6000)
-    return () => clearTimeout(t)
-  }, [])
-  if (!show) return null
   return (
-    <div className="click-to-play" style={{ pointerEvents: 'auto' }} onClick={requestLock}>
+    <div className="click-to-play" data-testid="capture-mouse" style={{ pointerEvents: 'auto' }} onClick={requestLock}>
       {fr.menu.clickToPlay}
     </div>
   )
@@ -238,7 +234,7 @@ export function Hud() {
         ))}
       </div>
       {subtitle && (subsOn || cine === 'briefing' || cine === 'tour') && (
-        <div className="subtitle">
+        <div className={`subtitle ${cine && cine !== 'briefing' ? 'film-subtitle' : ''}`}>
           {cine === 'briefing' && <small>{fr.briefingFrom(fr.characters[briefer].name)}</small>}
           {subtitle}
         </div>

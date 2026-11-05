@@ -52,7 +52,8 @@ test('le bras gauche se lève avant la tablette ; plan réel, position, niveaux 
   await expect(page.getByTestId('tablet')).toBeVisible()
   await page.keyboard.up('ArrowUp')
   expect(await page.evaluate(() => window.__game.live.pos[0])).toBeCloseTo(41, 1)
-  await expect(page.getByRole('tab')).toHaveCount(4)
+  // trois onglets (Plan, Messages, Inventaire) : le Journal a été retiré de la tablette
+  await expect(page.getByRole('tab')).toHaveCount(3)
   await expect(page.getByTestId('map-player')).toHaveAttribute('data-x', '41.000')
   await expect(page.getByTestId('map-player')).toHaveAttribute('data-z', '41.000')
   await expect(page.getByTestId('map-room-couloir').locator('circle').first()).toHaveAttribute('r', '7')
@@ -87,7 +88,7 @@ test('le bras gauche se lève avant la tablette ; plan réel, position, niveaux 
   expect(errors).toEqual([])
 })
 
-test('journal de toutes les missions et historique des transmissions, alertes et documents sauvegardé', async ({ page }) => {
+test('les documents lus restent dans les messages, sans journal de mission', async ({ page }) => {
   await start(page)
   await page.evaluate(async () => {
     const { useGame, toast, addNote } = await import('/src/game/state.ts' as string)
@@ -98,12 +99,10 @@ test('journal de toutes les missions et historique des transmissions, alertes et
     useGame.setState({ subtitle: null, flags: { ...useGame.getState().flags, lockerOpen: true } })
   })
   await page.keyboard.press('KeyH')
-  await expect(page.getByTestId('mission-journal')).toBeVisible()
-  for (const z of [1, 2, 3, 4]) await expect(page.getByTestId(`mission-zone-${z}`)).toHaveCount(1)
-  await expect(page.getByTestId('mission-1-locker')).toHaveClass('done')
-  await expect(page.getByTestId('mission-2-fuse')).toHaveClass('todo')
+  await expect(page.getByTestId('message-archive')).toBeVisible()
+  await expect(page.getByTestId('tab-1')).toHaveCount(0)
+  await expect(page.getByTestId('message-archive')).toContainText('Tableau du réfectoire')
   await page.screenshot({ path: 'test-results/tablet-journal.png' })
-  await page.getByTestId('tab-2').click()
   await expect(page.getByTestId('message-archive')).toContainText('Alimentation auxiliaire activée.')
   const radio = page.getByTestId('message-archive').getByRole('button').filter({ hasText: 'Transmission de contrôle' })
   await expect(radio).toHaveCount(1)
@@ -168,7 +167,7 @@ test('annuler la levée ne réouvre rien ; l’inventaire intégré garde objets
   await expect(page.getByTestId('tablet')).toBeVisible()
   await page.getByTestId('tab-0').focus()
   await page.keyboard.press('ArrowRight')
-  await expect(page.getByTestId('tab-1')).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByTestId('tab-2')).toHaveAttribute('aria-selected', 'true')
   await page.keyboard.press('Tab')
   await expect(page.getByTestId('close-tablet')).toBeFocused()
   await page.keyboard.press('Space')

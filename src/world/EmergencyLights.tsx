@@ -2,11 +2,12 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { CEIL, TILE } from '../game/maps'
-import { live } from '../game/state'
+import { G, live } from '../game/state'
 import type { GridMap, RoomDef } from '../game/types'
 import { useMats } from './materials'
 import { Cyl, Lathe } from './props/models'
-import { beaconAngle, beaconsOn, lampPositions, mainsOut } from './roomPower'
+import { beaconAngle, beaconsOn, lampPositions, mainsOut, stationPowerDown } from './roomPower'
+import { localPoint, lunarMap, MODULES } from '../game/lunar/map'
 
 type BeaconDef = { room: RoomDef; pos: [number, number, number]; id: string }
 function beaconsFor(room: RoomDef): BeaconDef[] {
@@ -31,6 +32,7 @@ function Beacon({ room, pos, id }: BeaconDef) {
   const m = useMats()
   const lens = useMemo(() => new THREE.MeshPhysicalMaterial({ color: '#76100c', roughness: 0.18,
     metalness: 0.15, clearcoat: 1, emissive: '#ff1806', emissiveIntensity: 0 }), [])
+  lens.userData.backupCircuit = true
   useEffect(() => () => lens.dispose(), [lens])
   useFrame(() => {
     const on = beaconsOn(room)
@@ -67,7 +69,7 @@ function Darkness() {
   const scene = useThree((state) => state.scene)
   useFrame((_, dt) => {
     const out = mainsOut()
-    scene.environmentIntensity = THREE.MathUtils.damp(scene.environmentIntensity, out ? 0.26 : 1, 4, Math.min(dt, 0.1))
+    scene.environmentIntensity = stationPowerDown() ? 0 : THREE.MathUtils.damp(scene.environmentIntensity, out ? 0.26 : 1, 4, Math.min(dt, 0.1))
   })
   useEffect(() => () => { scene.environmentIntensity = 1 }, [scene])
   return null
@@ -75,14 +77,24 @@ function Darkness() {
 
 /** Two nearby revolving beams, a fixed light count even when the power changes. */
 export function EmergencyLights({ map }: { map: GridMap }) {
-  const beacons = useMemo(() => map.rooms.filter((r) => !r.noDynLight || r.beacons).flatMap(beaconsFor), [map])
+  const beacons = useMemo(() => map === lunarMap ? [
+    ...beaconsFor(map.rooms[0]),
+    ...MODULES.flatMap(m => [-3, 3].map((x, i) => ({ room: map.rooms.find(r => r.id === m.id)!, id: `${m.id}:${i}`, pos: localPoint(m.id, x, CEIL, 0) }))),
+  ] : map.rooms.filter((r) => !r.noDynLight || r.beacons).flatMap(beaconsFor), [map])
   const beams = useMemo(() => Array.from({ length: 2 }, (_, i) => {
     const light = new THREE.SpotLight('#ff1408', 0, 25, 0.62, 0.8, 1.25)
     light.name = `alert-beam:${i}`
-    // A soft beam sweeps the walls; no strobe, and no expensive extra shadow maps.
+    // The door leaves must occlude the rotating beam, including on lower presets.
+    light.castShadow = map !== lunarMap
+    light.shadow.autoUpdate = false
+    light.shadow.mapSize.set(256, 256)
+    light.shadow.bias = -0.0002
+    light.shadow.normalBias = 0.015
+    light.shadow.camera.near = 0.1
     const spill = new THREE.PointLight('#ff1808', 0, 13, 1.1)
+    spill.distance = map === lunarMap ? 13 : 2.5 // Local glow around the station lens, never a second beam through a door.
     return { light, spill, target: new THREE.Object3D() }
-  }), [])
+  }), [map])
   useEffect(() => {
     beams.forEach(({ light, target }) => { light.target = target })
     return () => beams.forEach(({ light, spill }) => { light.dispose(); spill.dispose() })
@@ -93,6 +105,8 @@ export function EmergencyLights({ map }: { map: GridMap }) {
     const active = beacons.filter(({ room }) => beaconsOn(room, map.zone) && (room.id === live.roomId || !live.roomId)).sort((a, b) => distance(a) - distance(b))
     beams.forEach(({ light, spill, target }, i) => {
       const entry = active[i]
+      // Warm maps under the loader, then render them only while the beacon is lit.
+      light.shadow.needsUpdate = light.castShadow && (!!entry || G().loading < 1)
       light.intensity = entry ? 48 : 0
       spill.intensity = entry ? 2.6 : 0
       if (!entry) return

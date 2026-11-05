@@ -49,6 +49,7 @@ export function installDevApi() {
         propPositions: { ...s.propPositions },
         character: s.character,
         map: s.map,
+        lunar: structuredClone(s.lunar),
         settings: { character: s.settings.character, help: s.settings.help },
       }
     },
@@ -83,11 +84,11 @@ export function installDevApi() {
     },
     goto: (z: ZoneId) => enterZone(z),
     doorOpen: (id: string) => doorUnlocked(id),
-    start(character = 'nova', skipIntro = true, difficulty: 'explorer' | 'astronaut' | 'survival' = 'astronaut', events = false) {
+    start(character = 'nova', skipIntro = true, difficulty: 'explorer' | 'astronaut' | 'survival' = 'astronaut', events = false, map: 'base' | 'station' = 'station') {
       live.explored.clear()
       live.noEvents = !events
-      const loading = G().screen === 'playing' && G().zone === 1 ? G().loading : 0
-      useGame.setState({ ...newGameData(character, difficulty), screen: 'playing', loading, tabletOpen: false, briefed: skipIntro, cine: null, paused: false })
+      const loading = G().screen === 'playing' && G().zone === 1 && G().map === map ? G().loading : 0
+      useGame.setState({ ...newGameData(character, difficulty, map), screen: 'playing', loading, tabletOpen: false, briefed: skipIntro, toured: map === 'base' ? [1] : [], cine: null, paused: false, puzzle: null, readNote: null })
       const sp = spawnOf(1)
       useGame.setState({ tp: { pos: sp.pos, yaw: sp.yaw, n: Date.now() } })
     },

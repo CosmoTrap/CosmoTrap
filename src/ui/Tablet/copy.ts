@@ -28,7 +28,7 @@ const fr = {
   tasks: 'Tâches du module', mistakes: 'Erreurs', hintsUsedLabel: 'Indices utilisés',
 }
 export const tabletText = () => fr
-export const levelName = (z: ZoneId) => z < 3 ? `${tabletText().level} ${z}` : z === 3 ? tabletText().capsule : tabletText().earth
+export const levelName = (z: ZoneId) => G().map === 'base' ? `${tabletText().level} 0` : z < 3 ? `${tabletText().level} ${z}` : z === 3 ? tabletText().capsule : tabletText().earth
 export const elapsed = (seconds: number) => {
   const s = Math.max(0, Math.floor(seconds))
   return `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`

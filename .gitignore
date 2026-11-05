@@ -2,6 +2,7 @@
 node_modules
 .tools/
 dist
+cosmotrap-site.zip
 .vite
 
 # Données locales (comptes, sauvegardes, classements)
@@ -16,6 +17,7 @@ cosmotrap-data
 .env.*
 !.env.example
 public/api/config.local.php
+.deploy-token
 
 # Tests, outils, sources brutes
 test-results

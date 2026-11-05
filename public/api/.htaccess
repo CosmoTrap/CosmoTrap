@@ -1,5 +1,16 @@
-# l'API répond en JSON ; le dossier data/ et la config ne sont jamais servis
+# l'API répond en JSON ; la config et la connexion à la base ne sont jamais servies
 <FilesMatch "^(config\.php|config\.local\.php|db\.php)$">
   Require all denied
 </FilesMatch>
 Options -Indexes
+
+# transmet l'en-tête Authorization (jeton de session) à PHP : sinon, sur Apache / LiteSpeed en
+# PHP-FPM, la connexion « marche » mais chaque requête suivante répond « session expirée »
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTP:Authorization} .
+  RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+</IfModule>
+<IfModule mod_setenvif.c>
+  SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+</IfModule>

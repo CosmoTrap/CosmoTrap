@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test'
 test.setTimeout(120000)
 async function guest(page: Page) {
   await page.route('**/api/auth.php?action=me', (route) => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
-  await page.addInitScript(() => localStorage.setItem('cosmotrap.settings.v1', JSON.stringify({ quality: 'low', music: 0, voice: 0, sfx: 0 })))
+  await page.addInitScript(() => localStorage.setItem('cosmotrap.settings.v1', JSON.stringify({ quality: 'low', music: 0, voice: 0, sfx: 0, map: 'station' })))
   await page.goto('/?quality=low')
   await expect(page.getByTestId('launch')).toBeVisible()
   await page.keyboard.press('Space')
@@ -28,6 +28,7 @@ test('passer à froid affiche la préparation, attend les ressources et rend imm
   await page.route('**/assets/models/adjustable_wrench.glb', async (route) => { await gate; await route.continue() })
   await guest(page)
   await page.getByTestId('launch-mission').click()
+  await page.getByTestId('confirm-character').click()
   await page.getByTestId('skip-prologue').click()
   await expect(page.getByTestId('scene-loading')).toBeVisible()
   expect(await page.evaluate(() => ({ cine: window.__game.state().cine, time: window.__game.state().playTime }))).toEqual({ cine: null, time: 0 })

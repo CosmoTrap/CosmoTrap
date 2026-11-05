@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { audio } from '../game/audio/audio'
 import { act, cycleItem, drinkPouch, entById, labelOf, toggleLamp, useBattery, useO2, useSelectedItem, useSlot } from '../game/logic'
-import { GRID_MAPS, roomAt, spawnOf } from '../game/maps'
+import { gridMap, roomAt, spawnOf } from '../game/maps'
 import { G, NO_BLANKET_SPEED, ability, live, toggleFullscreen, useGame, type TabletTab } from '../game/state'
 import { QUALITY } from '../world/quality'
 import { hitboxes } from '../world/props/EntModels'
@@ -22,6 +22,11 @@ export const aim = { id: null as string | null, label: null as string | null }
 function overlayOpen() {
   const s = G()
   return s.loading < 1 || s.tabletOpen || !!s.puzzle || !!s.readNote || s.paused || s.settingsOpen
+}
+
+function wantsPointerLock() {
+  const s = G()
+  return s.screen === 'playing' && !overlayOpen() && (!s.cine || s.cine === 'lift') && !isTouch()
 }
 
 /** écoute clavier / souris (une seule fois) */
@@ -60,7 +65,7 @@ export function useInputListeners() {
       }
       if (matches(k, 'hint', e.code)) {
         e.preventDefault()
-        if (!overlayOpen() || s.tabletOpen) openTablet(1)
+        if (!overlayOpen() || s.tabletOpen) openTablet(2)
         return
       }
       if (matches(k, 'tablet', e.code)) {
@@ -99,19 +104,18 @@ export function useInputListeners() {
       if (G().screen === 'playing' && input.down.has('ControlLeft')) e.preventDefault()
     }
     window.addEventListener('beforeunload', guardLeave)
-    // souris verrouillée (souris ou pavé tactile) ; sinon glisser-cliquer sur la vue
-    let dragging = false
+    // Only captured mouse movement steers the camera; overlays never accumulate look input.
     const move = (e: MouseEvent) => {
-      if (document.pointerLockElement || dragging) {
+      if (document.pointerLockElement && wantsPointerLock() && !G().cine) {
         input.look.dx += e.movementX
         input.look.dy += e.movementY
       }
     }
     const pdown = (e: PointerEvent) => {
       if (e.pointerType === 'mouse') markKeyboard()
-      if (e.pointerType === 'mouse' && (e.target as HTMLElement)?.tagName === 'CANVAS' && !document.pointerLockElement) dragging = true
+      if (e.pointerType === 'mouse' && (e.target as HTMLElement)?.tagName === 'CANVAS') requestLock()
     }
-    const pup = () => (dragging = false)
+    const pup = () => { if (wantsPointerLock()) requestLock() }
     // Wheel selects inventory; Alt + wheel preserves the trackpad camera gesture.
     let wheelAmount = 0
     let lastWheel = 0
@@ -139,15 +143,40 @@ export function useInputListeners() {
         wheelAmount = 0
       }
     }
-    const blur = () => { input.down.clear(); input.jumpRequested = false }
-    let lockedAt = 0
+    const blur = () => {
+      input.down.clear(); input.jumpRequested = false
+      input.look.dx = input.look.dy = 0
+      if (wantsPointerLock() && !G().cine) useGame.setState({ paused: true })
+    }
+    let wanted = false, releasingForOverlay = false, hadLock = !!document.pointerLockElement
+    // Covers keyboard closes, delayed puzzle success, scene loading and cinematic skips.
+    // Previously only a few close buttons recaptured the mouse.
+    const syncCapture = () => {
+      const next = wantsPointerLock()
+      if (next === wanted) return
+      wanted = next
+      input.look.dx = input.look.dy = 0
+      input.down.clear(); input.jumpRequested = false
+      if (next) requestLock()
+      else if (document.pointerLockElement) {
+        releasingForOverlay = true
+        document.exitPointerLock?.()
+      }
+    }
+    const unsubscribe = useGame.subscribe(syncCapture)
+    syncCapture()
     const plc = () => {
       const locked = !!document.pointerLockElement
+      const lost = hadLock && !locked
+      hadLock = locked
       useGame.setState({ locked })
-      if (locked) lockedAt = performance.now()
-      const s = G()
-      // pause sur Échap ; on ignore un verrouillage refusé ou relâché aussitôt par le navigateur
-      if (!locked && performance.now() - lockedAt > 600 && s.screen === 'playing' && !overlayOpen() && !s.cine && !isTouch()) useGame.setState({ paused: true })
+      if (!locked && releasingForOverlay) {
+        releasingForOverlay = false
+        if (wantsPointerLock()) requestLock()
+      } else if (lost && wantsPointerLock() && !G().cine) {
+        // Escape / browser focus loss must still allow the user to leave capture safely.
+        useGame.setState({ paused: true })
+      }
     }
     window.addEventListener('keydown', down)
     window.addEventListener('keyup', up)
@@ -158,6 +187,7 @@ export function useInputListeners() {
     window.addEventListener('blur', blur)
     document.addEventListener('pointerlockchange', plc)
     return () => {
+      unsubscribe()
       window.removeEventListener('keydown', down)
       window.removeEventListener('keyup', up)
       window.removeEventListener('mousemove', move)
@@ -197,13 +227,16 @@ export function openInventory() {
   openTablet(3)
 }
 export const closeInventory = closeTablet
+let lockPending = false
 export function requestLock() {
-  if (isTouch() || G().screen !== 'playing' || G().cine || overlayOpen()) return
+  if (!wantsPointerLock() || document.pointerLockElement || lockPending || document.hidden) return
   const c = document.querySelector('canvas')
+  if (!c?.requestPointerLock) return
+  lockPending = true
   try {
-    ;(c as any)?.requestPointerLock?.()?.catch?.(() => {})
+    Promise.resolve(c.requestPointerLock()).catch(() => {}).finally(() => { lockPending = false })
   } catch {
-    /* refusé */
+    lockPending = false // A browser may require a fresh click; the capture prompt stays visible.
   }
 }
 
@@ -323,10 +356,12 @@ export function Player() {
     fwd.set(-Math.sin(live.yaw), 0, -Math.cos(live.yaw))
     right.set(Math.cos(live.yaw), 0, -Math.sin(live.yaw))
     mv.set(0, 0, 0).addScaledVector(fwd, -iz * speed * dt).addScaledVector(right, ix * speed * dt)
-    if (input.jumpRequested && !frozen && S.grounded) S.vy = JUMP_SPEED
+    const gravity = s.map === 'base' ? 1.62 : 9.81
+    // The heavy EVA suit limits jump height; lunar gravity lengthens the arc.
+    if (input.jumpRequested && !frozen && S.grounded) S.vy = JUMP_SPEED * Math.sqrt(gravity / 9.81)
     // Consume each press once, including presses in midair or behind an overlay.
     input.jumpRequested = false
-    S.vy = Math.max(S.vy - 9.81 * dt, -20)
+    S.vy = Math.max(S.vy - gravity * dt, -20)
     mv.y = S.vy * dt
     const col = b.collider(0)
     controller.computeColliderMovement(col, mv)
@@ -419,7 +454,7 @@ export function Player() {
     // pièce courante + brouillard de la carte
     if (!s.cine) reveal(s.zone, nx, nz)
     if (s.zone < 4) {
-      const room = roomAt(GRID_MAPS[s.zone as 1 | 2 | 3], nx, nz)
+      const room = roomAt(gridMap(s.zone)!, nx, nz)
       live.roomId = room?.id ?? ''
     } else live.roomId = ''
 

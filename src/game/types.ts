@@ -55,7 +55,7 @@ export type Wall = 'N' | 'S' | 'E' | 'W'
 
 export type DotKind = 'key' | 'res' | 'surv' | 'exam' | 'exit'
 
-export type PuzzleId = 'keypad' | 'valves' | 'power' | 'sequence' | 'radio' | 'algo' | 'plan' | 'dilemma'
+export type PuzzleId = 'keypad' | 'valves' | 'power' | 'sequence' | 'radio' | 'algo' | 'plan' | 'dilemma' | 'lunar'
 
 /** Objet interactif placé dans une map. */
 export interface Ent {
@@ -103,6 +103,7 @@ export interface DoorDef {
 }
 
 export interface RoomDef {
+  exits?: { angle: number; label: string }[]
   id: string
   name: string
   shape?: 'round'

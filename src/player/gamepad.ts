@@ -158,7 +158,7 @@ export function pollGamepad(dt: number) {
     if (pressed(P.lamp, b)) toggleLamp()
     if (pressed(P.tablet, b)) openTablet()
     if (pressed(P.inventory, b)) openInventory()
-    if (pressed(P.hint, b)) openTablet(1)
+    if (pressed(P.hint, b)) openTablet(2)
     if (pressed(P.o2, b)) useO2()
     if (pressed(P.battery, b)) useBattery()
     if ((b[P.drink]?.value ?? 0) > 0.5 && !prev[P.drink]) drinkPouch()

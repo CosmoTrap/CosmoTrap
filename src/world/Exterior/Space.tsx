@@ -140,7 +140,9 @@ export function MilkyWay() {
   }, [gl, target, mat])
   useFrame(({ camera }) => ref.current?.position.copy(camera.position))
   return (
-    <mesh ref={ref} material={mat} renderOrder={-11} frustumCulled={false}>
+    // Let opaque walls/planets fill depth first: the procedural sky is only
+    // shaded in the remaining pixels, including the real window openings.
+    <mesh ref={ref} material={mat} renderOrder={101} frustumCulled={false}>
       <sphereGeometry args={[R, 32, 24]} />
     </mesh>
   )

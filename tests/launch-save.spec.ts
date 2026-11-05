@@ -7,7 +7,7 @@ const SAVE_KEY = 'cosmotrap.save.v2.guest'
 async function openWithSave(page: Page) {
   await page.route('**/api/auth.php?action=me', (r) => r.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
   await page.addInitScript((key) => {
-    localStorage.setItem('cosmotrap.settings.v1', JSON.stringify({ quality: 'low', music: 0, voice: 0, sfx: 0 }))
+    localStorage.setItem('cosmotrap.settings.v1', JSON.stringify({ quality: 'low', music: 0, voice: 0, sfx: 0, map: 'station' }))
     if (!sessionStorage.getItem('seeded')) {
       sessionStorage.setItem('seeded', '1')
       localStorage.setItem(key, JSON.stringify({ zone: 1, layoutVersion: 3, map: 'base', playTime: 120, penalty: 0, savedAt: Date.now(), inv: {}, flags: { lockerOpen: true }, taken: [], notes: [], explored: [], track: [], propPositions: {} }))
@@ -58,6 +58,7 @@ test('lancer une nouvelle partie ne demande plus de confirmation', async ({ page
   await expect(page.getByTestId('launch')).toBeVisible()
   await page.getByTestId('start').click()
   await expect(page.getByTestId('confirm-delete')).toBeHidden()
+  await page.getByTestId('confirm-character').click()
   await expect.poll(() => page.evaluate(() => window.__game.state().screen)).toBe('prologue')
   expect(await hasSave(page)).toBe(false)
 })

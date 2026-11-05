@@ -8,8 +8,10 @@ import { doorUnlocked } from '../game/logic'
 import { live } from '../game/state'
 import { useMats } from './materials'
 import { beaconAngle, liftAlert } from './roomPower'
+import { doorShadows } from './doorShadows'
 import { Box, Cyl } from './props/models'
 import { drawTexture } from './textures'
+import { StaticBatch } from './props/StaticBatch'
 
 export const DOOR_HEIGHT = 2.3
 const OPENING_HALF = 0.72
@@ -88,22 +90,23 @@ function Leaf({ sign, lamp }: { sign: 1 | -1; lamp: THREE.Material }) {
   }, [sign])
   useEffect(() => () => { hazardMaterial.dispose(); geometry.plate.dispose(); geometry.frame.dispose(); geometry.seal.dispose(); geometry.pane.dispose() }, [hazardMaterial, geometry])
   const armour = m.painted('#8b979b', 0.4, 0.65), recess = m.painted('#343e46', 0.45, 0.65), steel = m.metal('#a3adb3', 0.26)
-  return <group>
+  // Each half moves as a unit; its detailing is fixed in that local frame.
+  return <StaticBatch>
     <mesh geometry={geometry.plate} material={armour} castShadow receiveShadow />
     {/* Matt: polished metal around the glass caught the chamber's light and flared. */}
-    <mesh geometry={geometry.frame} material={m.painted('#59636a', 0.62, 0.25)} />
+    <mesh geometry={geometry.frame} material={m.painted('#59636a', 0.62, 0.25)} castShadow receiveShadow />
     <mesh geometry={geometry.seal} material={m.rubber('#14181b')} />
-    <mesh geometry={geometry.pane} material={m.glass('#cfe6f2', 0.16)} />
+    <mesh geometry={geometry.pane} material={m.glass('#cfe6f2', 0.16)} receiveShadow />
     <Box s={[0.62, 0.72, 0.085]} p={[-sign * 0.01, 0.62, 0]} m={recess} />
     <Box s={[0.74, 0.1, 0.082]} p={[0, 0.16, 0]} m={hazardMaterial} cast={false} />
     <Box s={[0.022, DOOR_HEIGHT, 0.09]} p={[-sign * 0.365, DOOR_HEIGHT / 2, 0]} m={m.rubber('#111b20')} cast={false} />
     <Box s={[0.012, 0.4, 0.092]} p={[-sign * 0.335, 1.1, 0]} m={lamp} cast={false} />
     {[0.36, 0.86].map((y) => <Box key={y} s={[0.3, 0.018, 0.09]} p={[sign * 0.03, y, 0]} m={steel} cast={false} />)}
-  </group>
+  </StaticBatch>
 }
 
 /** A real airlock: two pressure doors with a small chamber between them, opening one after the other. */
-export function Door({ id, x, z, alongZ }: { id: string; x: number; z: number; alongZ: boolean; room: string }) {
+export function Door({ id, x, z, alongZ, rotationY }: { id: string; x: number; z: number; alongZ: boolean; room: string; rotationY?: number }) {
   const m = useMats()
   const leaves = useRef<(THREE.Group | null)[]>([])
   const anim = useRef([0, 0]), target = useRef(0)
@@ -111,10 +114,11 @@ export function Door({ id, x, z, alongZ }: { id: string; x: number; z: number; a
   const closed = useRef([true, true])
   const lamp = useMemo(() => new THREE.MeshStandardMaterial({ color: '#081218', emissive: '#ff4128', emissiveIntensity: 2.4 }), [])
   const chamberLight = useMemo(() => new THREE.MeshStandardMaterial({ color: '#081218', emissive: '#e8f6ff', emissiveIntensity: 1.2 }), [])
+  lamp.userData.backupCircuit = chamberLight.userData.backupCircuit = true
   const portal = useMemo(portalGeometry, [])
   const hazardMaterial = useMemo(() => new THREE.MeshStandardMaterial({ map: hazard(), roughness: 0.6 }), [])
   useEffect(() => () => { lamp.dispose(); chamberLight.dispose(); portal.dispose(); hazardMaterial.dispose() }, [lamp, chamberLight, portal, hazardMaterial])
-  const rot = alongZ ? 0 : Math.PI / 2
+  const rot = rotationY ?? (alongZ ? 0 : Math.PI / 2)
   useFrame(({ clock }, dt) => {
     const unlocked = doorUnlocked(id)
     const dx = live.pos[0] - x, dz = live.pos[2] - z
@@ -124,13 +128,14 @@ export function Door({ id, x, z, alongZ }: { id: string; x: number; z: number; a
       audio.sfx('door_open', { pos: [x, 1.4, z], vol: t ? 0.9 : 0.5 })
     }
     // The door on the player's side goes first; the far one follows once it is well under way.
-    const side = alongZ ? dz : dx
+    const side = dx * Math.sin(rot) + dz * Math.cos(rot)
     const near = side >= 0 ? 0 : 1, far = 1 - near
     const goal = [0, 0]
     goal[near] = t
     goal[far] = t && anim.current[near] > 0.55 ? 1 : 0
     anim.current.forEach((value, i) => {
       const v = THREE.MathUtils.damp(value, goal[i], goal[i] ? 3.6 : 4, dt)
+      if (Math.abs(v - value) > 0.0001 && (id === 'door_d1' || id === 'door_dock')) doorShadows.version++
       anim.current[i] = v
       const k = THREE.MathUtils.smootherstep(v, 0, 1)
       const pair = i * 2
@@ -161,6 +166,7 @@ export function Door({ id, x, z, alongZ }: { id: string; x: number; z: number; a
   const chamber = m.painted('#2c363d', 0.5, 0.65)
   const steel = m.metal('#a3adb3', 0.26)
   return <group name={`bulkhead:${id}`} position={[x, 0, z]} rotation={[0, rot, 0]}>
+    <StaticBatch>
     {/* The lock chamber: lined walls and roof, a steel floor, its own light. */}
     {[-1, 1].map((side) => <group key={side}>
       <Box s={[0.28, CEIL, 1.9]} p={[side * 0.86, CEIL / 2, 0]} m={chamber} />
@@ -179,6 +185,7 @@ export function Door({ id, x, z, alongZ }: { id: string; x: number; z: number; a
       <Box s={[1.2, 0.022, 0.016]} p={[0, CEIL - 0.2, 0.116]} m={lamp} cast={false} />
       {[-1, 1].flatMap((sx) => [0.2, 1.2, 2.2].map((y) => <Cyl key={`${sx}:${y}`} a={[0.02, 0.02, 0.016]} p={[sx * 0.88, y, 0.118]} r={[Math.PI / 2, 0, 0]} m={steel} seg={8} />))}
     </group>)}
+    </StaticBatch>
 
     {/* The two pressure doors. */}
     {[LEAF_Z, -LEAF_Z].map((pz, door) => <group key={pz} position={[0, 0, pz]}>

@@ -14,7 +14,7 @@ test('nouveaux skins et touches configurables avec les mains détaillées et le 
   page.on('pageerror', (e) => errors.push(e.message))
   await page.route('**/api/auth.php?action=me', (r) => r.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
   await page.addInitScript(() => {
-    localStorage.setItem('cosmotrap.settings.v1', JSON.stringify({ quality: 'low', music: 0, voice: 0, sfx: 0 }))
+    localStorage.setItem('cosmotrap.settings.v1', JSON.stringify({ quality: 'low', music: 0, voice: 0, sfx: 0, map: 'station' }))
     const pad = { id: 'Xbox test', index: 0, connected: true, mapping: 'standard', timestamp: 0, axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 })) }
     ;(window as any).__pad = pad
     navigator.getGamepads = () => [pad as any]
@@ -42,6 +42,7 @@ test('nouveaux skins et touches configurables avec les mains détaillées et le 
   await pressPad(page, 12) // Swap inventory with use-selected: no accidental consumption.
   await page.getByTestId('page-back').click()
   await page.getByTestId('launch-mission').click()
+  await page.getByTestId('confirm-character').click()
   await page.getByTestId('skip-prologue').click()
   await page.waitForFunction(() => window.__game.state().loading === 1)
   expect(await page.evaluate(() => window.__game.state().character)).toBe('leo')
