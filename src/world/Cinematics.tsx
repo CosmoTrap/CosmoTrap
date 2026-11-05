@@ -5,7 +5,7 @@ import { audio } from '../game/audio/audio'
 import { enterZone, pendingZone, respawnAfterFaint, tick } from '../game/logic'
 import { GRID_MAPS, spawnOf } from '../game/maps'
 import { riverCenter, terrainHeight } from '../game/maps/zone4'
-import { AUTOSAVE_EVERY, G, clearSave, live, saveGame, useGame } from '../game/state'
+import { AUTOSAVE_EVERY, G, closeFinishedRun, live, saveGame, useGame } from '../game/state'
 import { fr } from '../i18n/fr'
 import { Astronaut, type AstronautHandle } from './Astronaut'
 import { endScene, runScene } from './FilmScenes'
@@ -135,7 +135,7 @@ export function CineDirector() {
       })
       if (t > 7)
         once('end', () => {
-          clearSave()
+          closeFinishedRun()
           live.fade = 0
           useGame.setState({ cine: null, ended: true, ending: 'fail', screen: 'end', subtitle: null })
         })
@@ -209,7 +209,7 @@ export function CineDirector() {
           audio.oneShotMusic('victory')
           live.camOverride = null
           heli.visible = false
-          clearSave()
+          closeFinishedRun()
           useGame.setState({ cine: null, ended: true, ending: 'rescue', screen: 'end', subtitle: null })
           live.fade = 0
         })
@@ -269,7 +269,7 @@ export function skipCine() {
   if (s.cine === 'heli') {
     audio.stopAllLoops()
     heli.visible = false
-    clearSave()
+    closeFinishedRun()
     resumePlaying()
     audio.oneShotMusic('victory')
     useGame.setState({ ended: true, ending: 'rescue', screen: 'end' })

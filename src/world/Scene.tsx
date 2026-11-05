@@ -32,13 +32,14 @@ function InteriorSun({ map }: { map: GridMap }) {
     o.position.copy(center)
     return o
   }, [map])
-  const ext = Math.max(W, H) * 0.75 + 4
+  // Le volume d'ombre englobe les rochers qui rasent la coque, pour qu'ils coupent le soleil intérieur.
+  const ext = Math.max(W, H) * 0.95 + 28
   return (
     <>
       <primitive object={target} />
       <directionalLight
         target={target}
-        position={center.clone().addScaledVector(sun, 60)}
+        position={center.clone().addScaledVector(sun, 200)}
         color="#fff2e0"
         intensity={size ? 6 : 0}
         castShadow={size > 0}
@@ -47,10 +48,10 @@ function InteriorSun({ map }: { map: GridMap }) {
         shadow-camera-right={ext}
         shadow-camera-top={ext}
         shadow-camera-bottom={-ext}
-        shadow-camera-near={1}
-        shadow-camera-far={140}
-        shadow-bias={-0.0006}
-        shadow-normalBias={0.05}
+        shadow-camera-near={8}
+        shadow-camera-far={340}
+        shadow-bias={-0.0008}
+        shadow-normalBias={0.08}
       />
     </>
   )
