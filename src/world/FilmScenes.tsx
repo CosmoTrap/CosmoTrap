@@ -8,6 +8,7 @@ import { entById } from '../game/logic'
 import { G, live, useGame } from '../game/state'
 import { fr } from '../i18n/fr'
 import { Astronaut, type AstronautHandle } from './Astronaut'
+import { backdrop, tourBackdrop } from './cine/StationExterior'
 
 // Cinématiques « film » à l'entrée de chaque zone : plans découpés (travellings, plans serrés,
 // contre-plongées), acteur à la 3e personne, et le crash de la capsule Hermès sur Terre.
@@ -71,55 +72,23 @@ function shotsFor(zone: number): Shot[] {
   // Floor 2 opens in the lift: the over-the-shoulder shot starts inside the cab, not behind its wall.
   const start = z === 2 ? 2.2 : 0
   const at = (f: number, r: number, y: number): V3 => [sp.pos[0] + fwd[0] * (f + start) + right[0] * r, y, sp.pos[2] + fwd[2] * (f + start) + right[2] * r]
-  const standAt = (f: number, yaw = sp.yaw, walk = 0) => {
-    actor.visible = true
-    actor.pos = at(f, 0, 0)
-    actor.yaw = yaw + Math.PI
-    actor.lie = 0
-    actor.walk = walk
-  }
   if (z === 1) {
+    // A quick presentation of the station, without the character: outside, its two levels joined by the
+    // lift; then inside, a corridor, the mess, the infirmary, the hub and its lift, and the dormitory.
+    const B = tourBackdrop()
+    const out = (x: number, y: number, z: number): V3 => [B.x + x, B.y + y, B.z + z]
+    const outside = (on: boolean) => {
+      actor.visible = false
+      backdrop.visible = on
+    }
     return [
-      // réveil au sol : paupières, flou, alarme
-      {
-        d: 5.5,
-        from: [at(0.2, 0, 0.32), at(0.9, 0.3, 2.4)],
-        to: [at(0.25, 0.05, 0.36), at(1.2, -0.2, 2.1)],
-        fov: 62,
-        line: 0,
-        run: (_, t) => {
-          actor.visible = false
-          // clignements des yeux
-          live.fade = t < 0.9 ? 1 : t < 1.6 ? 1 - (t - 0.9) / 0.7 : t < 2.0 ? (t - 1.6) / 0.4 : t < 2.6 ? 1 - (t - 2.0) / 0.6 : t < 3.6 ? 0 : t < 3.8 ? (t - 3.6) / 0.2 : Math.max(0, 1 - (t - 3.8) / 0.5)
-          film.blur = Math.max(0.15, 1 - t / 5)
-          if (t > 2.1) once('gasp', () => audio.sfx('gasp'))
-        },
-      },
-      // on se relève
-      {
-        d: 4.5,
-        from: [at(0.25, 0, 0.6), at(2, 0.4, 1.4)],
-        to: [at(0.3, 0, 1.62), at(4, 0, 1.55)],
-        fov: 58,
-        line: 1,
-        run: (k) => {
-          actor.visible = false
-          film.blur = 0.25 * (1 - k)
-        },
-      },
-      // plan large : l'astronaute seul dans le module
-      {
-        d: 6,
-        from: [at(3.4, 1.3, 0.75), at(0, 0, 1.45)],
-        to: [at(2.8, 0.9, 0.85), at(0, 0, 1.5)],
-        fov: 40,
-        line: 2,
-        run: (k) => {
-          film.blur = 0
-          standAt(0, sp.yaw)
-          if (actor.visible) actor.yaw = sp.yaw + Math.PI + Math.sin(k * 3) * 0.15
-        },
-      },
+      { d: 6.5, from: [out(72, 26, 58), out(0, -5, 0)], to: [out(52, 16, 46), out(0, -4, 0)], fov: 40, line: 0, run: () => outside(true) },
+      { d: 5, from: [out(28, -7, 24), out(0, -8, -4)], to: [out(-8, -5, 30), out(0, -7, -6)], fov: 44, run: () => outside(true) },
+      { d: 4.6, from: [[41, 1.65, 36.5], [41, 1.5, 16]], to: [[41, 1.65, 27.5], [41, 1.45, 16]], fov: 58, line: 1, run: () => outside(false) },
+      { d: 4.6, from: [[53, 1.8, 21], [30, 1.1, 17.5]], to: [[47, 1.7, 20.5], [28, 1.1, 17]], fov: 56, run: () => outside(false) },
+      { d: 4.2, from: [[39.5, 1.7, 61], [54, 1.1, 64.5]], to: [[43, 1.65, 61.5], [55, 1.0, 64]], fov: 56, run: () => outside(false) },
+      { d: 4.8, from: [[47.5, 2.2, 45], [41, 1.4, 41]], to: [[45, 1.9, 47.5], [41, 1.3, 41]], fov: 52, line: 2, run: () => outside(false) },
+      { d: 5.2, from: [[21, 1.75, 41], [11, 1.0, 41]], to: [[15.5, 1.62, 41], [10.5, 1.1, 41]], fov: 58, line: 3, run: () => outside(false) },
     ]
   }
   const key = z === 2 ? 'steam' : 'engine'
@@ -132,7 +101,8 @@ function shotsFor(zone: number): Shot[] {
       to: [at(0.2, 0.55, 1.6), at(5.5, 0, 1.3)],
       fov: 46,
       line: 0,
-      run: (k) => standAt(-1 + k * 2.4, sp.yaw, 1),
+      // The places, never the character.
+      run: () => (actor.visible = false),
     },
     // plan serré sur l'objectif
     {
@@ -195,18 +165,17 @@ function crashShots(): Shot[] {
         useGame.setState({ shake: 0 })
       },
     },
+    // Through the crew member's eyes: lying in the grass, blurred, then sitting up and looking at the capsule.
     {
       d: 6.5,
-      from: [add(me, 2.4, 0.5, 1.6), add(me, 0, 0.3, 0)],
-      to: [add(me, 2.1, 1.1, 2.2), add(me, 0, 1.3, 0)],
-      fov: 40,
+      from: [add(me, 0, 0.28, 0), add(me, 0.4, 6, -1.2)],
+      to: [add(me, 0, 1.55, 0), add(L, 0, 1.4, 0)],
+      fov: 62,
       line: 1,
       run: (k, t) => {
-        actor.visible = true
-        actor.pos = me
-        actor.yaw = Math.PI * 0.85
-        actor.walk = 0
-        actor.lie = 1 - ease(THREE.MathUtils.clamp((t - 1) / 2.6, 0, 1))
+        actor.visible = false
+        film.blur = Math.max(0, 0.85 - t * 0.2)
+        live.fade = t < 0.6 ? 1 - t / 0.6 : t > 1.4 && t < 1.8 ? (t - 1.4) / 0.4 : t >= 1.8 && t < 2.2 ? 1 - (t - 1.8) / 0.4 : 0
         void k
       },
     },
@@ -265,7 +234,8 @@ export function runScene(zone: number, t: number, first: boolean) {
     if (line)
       once(`line${i}`, () => {
         useGame.setState({ subtitle: line })
-        audio.speak(line, { rate: 1.0, id: `tour_${zone}_${sh.line}` })
+        // Floor 1's lines are new: their old recordings would no longer match the subtitles.
+        audio.speak(line, { rate: 1.0, id: zone === 1 ? undefined : `tour_${zone}_${sh.line}` })
       })
   }
   return true
@@ -274,6 +244,7 @@ export function runScene(zone: number, t: number, first: boolean) {
 /** remet tout en place à la fin (ou quand on passe la scène) */
 export function endScene() {
   actor.visible = false
+  backdrop.visible = false
   film.blur = 0
   crash.active = false
   crash.k = 1

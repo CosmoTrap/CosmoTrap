@@ -10,6 +10,8 @@ import { Earth } from './Earth'
 import { NOISE } from './glsl'
 import { Moon } from './Moon'
 import { MilkyWay, ShootingStars, Stars, Sun } from './Space'
+import { LaunchStage } from '../cine/LaunchStage'
+import { StationBackdrop } from '../cine/StationExterior'
 
 /** tout ce qu'on voit par les hublots, selon la zone */
 export function Exterior({ map }: { map: GridMap }) {
@@ -63,6 +65,8 @@ export function Exterior({ map }: { map: GridMap }) {
         )}
       </group>
       {map.exterior === 'earthrise' && <Reentry center={c} />}
+      {map.zone === 3 && <LaunchStage />}
+      {map.zone === 1 && <StationBackdrop />}
     </>
   )
 }

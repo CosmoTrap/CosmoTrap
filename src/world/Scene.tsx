@@ -1,4 +1,5 @@
 import { CineActor, CrashFx } from './FilmScenes'
+import { RescueScene } from './cine/Rescue'
 import { Environment, Lightformer } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { Physics } from '@react-three/rapier'
@@ -121,6 +122,7 @@ function PhysicsWorld() {
           <EndAvatar />
           <Flare />
           <CrashFx />
+          <RescueScene />
         </>
       )}
       <CineActor />

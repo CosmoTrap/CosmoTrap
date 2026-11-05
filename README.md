@@ -176,7 +176,7 @@ Le classement est séparé par difficulté.
 
 ## Scénario de la station spatiale
 
-1. **Prologue** (passable) : 2041, base lunaire Selene-7. Le labo de Maya vient de trouver de l'eau sous le pôle Sud. Une micro-météorite frappe la station.
+1. **Prologue** (passable) : la station Selene-7, en orbite lunaire. Le labo de Maya vient de trouver de l'eau sous le pôle Sud. Une micro-météorite frappe la station.
 2. **Zone 1 · Quartiers d'équipage.** Visite cinématique de la zone. Briefing holographique de la commandante. Il faut sortir du dortoir et pressuriser le sas.
 3. **Zone 2 · Labo & machinerie.** Il faut couper la fuite de gaz, réparer le disjoncteur, faire un choix d'énergie, puis décoder le programme de lancement.
 4. **Zone 3 · Fusée Hermès.** Il faut trouver la cellule, planifier le pré-vol, prendre une décision sur les échantillons et lancer la séquence. Suivent le décollage et la rentrée atmosphérique.
@@ -488,7 +488,7 @@ Les trois premières valeurs dépendent de la partie. Les retrouver dans **Table
   - fond 3D de la base lunaire Selene-7 derrière la connexion, le menu et les paramètres.
 
   Pour régénérer les ressources : `npm run assets` (télécharge dans `asset-src/`, ignoré par git, puis écrit dans `public/assets/`).
-- **Cinématiques.** Chaque zone s'ouvre sur une scène découpée en plans (réveil au sol, travellings, plans serrés, plan large sur le personnage) : bandes cinémascope 2,39:1, grain de pellicule, bords d'objectif adoucis. Sur Terre, la capsule Hermès traverse le ciel en feu et s'écrase dans la clairière (traînée, souffle, colonne de fumée), puis le personnage se relève.
+- **Cinématiques.** Elles montrent les lieux sans le personnage : survol de la station et de ses deux étages, couloirs et pièces (aucune scène à l'arrivée au niveau 2) ; désarrimage de l'Hermès, retournement et départ vers la Terre ; sauvetage final avec hélicoptères de presse, police, ambulance, pompiers et CosmoTrap ; mort en vue subjective (vision en tunnel, hallucinations, clignements, chute, GAME OVER et sa cause). Plans découpés : bandes cinémascope 2,39:1, grain de pellicule, bords d'objectif adoucis. Sur Terre, la capsule Hermès traverse le ciel en feu et s'écrase dans la clairière (traînée, souffle, colonne de fumée), puis le personnage se relève.
 - **Post-traitement.** ACES, N8AO, bloom, étalonnage « clair-obscur », aberration chromatique et SMAA.
 - **Qualité.** 4 niveaux : Basse, Moyenne, Haute, Ultra. Le niveau est détecté automatiquement selon la carte graphique, et la résolution baisse seule si les images par seconde chutent.
 - **Audio.** Tout est synthétisé en Web Audio : bruitages et musique adaptative. Le tempo et le cœur accélèrent quand l'O₂ baisse et quand le chrono s'épuise. Chaque zone a plusieurs morceaux qui changent toutes les 2 à 3 min en fondu, dont des thèmes « orgue cosmique » originaux (orgue à tuyaux, tic-tac d'horloge, ostinato, grande réverbération). Les voix et bruitages sont de vrais enregistrements ElevenLabs (`public/audio`, 87 fichiers) : une voix par rôle (narrateur, commandante, voix intérieure masculine ou féminine selon le personnage), en français et en anglais. La voix de synthèse du navigateur est désactivée par défaut (Paramètres → Audio).

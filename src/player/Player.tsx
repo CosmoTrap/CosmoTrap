@@ -409,6 +409,7 @@ export function Player() {
     if (s.cine && live.camOverride) {
       camera.position.set(...live.camOverride.pos)
       camera.lookAt(...live.camOverride.look)
+      if (live.camOverride.roll) camera.rotateZ(live.camOverride.roll)
     } else {
       camera.position.set(nx + right.x * bobX + sx, ny + EYE - S.crouch * 0.55 + bobY + breathY + sy, nz + right.z * bobX)
       camera.rotation.set(live.pitch + sy * 0.5, live.yaw + sx * 0.3, S.roll, 'YXZ')

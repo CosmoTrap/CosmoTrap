@@ -3,7 +3,7 @@ import { Bloom, ChromaticAberration, EffectComposer, N8AO, SMAA, ToneMapping, Vi
 import { BlendFunction, Effect, EffectComposer as Composer, ToneMappingMode } from 'postprocessing'
 import { forwardRef, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { G, useGame } from '../game/state'
+import { G, live, useGame } from '../game/state'
 import { QUALITY } from './quality'
 import { film } from './FilmScenes'
 import { installStaticShadowPass } from './props/StaticShadows'
@@ -20,6 +20,8 @@ uniform float uGrain;
 uniform float uFade;
 uniform float uBright;
 uniform float uLens;
+uniform float uFaint;
+uniform float uHallu;
 float rnd(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233)) + uTime) * 43758.5453); }
 void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor){
   vec3 c = inputColor.rgb * uBright;
@@ -35,11 +37,23 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
     }
     c = mix(c, acc / 8.0 * uBright, min(1.0, blurAmt));
   }
+  // Hallucinations: a doubled, swimming image whose colours drift, as the brain runs short of oxygen.
+  if (uHallu > 0.001) {
+    vec2 w = vec2(sin(uv.y * 18.0 + uTime * 2.1), cos(uv.x * 14.0 + uTime * 1.7)) * 0.006 * uHallu;
+    vec2 o = vec2(sin(uTime * 1.3), cos(uTime * 0.9)) * 0.018 * uHallu;
+    vec3 a = texture2D(inputBuffer, uv + w + o).rgb;
+    vec3 b = texture2D(inputBuffer, uv + w - o * 1.4).rgb;
+    vec3 ghost = (a * vec3(1.15, 0.85, 1.0) + b * vec3(0.85, 1.0, 1.2)) * 0.5 * uBright;
+    c = mix(c, (c + ghost) * 0.5, uHallu * 0.9);
+    c = mix(c, c.gbr, uHallu * 0.18 * (0.5 + 0.5 * sin(uTime * 0.8)));
+  }
   float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
   // split-toning : ombres sarcelle, lumières ambrées
   vec3 shadowTint = vec3(0.86, 0.97, 1.06);
   vec3 highTint = vec3(1.08, 1.0, 0.88);
   c *= mix(shadowTint, highTint, smoothstep(0.05, 0.75, l) * uWarm + (1.0 - uWarm) * 0.5);
+  // Very bright light (lamps, flames) must stay bright: past 1, the S curve would turn it negative, black or cyan.
+  c = min(c, vec3(1.0));
   // courbe en S douce
   c = mix(c, c * c * (3.0 - 2.0 * c), 0.22);
   // saturation légèrement réduite dans les ombres
@@ -49,6 +63,13 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
   float v = smoothstep(0.25, 0.75, length(d * vec2(1.1, 1.0)));
   float pulse = 0.75 + 0.25 * sin(uTime * 6.0);
   c = mix(c, c * vec3(0.5, 0.05, 0.03) + vec3(0.18, 0.0, 0.0) * pulse, v * uRed);
+  // Fainting: colour drains first, then the field of view closes in to a tunnel.
+  if (uFaint > 0.001) {
+    float lf = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    c = mix(c, vec3(lf) * vec3(0.95, 0.97, 1.02), uFaint * 0.85);
+    float r = length((uv - 0.5) * vec2(1.25, 1.0));
+    c *= 1.0 - smoothstep(0.62 - 0.42 * uFaint, 0.95 - 0.42 * uFaint, r) * min(1.0, uFaint * 1.4);
+  }
   // grain
   c += (rnd(uv * 913.0) - 0.5) * uGrain;
   c *= 1.0 - uFade;
@@ -68,6 +89,8 @@ class GradeEffect extends Effect {
         ['uFade', new THREE.Uniform(0)],
         ['uBright', new THREE.Uniform(1)],
         ['uLens', new THREE.Uniform(0)],
+        ['uFaint', new THREE.Uniform(0)],
+        ['uHallu', new THREE.Uniform(0)],
       ]),
     })
   }
@@ -88,7 +111,9 @@ const Grade = forwardRef<GradeEffect>(function Grade(_, ref) {
     // Cinematic blur must disappear on the very first gameplay frame. Smoothing
     // the previous film value left the image blurred for seconds on slower GPUs.
     const filmic = s.cine === 'tour' || s.cine === 'heli' || s.cine === 'launch' || s.screen === 'prologue'
-    b.value = Math.max(filmic ? film.blur : 0, breath * 0.8)
+    b.value = Math.max(filmic ? film.blur : 0, breath * 0.8, live.faint * 0.85)
+    u.get('uFaint')!.value = live.faint
+    u.get('uHallu')!.value = live.hallu
     // Preserve the subtle K12 grading alongside main's cinematic lens effects.
     u.get('uGrain')!.value = filmic ? 0.003 : 0.0015
     const l = u.get('uLens')!

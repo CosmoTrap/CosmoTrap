@@ -105,7 +105,10 @@ export const live = {
   /** décor extérieur pendant les cinématiques (décollage, rentrée) */
   ext: { y: 0, plasma: 0 },
   /** contrôle caméra par une cinématique */
-  camOverride: null as null | { pos: [number, number, number]; look: [number, number, number]; fov?: number },
+  camOverride: null as null | { pos: [number, number, number]; look: [number, number, number]; fov?: number; roll?: number },
+  /** collapse in progress (0..1): the picture narrows, loses its colour; hallucinations at the edges */
+  faint: 0,
+  hallu: 0,
   bob: 0,
   /** fondu au noir (0..1) et flash blanc (0..1) pilotés par les cinématiques */
   fade: 0,

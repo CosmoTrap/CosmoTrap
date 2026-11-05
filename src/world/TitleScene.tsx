@@ -6,6 +6,7 @@ import { Earth } from './Exterior/Earth'
 import { Moon } from './Exterior/Moon'
 import { MilkyWay, Stars, Sun } from './Exterior/Space'
 import { paintedMetal, drawTexture } from './textures'
+import { StationExterior } from './cine/StationExterior'
 
 // Écran titre : la caméra tourne lentement autour de la station Selene-7, la Lune en fond.
 
@@ -163,8 +164,8 @@ export function TitleScene() {
       <hemisphereLight args={['#334466', '#111111', 0.15]} />
       {/* lumière renvoyée par la Lune */}
       <directionalLight position={[0, -100, 20]} intensity={1.1} color="#c9c4ba" />
-      <group ref={station}>
-        <Station />
+      <group ref={station} position={[0, 4, 0]}>
+        <StationExterior />
       </group>
       <mesh ref={meteor} visible={false}>
         <sphereGeometry args={[0.8, 10, 8]} />
