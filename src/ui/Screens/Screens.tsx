@@ -136,7 +136,7 @@ export function Prologue() {
     <>
       <div className="flash" ref={flash} style={{ opacity: 0 }} />
       {line && (
-        <div className="subtitle" style={{ bottom: 90 }}>
+        <div className="subtitle film-subtitle" data-testid="prologue-subtitle">
           <small>Prologue</small>
           {line}
         </div>

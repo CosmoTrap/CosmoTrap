@@ -18,6 +18,7 @@ import { RealModel } from './RealModel'
 import { ZONE4_ENT_MODELS } from '../zone4/Zone4Ents'
 import { SolidProp } from './SolidProps'
 import { PickupHighlight } from './PickupHighlight'
+import { stationPowerDown } from '../roomPower'
 
 // Objets interactifs + zones de détection invisibles (raycast).
 
@@ -506,6 +507,7 @@ function SteamValve() {
 /** fuite de gaz : particules + collision + son spatial */
 function Steam({ e }: { e: Ent }) {
   const fixed = useGame((s) => s.flags.steamFixed)
+  const light = useRef<THREE.PointLight>(null)
   const pts = useRef<THREE.Points>(null)
   const N = 220
   const { geo, mat, seeds } = useMemo(() => {
@@ -525,6 +527,7 @@ function Steam({ e }: { e: Ent }) {
   const fade = useRef(1)
   useFrame(({ clock }, dt) => {
     fade.current = THREE.MathUtils.damp(fade.current, fixed ? 0 : 1, 1.2, dt)
+    if (light.current) light.current.intensity = fixed || stationPowerDown() ? 0 : 1.5
     mat.opacity = 0.55 * fade.current
     const p = geo.attributes.position as THREE.BufferAttribute
     const t = clock.elapsedTime
@@ -553,7 +556,7 @@ function Steam({ e }: { e: Ent }) {
           <CuboidCollider args={[1, 1.4, 1]} position={[0, 1.4, 0]} />
         </RigidBody>
       )}
-      {!fixed && <pointLight color="#ffd2a8" intensity={1.5} distance={4} position={[0, 1.6, 0]} />}
+      <pointLight ref={light} name="steam-service-light" color="#ffd2a8" intensity={0} distance={4} position={[0, 1.6, 0]} />
     </group>
   )
 }

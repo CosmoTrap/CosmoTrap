@@ -20,9 +20,11 @@ import { Zone4 } from './zone4/Zone4'
 import { Ghost, useLoadGhost } from './Ghost'
 import { SceneGate, SceneReady } from './SceneReady'
 import { LunarWorld } from './LunarWorld'
+import { stationPowerDown } from './roomPower'
 
 /** soleil pour les intérieurs : n'entre que par les hublots (ombres) */
 function InteriorSun({ map }: { map: GridMap }) {
+  const light = useRef<THREE.DirectionalLight>(null)
   const size = QUALITY[G().settings.quality].sunShadow
   const W = Math.max(...map.grid.map((r) => r.length)) * 2
   const H = map.grid.length * 2
@@ -35,14 +37,17 @@ function InteriorSun({ map }: { map: GridMap }) {
   }, [map])
   // Le volume d'ombre englobe les rochers qui rasent la coque, pour qu'ils coupent le soleil intérieur.
   const ext = Math.max(W, H) * 0.95 + 28
+  useFrame(() => { if (light.current) light.current.intensity = size && !stationPowerDown(map.zone) ? 6 : 0 })
   return (
     <>
       <primitive object={target} />
       <directionalLight
+        ref={light}
+        name="interior-sun"
         target={target}
         position={center.clone().addScaledVector(sun, 200)}
         color="#fff2e0"
-        intensity={size ? 6 : 0}
+        intensity={size && !stationPowerDown(map.zone) ? 6 : 0}
         castShadow={size > 0}
         shadow-mapSize={[size || 512, size || 512]}
         shadow-camera-left={-ext}

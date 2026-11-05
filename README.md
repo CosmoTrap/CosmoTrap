@@ -101,7 +101,7 @@ et demandent une carte graphique plus puissante. Garder la résolution sur
 | Pause | P ou Échap | Bouton « Pause » |
 | Passer une cinématique | Entrée ou bouton « Passer » | Bouton « Passer » |
 
-**Regard.** Il marche à la souris (clic pour la verrouiller), au glisser-cliquer, et à Alt + glisser à deux doigts sur le pavé tactile (réglage activé par défaut).
+**Regard.** La souris reste verrouillée dans la vue pendant le jeu. Elle se libère pour les interfaces (tablette, documents, énigmes, pause), puis est reprise à leur fermeture. Si le navigateur exige une nouvelle interaction, cliquer dans la vue pour la reprendre. Échap permet toujours de mettre en pause. Le geste Alt + glisser à deux doigts sur le pavé tactile reste disponible (réglage activé par défaut).
 
 **Tablette de poignet.** Le bras gauche se lève avant l'ouverture du terminal.
 Ses quatre onglets regroupent le **Plan** (pièces réelles, position et orientation,
@@ -203,6 +203,8 @@ Le classement est séparé par difficulté.
 7. Prendre l'**ascenseur** du nœud central, déverrouillé par la pressurisation, pour descendre à l'étage 2. On peut ensuite circuler librement entre les étages 1 et 2.
 
 ### Zone 2 — Labo & machinerie
+
+À l’arrivée, tout l’étage fonctionne sur les alarmes rouges : plafonniers, écrans de décor et éclairage normal sont coupés. La lampe torche reste utilisable. La réparation du disjoncteur rétablit le réseau ; l’éclairage de la machinerie dépend ensuite du choix d’énergie ci-dessous.
 
 1. Prendre le **fusible** dans le labo (nord-ouest) et la **clé à molette** dans la serre (nord).
 2. Fermer la **vanne de gaz** dans le couloir, à l'est. Le gaz bloque l'accès au disjoncteur.

@@ -1434,13 +1434,13 @@ export function DockHatch() {
   const m = useMats()
   return (
     <group>
-      <mesh position={[0, 0, 0.05]} rotation={[Math.PI / 2, 0, 0]} material={m.painted('#4a4e54', 0.4, 0.7)} castShadow>
+      <mesh position={[0, 0, 0.05]} rotation={[Math.PI / 2, 0, 0]} material={m.painted('#4a4e54', 0.4, 0.7)} castShadow receiveShadow>
         <cylinderGeometry args={[0.85, 0.85, 0.1, 40]} />
       </mesh>
-      <mesh position={[0, 0, 0.11]} material={m.painted('#7d8288', 0.45, 0.6)}>
+      <mesh position={[0, 0, 0.11]} material={m.painted('#7d8288', 0.45, 0.6)} castShadow receiveShadow>
         <circleGeometry args={[0.7, 40]} />
       </mesh>
-      <mesh position={[0, 0, 0.14]} rotation={[0, 0, 0]} material={m.metal('#c0c4c8', 0.25)}>
+      <mesh position={[0, 0, 0.14]} rotation={[0, 0, 0]} material={m.metal('#c0c4c8', 0.25)} castShadow receiveShadow>
         <torusGeometry args={[0.32, 0.03, 8, 30]} />
       </mesh>
       {[0, 1, 2].map((i) => (

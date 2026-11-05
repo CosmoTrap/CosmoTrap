@@ -24,6 +24,11 @@ function overlayOpen() {
   return s.loading < 1 || s.tabletOpen || !!s.puzzle || !!s.readNote || s.paused || s.settingsOpen
 }
 
+function wantsPointerLock() {
+  const s = G()
+  return s.screen === 'playing' && !overlayOpen() && (!s.cine || s.cine === 'lift') && !isTouch()
+}
+
 /** écoute clavier / souris (une seule fois) */
 export function useInputListeners() {
   useEffect(() => {
@@ -99,19 +104,18 @@ export function useInputListeners() {
       if (G().screen === 'playing' && input.down.has('ControlLeft')) e.preventDefault()
     }
     window.addEventListener('beforeunload', guardLeave)
-    // souris verrouillée (souris ou pavé tactile) ; sinon glisser-cliquer sur la vue
-    let dragging = false
+    // Only captured mouse movement steers the camera; overlays never accumulate look input.
     const move = (e: MouseEvent) => {
-      if (document.pointerLockElement || dragging) {
+      if (document.pointerLockElement && wantsPointerLock() && !G().cine) {
         input.look.dx += e.movementX
         input.look.dy += e.movementY
       }
     }
     const pdown = (e: PointerEvent) => {
       if (e.pointerType === 'mouse') markKeyboard()
-      if (e.pointerType === 'mouse' && (e.target as HTMLElement)?.tagName === 'CANVAS' && !document.pointerLockElement) dragging = true
+      if (e.pointerType === 'mouse' && (e.target as HTMLElement)?.tagName === 'CANVAS') requestLock()
     }
-    const pup = () => (dragging = false)
+    const pup = () => { if (wantsPointerLock()) requestLock() }
     // Wheel selects inventory; Alt + wheel preserves the trackpad camera gesture.
     let wheelAmount = 0
     let lastWheel = 0
@@ -139,15 +143,40 @@ export function useInputListeners() {
         wheelAmount = 0
       }
     }
-    const blur = () => { input.down.clear(); input.jumpRequested = false }
-    let lockedAt = 0
+    const blur = () => {
+      input.down.clear(); input.jumpRequested = false
+      input.look.dx = input.look.dy = 0
+      if (wantsPointerLock() && !G().cine) useGame.setState({ paused: true })
+    }
+    let wanted = false, releasingForOverlay = false, hadLock = !!document.pointerLockElement
+    // Covers keyboard closes, delayed puzzle success, scene loading and cinematic skips.
+    // Previously only a few close buttons recaptured the mouse.
+    const syncCapture = () => {
+      const next = wantsPointerLock()
+      if (next === wanted) return
+      wanted = next
+      input.look.dx = input.look.dy = 0
+      input.down.clear(); input.jumpRequested = false
+      if (next) requestLock()
+      else if (document.pointerLockElement) {
+        releasingForOverlay = true
+        document.exitPointerLock?.()
+      }
+    }
+    const unsubscribe = useGame.subscribe(syncCapture)
+    syncCapture()
     const plc = () => {
       const locked = !!document.pointerLockElement
+      const lost = hadLock && !locked
+      hadLock = locked
       useGame.setState({ locked })
-      if (locked) lockedAt = performance.now()
-      const s = G()
-      // pause sur Échap ; on ignore un verrouillage refusé ou relâché aussitôt par le navigateur
-      if (!locked && performance.now() - lockedAt > 600 && s.screen === 'playing' && !overlayOpen() && !s.cine && !isTouch()) useGame.setState({ paused: true })
+      if (!locked && releasingForOverlay) {
+        releasingForOverlay = false
+        if (wantsPointerLock()) requestLock()
+      } else if (lost && wantsPointerLock() && !G().cine) {
+        // Escape / browser focus loss must still allow the user to leave capture safely.
+        useGame.setState({ paused: true })
+      }
     }
     window.addEventListener('keydown', down)
     window.addEventListener('keyup', up)
@@ -158,6 +187,7 @@ export function useInputListeners() {
     window.addEventListener('blur', blur)
     document.addEventListener('pointerlockchange', plc)
     return () => {
+      unsubscribe()
       window.removeEventListener('keydown', down)
       window.removeEventListener('keyup', up)
       window.removeEventListener('mousemove', move)
@@ -197,13 +227,16 @@ export function openInventory() {
   openTablet(3)
 }
 export const closeInventory = closeTablet
+let lockPending = false
 export function requestLock() {
-  if (isTouch() || G().screen !== 'playing' || G().cine || overlayOpen()) return
+  if (!wantsPointerLock() || document.pointerLockElement || lockPending || document.hidden) return
   const c = document.querySelector('canvas')
+  if (!c?.requestPointerLock) return
+  lockPending = true
   try {
-    ;(c as any)?.requestPointerLock?.()?.catch?.(() => {})
+    Promise.resolve(c.requestPointerLock()).catch(() => {}).finally(() => { lockPending = false })
   } catch {
-    /* refusé */
+    lockPending = false // A browser may require a fresh click; the capture prompt stays visible.
   }
 }
 

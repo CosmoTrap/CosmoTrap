@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { audio } from './game/audio/audio'
 import { toast, useGame } from './game/state'
 import { fr } from './i18n/fr'
-import { isTouch } from './player/Player'
+import { isTouch, requestLock } from './player/Player'
 import { detectPadType, startGamepadLoop } from './player/gamepad'
 import { setKeyLayout } from './player/input'
 import { Hud } from './ui/Hud'
@@ -107,11 +107,7 @@ export default function App() {
           gl.toneMapping = THREE.NoToneMapping
           gl.outputColorSpace = THREE.SRGBColorSpace
         }}
-        onPointerDown={() => {
-          if (playing && useGame.getState().loading === 1 && !touch && !useGame.getState().locked && !paused && !tablet && !useGame.getState().puzzle && !useGame.getState().cine && !settingsOpen && !useGame.getState().readNote) {
-            ;(document.querySelector('canvas') as any)?.requestPointerLock?.()?.catch?.(() => {})
-          }
-        }}
+        onPointerDown={requestLock}
       >
         <Scene />
       </Canvas>

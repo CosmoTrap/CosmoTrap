@@ -16,10 +16,16 @@ export function blackoutActive() {
   return s.zone < 4 && s.event?.kind === 'blackout' && s.playTime < s.event.until
 }
 
+/** The whole second station deck is on emergency power until the breaker is repaired. */
+export function stationPowerDown(zone = G().zone) {
+  return G().map === 'station' && zone === 2 && !G().flags.power
+}
+
 /** One power state for the ceiling lights and the service panels. */
 export function roomPowerCut(room: RoomDef, zone = G().zone) {
   const s = G()
   if (s.map === 'base') return blackoutActive() || room.id !== 'habitat' && !s.lunar.solved.includes('loads')
+  if (stationPowerDown(zone)) return true
   if (room.noDynLight) return false // Deliberately dark storage rooms have no backup circuit.
   if (blackoutActive()) return true
   return zone === 2 && room.id === 'machinerie' && !(s.flags.power && s.flags.pw_lights)

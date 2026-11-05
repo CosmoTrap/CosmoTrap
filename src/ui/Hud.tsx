@@ -148,16 +148,10 @@ function PenaltyFlash() {
   return <div className="penalty-flash" ref={ref} style={{ opacity: 0 }} />
 }
 
-/** rappel « verrouiller la souris » : affiché quelques secondes seulement, puis disparaît */
+/** Remain available if browser policy requires one fresh click to capture. */
 function LockHint() {
-  const [show, setShow] = useState(true)
-  useEffect(() => {
-    const t = setTimeout(() => setShow(false), 6000)
-    return () => clearTimeout(t)
-  }, [])
-  if (!show) return null
   return (
-    <div className="click-to-play" style={{ pointerEvents: 'auto' }} onClick={requestLock}>
+    <div className="click-to-play" data-testid="capture-mouse" style={{ pointerEvents: 'auto' }} onClick={requestLock}>
       {fr.menu.clickToPlay}
     </div>
   )
@@ -226,7 +220,7 @@ export function Hud() {
         ))}
       </div>
       {subtitle && (subsOn || cine === 'briefing' || cine === 'tour') && (
-        <div className="subtitle">
+        <div className={`subtitle ${cine && cine !== 'briefing' ? 'film-subtitle' : ''}`}>
           {cine === 'briefing' && <small>{fr.briefingFrom(fr.characters[briefer].name)}</small>}
           {subtitle}
         </div>

@@ -57,6 +57,8 @@ test('les trois zones retrouvent la lumière après une coupure de 20 à 30 seco
       await page.waitForFunction(z => window.__game.state().playerZone === z && window.__game.state().loading === 1, zone)
     }
     const room = zone === 3 ? 'pont' : 'couloir'
+    // Floor 2 has no normal circuit until the player repairs its breaker.
+    if (zone === 2) await page.evaluate(() => window.__game.set({ flags: { ...window.__game.state().flags, power: true } }))
     await page.evaluate(z => { window.__game.teleportXZ(z === 1 ? 44 : z === 2 ? 46 : 9, z === 1 ? 41 : z === 2 ? 37 : 15, 0) }, zone)
     await page.waitForFunction(room => (window as any).lightingScene.getObjectByName(`room-light:${room}`)?.intensity > 10, room)
     expect(await page.evaluate(() => window.__game.state().flags.pressurized)).toBe(false)

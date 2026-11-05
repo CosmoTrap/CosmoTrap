@@ -7,7 +7,8 @@ import { CEIL } from '../game/maps'
 import { doorUnlocked } from '../game/logic'
 import { live } from '../game/state'
 import { useMats } from './materials'
-import { alarmOn } from './roomPower'
+import { alarmOn, stationPowerDown } from './roomPower'
+import { doorShadows } from './doorShadows'
 import { Box, Cyl } from './props/models'
 import { drawTexture } from './textures'
 import { StaticBatch } from './props/StaticBatch'
@@ -89,8 +90,8 @@ function Leaf({ sign, lamp }: { sign: 1 | -1; lamp: THREE.Material }) {
   // Each half moves as a unit; its detailing is fixed in that local frame.
   return <StaticBatch>
     <mesh geometry={geometry.plate} material={armour} castShadow receiveShadow />
-    <mesh geometry={geometry.frame} material={steel} />
-    <mesh position={[sign * WINDOW.x, WINDOW.y, 0]} material={m.glass('#cfe6f2', 0.16)}><planeGeometry args={[WINDOW.w, WINDOW.h]} /></mesh>
+    <mesh geometry={geometry.frame} material={steel} castShadow receiveShadow />
+    <mesh position={[sign * WINDOW.x, WINDOW.y, 0]} material={m.glass('#cfe6f2', 0.16)} receiveShadow><planeGeometry args={[WINDOW.w, WINDOW.h]} /></mesh>
     <Box s={[0.62, 0.72, 0.085]} p={[-sign * 0.01, 0.62, 0]} m={recess} />
     <Box s={[0.74, 0.1, 0.082]} p={[0, 0.16, 0]} m={hazardMaterial} cast={false} />
     <Box s={[0.022, DOOR_HEIGHT, 0.09]} p={[-sign * 0.365, DOOR_HEIGHT / 2, 0]} m={m.rubber('#111b20')} cast={false} />
@@ -108,6 +109,7 @@ export function Door({ id, x, z, alongZ, rotationY }: { id: string; x: number; z
   const closed = useRef([true, true])
   const lamp = useMemo(() => new THREE.MeshStandardMaterial({ color: '#081218', emissive: '#ff4128', emissiveIntensity: 2.4 }), [])
   const chamberLight = useMemo(() => new THREE.MeshStandardMaterial({ color: '#081218', emissive: '#e8f6ff', emissiveIntensity: 1.2 }), [])
+  lamp.userData.backupCircuit = chamberLight.userData.backupCircuit = true
   const portal = useMemo(portalGeometry, [])
   const hazardMaterial = useMemo(() => new THREE.MeshStandardMaterial({ map: hazard(), roughness: 0.6 }), [])
   useEffect(() => () => { lamp.dispose(); chamberLight.dispose(); portal.dispose(); hazardMaterial.dispose() }, [lamp, chamberLight, portal, hazardMaterial])
@@ -128,6 +130,7 @@ export function Door({ id, x, z, alongZ, rotationY }: { id: string; x: number; z
     goal[far] = t && anim.current[near] > 0.55 ? 1 : 0
     anim.current.forEach((value, i) => {
       const v = THREE.MathUtils.damp(value, goal[i], goal[i] ? 3.6 : 4, dt)
+      if (Math.abs(v - value) > 0.0001 && (id === 'door_d1' || id === 'door_dock')) doorShadows.version++
       anim.current[i] = v
       const k = THREE.MathUtils.smootherstep(v, 0, 1)
       const pair = i * 2
@@ -142,7 +145,7 @@ export function Door({ id, x, z, alongZ, rotationY }: { id: string; x: number; z
       }
     })
     // In the same red breath as the lift while the alarm lasts; otherwise white, and green or red for the lock.
-    if (alarmOn()) {
+    if (alarmOn() || stationPowerDown()) {
       const pulse = 0.5 + 0.5 * Math.sin(clock.elapsedTime * 2.2)
       lamp.emissive.set('#ff1a0a')
       chamberLight.emissive.set('#ff1a0a')

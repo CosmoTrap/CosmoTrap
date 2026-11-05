@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { CEIL, TILE, cellAt, isFloor, isSolid, roomAt, tileCenter } from '../game/maps'
-import { diff, useGame } from '../game/state'
+import { G, diff, useGame } from '../game/state'
 import type { GridMap, RoomDef } from '../game/types'
 import { Door } from './Door'
 import { LightShafts } from './LightShafts'
@@ -14,6 +14,8 @@ import { Props } from './props/Props'
 import { EmergencyLights } from './EmergencyLights'
 import { lampPositions, roomPowerCut } from './roomPower'
 import { RoundHub } from './RoundHub'
+import { StationPower } from './StationPower'
+import { doorShadows } from './doorShadows'
 
 export const WIN_R = 0.42
 export const WIN_Y = 1.5
@@ -329,6 +331,11 @@ function Fixtures({ room, lit }: { room: RoomDef; lit: boolean }) {
 /** lumière dynamique d'une pièce (nombre constant : on change l'intensité, pas le nombre) */
 function RoomLight({ room, on, offset = [0, 0], share = 1 }: { room: RoomDef; on: boolean; offset?: [number, number]; share?: number }) {
   const ref = useRef<THREE.PointLight>(null)
+  // Only the two lamps on either side of the mission airlock need local shadows.
+  // Cached cube maps avoid rendering every room six times on every frame.
+  const shadowed = G().zone === 1 ? ['sas', 'liaison_est'].includes(room.id)
+    : G().zone === 2 && ['amarrage', 'liaison_ouest'].includes(room.id)
+  const shadowVersion = useRef(-1)
   const [x0, z0, x1, z1] = room.rect
   // Directly under a real lamp, and well below the ceiling, so no bright spot appears on bare panels.
   const wide = x1 - x0 >= z1 - z0
@@ -345,8 +352,13 @@ function RoomLight({ room, on, offset = [0, 0], share = 1 }: { room: RoomDef; on
     // The normal circuit really goes dark. Red light comes from the beacons.
     ref.current.intensity = !on || roomPowerCut(room) ? 0
       : THREE.MathUtils.damp(ref.current.intensity, base * diff().light, 10, Math.min(dt, 0.1))
+    if (shadowed && (G().loading < 1 || shadowVersion.current !== doorShadows.version)) {
+      ref.current.shadow.needsUpdate = true
+      shadowVersion.current = doorShadows.version
+    }
   })
-  return <pointLight name={`room-light:${room.id}`} ref={ref} position={[cx, CEIL - 1.05, cz]} color={room.light} intensity={on ? base : 0} distance={reach} decay={1.5} />
+  return <pointLight name={`room-light:${room.id}`} ref={ref} position={[cx, CEIL - 1.05, cz]} color={room.light} intensity={on && !roomPowerCut(room) ? base : 0} distance={reach} decay={1.5}
+    castShadow={shadowed} shadow-mapSize={[256, 256]} shadow-autoUpdate={false} shadow-bias={-0.00015} shadow-normalBias={0.015} shadow-camera-near={0.1} shadow-camera-far={reach} />
 }
 
 /** A light at the hub's centre would be inside the lift and leave its outer wall black. */
@@ -365,6 +377,7 @@ function Hull({ geometry, map }: { geometry: THREE.BufferGeometry; map: GridMap 
 }
 
 export function Level({ map, shadows }: { map: GridMap; shadows: boolean }) {
+  const root = useRef<THREE.Group>(null)
   const built = useMemo(() => buildLevel(map), [map])
   const machineryLit = useGame((s) => s.flags.power && s.flags.pw_lights)
   const lightsOn = (r: RoomDef) => {
@@ -377,7 +390,8 @@ export function Level({ map, shadows }: { map: GridMap; shadows: boolean }) {
   }, [machineryLit])
 
   return (
-    <group>
+    <group ref={root} name="station-level">
+      {map.zone === 2 && <StationPower root={root} />}
       {map.rooms.map((room) => {
         const geo = built.rooms[room.id]
         if (!geo && room.shape !== 'round') return null

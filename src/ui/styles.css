@@ -11,6 +11,7 @@
   --bad: #ff5a4a;
   --cyan: #7fe3ff;
   --gutter: max(16px, env(safe-area-inset-left));
+  --film-bar-height: max(0px, calc((100vh - 100vw / 2.39) / 2));
 }
 
 * {
@@ -1674,5 +1675,10 @@ body.pad input:focus {
   bottom: 0;
 }
 .film-bars.on i {
-  height: max(0px, calc((100vh - 100vw / 2.39) / 2));
+  height: var(--film-bar-height);
+}
+.subtitle.film-subtitle {
+  bottom: calc(var(--film-bar-height) + 20px);
+  width: min(760px, 90vw);
+  z-index: 31;
 }

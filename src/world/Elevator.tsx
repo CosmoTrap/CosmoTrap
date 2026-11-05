@@ -8,6 +8,7 @@ import { CEIL } from '../game/maps'
 import { G, live, useGame } from '../game/state'
 import { useMats } from './materials'
 import { Box, Cyl, Screen } from './props/models'
+import { stationPowerDown } from './roomPower'
 
 /** Fixed glass wall of the shaft, and the cab's own glass wall inside it. */
 const SHAFT_R = 1.7
@@ -78,6 +79,7 @@ export function Elevator({ zone, cx, cz }: { zone: number; cx: number; cz: numbe
     c.emissiveIntensity = 0.2
     return c
   }, [shell])
+  lamp.userData.backupCircuit = alarm.userData.backupCircuit = inner.userData.backupCircuit = true
   // Seen from both the hub and the cab.
   const glass = useMemo(() => {
     const c = glassBase.clone()
@@ -91,14 +93,15 @@ export function Elevator({ zone, cx, cz }: { zone: number; cx: number; cz: numbe
   useFrame(({ clock }, dt) => {
     // A slow swell, about three seconds per cycle, on its own circuit: it never stops.
     const locked = !liftUnlocked(G().zone, G().flags.pressurized)
+    const emergency = locked || stationPowerDown()
     const pulse = 0.5 + 0.5 * Math.sin(clock.elapsedTime * 2.2)
-    alarm.emissive.set(locked ? '#ff1a0a' : '#eef4ff')
-    alarm.emissiveIntensity = locked ? 0.2 + 2.6 * pulse : 1.3
-    inner.emissive.set(locked ? '#ff2a1a' : '#eef4ff')
-    inner.emissiveIntensity = locked ? 0.06 + 0.34 * pulse : 0.12
+    alarm.emissive.set(emergency ? '#ff1a0a' : '#eef4ff')
+    alarm.emissiveIntensity = emergency ? 0.2 + 2.6 * pulse : 1.3
+    inner.emissive.set(emergency ? '#ff2a1a' : '#eef4ff')
+    inner.emissiveIntensity = emergency ? 0.06 + 0.34 * pulse : 0.12
     if (cabLight.current) {
-      cabLight.current.color.set(locked ? '#ff1a0a' : '#f2f6ff')
-      cabLight.current.intensity = locked ? 0.5 + 6 * pulse : 4
+      cabLight.current.color.set(emergency ? '#ff1a0a' : '#f2f6ff')
+      cabLight.current.intensity = emergency ? 0.5 + 6 * pulse : 4
     }
     const open = liftUnlocked(G().zone, G().flags.pressurized) && G().cine !== 'lift'
       && Math.hypot(live.pos[0] - (cx + SHAFT_R), live.pos[2] - cz) < OPEN_DISTANCE
@@ -114,7 +117,7 @@ export function Elevator({ zone, cx, cz }: { zone: number; cx: number; cz: numbe
     if (right.current) right.current.rotation.y = -k
     const isClosed = anim.current < 0.55
     if (isClosed !== closed) setClosed(isClosed)
-    lamp.emissive.set(liftUnlocked(G().zone, G().flags.pressurized) ? '#62d6b1' : '#ff4128')
+    lamp.emissive.set(stationPowerDown() ? '#ff1a0a' : liftUnlocked(G().zone, G().flags.pressurized) ? '#62d6b1' : '#ff4128')
   })
 
   const segments = useMemo(() => {
