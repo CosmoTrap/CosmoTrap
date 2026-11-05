@@ -25,6 +25,8 @@ const BODY = 2.15
 const DT_CAP = 0.05
 const MIN_SPEED = 3.2
 const MAX_SPEED = 10.5
+/** Tour sur soi-même, en rad/s. Au-delà, un choc répété rendait le rocher illisible. */
+const MAX_SPIN = 0.07
 
 export interface RockBody {
   p: THREE.Vector3
@@ -203,7 +205,7 @@ export function placeRock(center: THREE.Vector3, box: KeepOut, minY = -80): Rock
     p,
     v,
     rot: new THREE.Euler(Math.random() * 6, Math.random() * 6, Math.random() * 6),
-    spin: new THREE.Vector3((Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.3),
+    spin: new THREE.Vector3((Math.random() - 0.5) * 0.08, (Math.random() - 0.5) * 0.08, (Math.random() - 0.5) * 0.08),
     s,
   }
 }
@@ -239,8 +241,6 @@ function hitRocks(a: RockBody, b: RockBody, box: KeepOut) {
     const j = -(1 + 0.08) * reln * 0.22 / (1 / ma + 1 / mb)
     a.v.addScaledVector(_n, -j / ma)
     b.v.addScaledVector(_n, j / mb)
-    a.spin.x += _n.y * 0.15
-    b.spin.z -= _n.x * 0.15
   }
   keepFlow(a.v)
   keepFlow(b.v)
@@ -407,6 +407,8 @@ export function Asteroids({ center, count = 220, keepOut, minY = -80, flow }: { 
       if (!im) continue
       for (let i = 0; i < per; i++) {
         const d = data[k * per + i]
+        const spin = d.spin.length()
+        if (spin > MAX_SPIN) d.spin.multiplyScalar(MAX_SPIN / spin)
         d.rot.x += d.spin.x * h
         d.rot.y += d.spin.y * h
         d.rot.z += d.spin.z * h
