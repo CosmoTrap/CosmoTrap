@@ -1,4 +1,5 @@
 import { act, allEnts, doorUnlocked, enterZone, entById, startEvent, tick, useItem } from './logic'
+import { solveValves, valveHint } from './valves'
 import { WALL_DIR, entWorld, spawnOf } from './maps'
 import { G, addItem, live, newGameData, timeLimit, useGame } from './state'
 import type { ItemId, ZoneId } from './types'
@@ -40,6 +41,8 @@ export function installDevApi() {
         difficulty: s.difficulty,
         event: s.event,
         trackLen: s.track.length,
+        valves: [...s.valves],
+        valveStart: [...s.valveStart],
         pos: [...live.pos],
         aimed: live.aimed,
         propPositions: { ...s.propPositions },
@@ -91,6 +94,8 @@ export function installDevApi() {
     startEvent: (k: 'blackout' | 'leak') => startEvent(k),
     useItem: (it: ItemId) => useItem(it),
     timeLimit: () => timeLimit(),
+    valveSolution: () => solveValves(G().valves),
+    valveHint: () => valveHint(G().valves),
     live,
   }
   ;(window as any).__game = api

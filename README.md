@@ -191,9 +191,9 @@ Le classement est séparé par difficulté.
 1. Prendre la **lampe torche** sur l'étagère du dortoir, puis l'allumer (F).
 2. Lire le **tableau du réfectoire** : le code du casier est l'année de mise en service de la station.
 3. Aller dans la **réserve** (sombre, au sud-ouest) et lire la plaque à la lampe : **2041**.
-4. **Énigme 1, observation visuelle.** Taper **2041** sur le casier du dortoir pour récupérer le badge.
+4. **Énigme 1, observation visuelle.** Taper **2041** sur le casier du dortoir pour récupérer le badge. Les touches sont mélangées à chaque ouverture ; le clavier physique du PC saisit les vrais chiffres. Le code ne change pas.
 5. Badger la porte du **sas**, à l'est du couloir.
-6. **Énigme 2, logique (Lights Out 3×3).** Appuyer sur les vannes de la diagonale : haut-gauche, centre, bas-droite.
+6. **Énigme 2, logique (Lights Out 3×3).** Chaque vanne inverse son état et celui de ses voisines directes (haut, bas, gauche, droite). L'ordre ne compte pas, et appuyer deux fois annule. La grille de départ est tirée au sort à chaque partie, toujours soluble, avec une solution minimale de 4 à 7 appuis. Elle est enregistrée dans la sauvegarde. Le bouton Réinitialiser revient à ce départ, sans en tirer un nouveau. L'indice fort donne les cases exactes de la grille en cours, au format « ligne, colonne » (L1 C1 en haut à gauche). Méthode : corriger une ligne après l'autre en partant du haut, comme l'indique le post-it du casier.
 7. Prendre l'**ascenseur** du nœud central, déverrouillé par la pressurisation, pour descendre à l'étage 2. On peut ensuite circuler librement entre les étages 1 et 2.
 
 ### Zone 2 — Labo & machinerie
@@ -201,38 +201,40 @@ Le classement est séparé par difficulté.
 1. Prendre le **fusible** dans le labo (nord-ouest) et la **clé à molette** dans la serre (nord).
 2. Fermer la **vanne de vapeur** dans le couloir, à l'est. La vapeur bloque l'accès au disjoncteur.
 3. **Disjoncteur** (nord-est) : y poser le fusible.
-4. **Choix stratégique (gestion de projet).** Le réseau fournit 3 unités pour 4 systèmes. Activer **Sas** et **Terminal**, puis **Recyclage O₂** ou **Lumières de la machinerie**.
+4. **Choix stratégique (gestion de projet).** Le réseau fournit 3 unités pour 4 systèmes. Démarrer le **sas** d'abord, puis le **terminal**. Lancer le terminal avant le sas fait sauter le disjoncteur : les quatre systèmes s'éteignent (−20 s). Ensuite, choisir **Recyclage O₂** ou **Lumières de la machinerie**.
 5. **Énigme 3, algorithmique.** Le terminal de la machinerie affiche :
 
    ```
-   couleurs ← [ROUGE, JAUNE, BLEU, VERT]
+   couleurs ← [ROUGE, JAUNE, BLEU, VERT]   (indices 0 à 3)
    pour i allant de 0 à 3 :
        j ← (3 × i + 2) mod 4
        émettre couleurs[j]
    ```
 
-   j vaut 2, 1, 0 puis 3. Il faut donc charger **BLEU · JAUNE · ROUGE · VERT**.
-6. Le **sas d'amarrage** s'ouvre (il faut le courant et le programme chargé). Prendre l'écoutille de l'Hermès.
+   j vaut 2, 1, 0 puis 3, donc couleurs[2], [1], [0], [3] : **BLEU · JAUNE · ROUGE · VERT**.
+6. Le **sas d'amarrage** s'ouvre (il faut le courant, le sas alimenté et le programme chargé). Prendre l'écoutille de l'Hermès.
 
 ### Zone 3 — Fusée Hermès
 
 1. Trouver la **cellule d'énergie** dans la soute (sombre, sud-ouest) et l'insérer dans le **moteur** (sud-est).
-2. **Énigme 4, gestion de projet (planning pré-vol).** Respecter les dépendances. Un ordre valide :
+2. **Énigme 4, gestion de projet (planning pré-vol).** Huit opérations, affichées dans un ordre mélangé qui n'est jamais déjà une solution. Une tâche lancée avant ses prérequis coûte 20 s. Plusieurs ordres sont valides. L'un d'eux :
    1. Fermer l'écoutille.
    2. Charger la trajectoire.
-   3. Pressuriser la cabine.
-   4. Désamarrer.
-   5. Contrôler l'O₂ des combinaisons.
-   6. Autoriser l'allumage.
+   3. Purger le carburant.
+   4. Pressuriser la cabine (après l'écoutille).
+   5. Aligner la centrale inertielle (après la trajectoire).
+   6. Contrôler l'O₂ des combinaisons (après la pressurisation).
+   7. Désamarrer (après l'écoutille, la centrale et le carburant).
+   8. Autoriser l'allumage (après le désamarrage et l'O₂).
 3. **Dilemme** : garder ou larguer les échantillons.
-4. **Énigme 5, logique** (réutilise l'énigme 3) : entrer la séquence **BLEU · JAUNE · ROUGE · VERT**. Suivent le décollage et la rentrée atmosphérique.
+4. **Énigme 5, logique** (décompte, à partir de l'énigme 3) : le carnet donne BLEU · JAUNE · ROUGE · VERT. Le lancement se saisit **à l'envers** : **VERT · ROUGE · JAUNE · BLEU**. Une couleur fausse remet le décompte à zéro (−30 s). Suivent le décollage et la rentrée atmosphérique.
 
 ### Zone 4 — Terre
 
-1. **Fouiller la capsule** (derrière le joueur) : batterie, corde et manuel. Le manuel indique 121,5 MHz.
+1. **Fouiller la capsule** (derrière le joueur) : batterie, corde et manuel. Le manuel donne la détresse militaire, **243 MHz**, et dit que la balise civile émet sur la moitié exacte.
 2. Ramasser l'**antenne** près des arbres, à l'ouest.
 3. **Réparer le pont** au nord avec la corde. La rivière est infranchissable sans lui.
-4. **Énigme 6, logique.** Régler la **balise** (sur le rocher, de l'autre côté) sur **121,5 MHz** et émettre.
+4. **Énigme 6, logique.** 243 ÷ 2 = **121,5**. Régler la **balise** (sur le rocher, de l'autre côté) sur **121,5 MHz** et émettre. Le bruit ne baisse qu'à moins de 2 MHz de la cible. Une autre fréquence coûte 20 s.
 5. Prendre le **pistolet de détresse** dans la caisse du refuge, au nord-ouest.
 6. **Tirer la fusée à l'hélisurface**, au nord. L'hélicoptère arrive : fin.
 

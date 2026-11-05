@@ -325,7 +325,7 @@ function Locker() {
 
 function Postit() {
   const mat = useMemo(() => {
-    const t = textTexture(['La diagonale,', 'toujours la', 'diagonale. — N.'], { w: 128, h: 128, bg: '#f6e27a', fg: '#1d2a6b', size: 15, font: 'italic 600 15px Inter, sans-serif', pad: 10 })
+    const t = textTexture(['Jamais au', 'hasard. Une', 'ligne après', 'l’autre. — N.'], { w: 128, h: 128, bg: '#f6e27a', fg: '#1d2a6b', size: 14, font: 'italic 600 14px Inter, sans-serif', pad: 8 })
     return new THREE.MeshStandardMaterial({ map: t, roughness: 0.8 })
   }, [])
   return (
@@ -688,7 +688,7 @@ function DoorLock() {
 }
 
 const DATAPADS: Record<string, string[]> = {
-  labNote: ['JOURNAL LABO', 'Disjoncteur sauté.', 'Fusible : tiroir', 'Réseau : 3 unités'],
+  labNote: ['JOURNAL LABO', '3 unités. Sas', 'avant le terminal', 'sinon disjoncteur'],
   cargoNote: ['SOUTE · INVENTAIRE', 'Cellule énergie', 'caisse 3, au fond'],
 }
 
