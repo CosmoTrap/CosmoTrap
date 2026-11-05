@@ -42,7 +42,7 @@ function Plan() {
   }).length : 0
   const f = useGame.getState().flags
   const event = useGame.getState().event
-  const alert = zone === 1 && !f.pressurized && alarmOn(1) ? t.alarm : event?.kind === 'blackout' ? t.blackout : event?.kind === 'leak' ? t.leak : zone === 2 && !f.power ? t.noPower : null
+  const alert = event?.kind === 'blackout' ? t.blackout : event?.kind === 'leak' ? t.leak : alarmOn(zone) ? `${t.alarm} · NIVEAU ${zone}` : zone === 2 && !f.power ? t.noPower : null
   const allSteps = stepsState(zone)
   const stationSolved = allSteps.filter((s) => s.status === 'done').length
   const status = room ? roomStatus(zone, room) : 'idle'

@@ -24,7 +24,7 @@ Ouvrir l'URL publique : `https://royalblue-wolverine-280146.hostingersite.com`. 
 | Nova | Économe : la lampe consomme 35 % de piles en moins |
 | Kenji | Décodeur : pénalités d'erreur divisées par 2 |
 | Inès | Sang-froid : +3 min au chrono |
-| Sam | Endurant : −40 % d'eau, trousses de secours à +60 % de vie |
+| Sam | Endurant : −40 % d'eau, trousses de secours à +30 % de vie |
 | Maya | Souffle long : −25 % d'O₂ |
 
 **Paramètres → Jeu.** Niveau d'aide (Recrue : 1er indice gratuit ; Pilote : 30 s / 60 s ; Commandant : 60 s / 120 s), chronomètre, sous-titres, sauvegarde à chaque énigme, langue FR / EN, qualité, luminosité, sensibilité, champ de vision (70–110°), plein écran et résolution.
@@ -146,13 +146,15 @@ Le classement est séparé par difficulté.
 
 ### Imprévus (zones 1 à 3)
 
-- **Coupure de courant** (32 s) : l’éclairage normal s’éteint et les gyrophares rouges prennent le relais. Les coupures locales des couloirs durent 16 s ; la lampe reste utilisable.
+- **Coupure de courant** : tout le niveau 2 est sans courant dès l'arrivée, jusqu'à la réparation du disjoncteur. Une coupure imprévue de 32 s peut aussi survenir. Les lampes s'éteignent, seuls les gyrophares rouges restent allumés, et l'ascenseur reste utilisable. La lampe torche devient indispensable.
+- **Extérieur** : par les vitres, on voit la station inspirée de l'ISS : l'autre niveau, relié par l'ascenseur (le niveau 1 est au-dessus du niveau 2), les panneaux solaires du plan de la tablette, la poutre, les radiateurs et la fusée amarrée.
+- **Alarme** : les gyrophares tournent, lumières allumées, tant que le sas n'est pas pressurisé (niveau 1), tant que le gaz fuit (niveau 2), pendant une micro-fuite et dans les 5 dernières minutes avant l'impact des météorites. Pendant une alarme ou une coupure, l'ascenseur passe au rouge ; sinon il reste blanc.
 - **Micro-fuite** (28 s) : l'O₂ baisse 2,2 fois plus vite. Le ruban adhésif (objet de survie, Tablette → Inventaire → Colmater) l'arrête tout de suite.
 
 ### Succès et réplique fantôme
 
 - **Succès.** Il y en a 10 : partie terminée, sans indice, sans faute, moins de 10 min, 10 objets de survie, O₂ jamais sous 15 %, échantillons gardés, Survie terminée, fuite colmatée, station explorée en entier. Ils sont gardés dans le compte et visibles depuis le menu **Succès**.
-- **Réplique fantôme.** Le parcours du meilleur temps de ta difficulté est rejoué en hologramme orange, en même temps que toi. Il se désactive dans Réglages.
+- **Réplique fantôme.** Le parcours du meilleur temps de ta difficulté est rejoué en hologramme orange, en même temps que toi. Désactivée par défaut, elle s'active dans Réglages.
 
 - **Chronomètre.** La partie dure au plus 30 minutes, avec le temps restant affiché en haut. À zéro, c'est l'échec : la station est perdue.
 - **Erreurs.** Une mauvaise réponse a une conséquence visible : flash rouge et pénalité de temps.
@@ -168,7 +170,7 @@ Le classement est séparé par difficulté.
   - Oxygène : −0,21 %/s, ×1,5 en zone 2 tant que le gaz fuit. Une bouteille d'O₂ ajoute 55 % : on ne peut la brancher qu'à 45 % ou moins, et elle se branche seule à 15 %. À 0, la partie est perdue.
   - Lampe : −0,20 %/s quand elle est allumée. À 0, elle s'éteint, et on ne peut plus lire ni ramasser dans le noir.
   - Eau : −0,11 %/s. Une poche ajoute 50 % et se boit seule à 15 %. À 0, la partie est perdue.
-  - Vie : le gaz de la conduite cassée (zone 2) enlève 75 % à chaque contact. Une trousse de secours rend 40 % (60 % avec Sam) et se déclenche seule à 15 %. À 0, la partie est perdue.
+  - Vie : le gaz de la conduite cassée (zone 2) enlève 40 % à chaque passage. Une trousse de secours rend 20 % (30 % avec Sam) et se déclenche seule à 15 %. À 0, la partie est perdue.
   - Couverture de survie : sur Terre, sans elle, tu perds 0,1 % de vie par seconde et tu avances 20 % moins vite.
 - **Score.** `6000 + 3 × (secondes restantes) − 150 × indices − 100 × erreurs + 60 × objets de survie (+300 si les échantillons sont gardés)`.
 - **Classement.** Il garde le meilleur temps de chaque joueur, pénalités comprises.
@@ -207,7 +209,7 @@ Le classement est séparé par difficulté.
 À l’arrivée, tout l’étage fonctionne sur les alarmes rouges : plafonniers, écrans de décor et éclairage normal sont coupés. La lampe torche reste utilisable. La réparation du disjoncteur rétablit le réseau ; l’éclairage de la machinerie dépend ensuite du choix d’énergie ci-dessous.
 
 1. Prendre le **fusible** dans le labo (nord-ouest) et la **clé à molette** dans la serre (nord).
-2. Fermer la **vanne de gaz** dans le couloir, à l'est. Le gaz bloque l'accès au disjoncteur.
+2. Traverser la fuite de gaz dans le couloir, à l'est (−40 % de vie à chaque passage), puis fermer la **vanne de gaz**, de l'autre côté. Prends la clé avant de passer. Le disjoncteur reste inutilisable tant que la vanne n'est pas fermée.
 3. **Disjoncteur** (nord-est) : y poser le fusible.
 4. **Choix stratégique (gestion de projet).** Le réseau fournit 3 unités pour 4 systèmes. Démarrer le **sas** d'abord, puis le **terminal**. Lancer le terminal avant le sas fait sauter le disjoncteur : les quatre systèmes s'éteignent (−20 s). Ensuite, choisir **Recyclage O₂** ou **Lumières de la machinerie**.
 5. **Énigme 3, algorithmique.** Le terminal de la machinerie affiche :
@@ -561,7 +563,7 @@ PLAYWRIGHT_SOFTWARE=1 npx playwright test
 `tests/playthrough.spec.ts` crée un compte et joue toute la partie en se téléportant devant chaque objectif. Il résout les énigmes par l'interface et vérifie les verrous :
 
 - l'ascenseur reste verrouillé avant la pressurisation ;
-- le gaz bloque l'accès au disjoncteur ;
+- le gaz brûle à chaque passage : 40 % de vie pour atteindre la vanne et le disjoncteur ;
 - le sas reste fermé tant que le terminal n'est pas décodé ;
 - la rivière est infranchissable avant le pont.
 

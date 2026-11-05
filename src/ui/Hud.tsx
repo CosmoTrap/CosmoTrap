@@ -10,7 +10,7 @@ import { fmtTime } from '../game/api'
 import { gridMap } from '../game/maps'
 
 function Gauge({ kind, color, label }: { kind: 'hp' | 'o2' | 'lamp' | 'water'; color: string; label: string }) {
-  const value = useGame(s => s.res[kind])
+  const value = useGame((s) => s.res[kind])
   const low = value < 25
   const beat = kind === 'o2' && low ? 60 / (70 + 80 * (1 - value / 25)) : 0
   return (
@@ -89,7 +89,7 @@ function Chrono() {
   const errors = useGame((s) => s.errors)
   const ev = useGame((s) => s.event)
   const eventLeft = useGame((s) => s.event ? Math.max(0, Math.ceil(s.event.until - s.playTime)) : 0)
-  const ghostOn = useGame((s) => s.settings.ghost)
+  const ghostOn = useGame((s) => s.settings.ghostReplay)
   useGame((s) => s.difficulty)
   const mm = Math.floor(left / 60)
   const ss = Math.floor(left % 60)
@@ -131,6 +131,20 @@ function Banner() {
       <b>{b.sub}</b>
     </div>
   )
+}
+
+function HurtFlash() {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    let raf = 0
+    const loop = () => {
+      if (ref.current) ref.current.style.opacity = String(live.hurt)
+      raf = requestAnimationFrame(loop)
+    }
+    loop()
+    return () => cancelAnimationFrame(raf)
+  }, [])
+  return <div className="hurt-flash" data-testid="hurt-flash" ref={ref} style={{ opacity: 0 }} />
 }
 
 function PenaltyFlash() {
@@ -226,6 +240,7 @@ export function Hud() {
         </div>
       )}
       <PenaltyFlash />
+      <HurtFlash />
       <Banner />
       <CineOverlay />
       {!touch && !locked && !overlay && !cine && <LockHint />}

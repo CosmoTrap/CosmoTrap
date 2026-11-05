@@ -8,7 +8,7 @@ import { entById } from '../game/logic'
 import { G, live, useGame } from '../game/state'
 import { fr } from '../i18n/fr'
 import { Astronaut, type AstronautHandle } from './Astronaut'
-import { backdrop, tourBackdrop } from './cine/StationExterior'
+import { backdrop } from './cine/StationExterior'
 
 // Cinématiques « film » à l'entrée de chaque zone : plans découpés (travellings, plans serrés,
 // contre-plongées), acteur à la 3e personne, et le crash de la capsule Hermès sur Terre.
@@ -75,15 +75,15 @@ function shotsFor(zone: number): Shot[] {
   if (z === 1) {
     // A quick presentation of the station, without the character: outside, its two levels joined by the
     // lift; then inside, a corridor, the mess, the infirmary, the hub and its lift, and the dormitory.
-    const B = tourBackdrop()
-    const out = (x: number, y: number, z: number): V3 => [B.x + x, B.y + y, B.z + z]
+    // The real station, filmed from outside: floor 1 around the hub at (41, 41), floor 2 under it.
     const outside = (on: boolean) => {
       actor.visible = false
-      backdrop.visible = on
+      backdrop.visible = false
+      void on
     }
     return [
-      { d: 6.5, from: [out(72, 26, 58), out(0, -5, 0)], to: [out(52, 16, 46), out(0, -4, 0)], fov: 40, line: 0, run: () => outside(true) },
-      { d: 5, from: [out(28, -7, 24), out(0, -8, -4)], to: [out(-8, -5, 30), out(0, -7, -6)], fov: 44, run: () => outside(true) },
+      { d: 6.5, from: [[118, 26, 104], [41, -3, 41]], to: [[96, 16, 96], [41, -2.5, 41]], fov: 40, line: 0, run: () => outside(true) },
+      { d: 5, from: [[78, -9, 78], [41, -6, 41]], to: [[52, -8, 92], [38, -5, 44]], fov: 46, run: () => outside(true) },
       { d: 4.6, from: [[41, 1.65, 36.5], [41, 1.5, 16]], to: [[41, 1.65, 27.5], [41, 1.45, 16]], fov: 58, line: 1, run: () => outside(false) },
       { d: 4.6, from: [[53, 1.8, 21], [30, 1.1, 17.5]], to: [[47, 1.7, 20.5], [28, 1.1, 17]], fov: 56, run: () => outside(false) },
       { d: 4.2, from: [[39.5, 1.7, 61], [54, 1.1, 64.5]], to: [[43, 1.65, 61.5], [55, 1.0, 64]], fov: 56, run: () => outside(false) },

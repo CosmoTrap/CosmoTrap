@@ -402,7 +402,8 @@ export function Player() {
     S.breath += dt * (1.2 + lowO2 * 2.5)
     const breathY = Math.sin(S.breath) * (0.004 + lowO2 * 0.012)
 
-    const shake = s.shake
+    live.hurt = Math.max(0, live.hurt - dt * 1.2)
+    const shake = s.shake + live.hurt * 1.8
     const sx = shake ? (Math.random() - 0.5) * shake * 0.05 : 0
     const sy = shake ? (Math.random() - 0.5) * shake * 0.05 : 0
 

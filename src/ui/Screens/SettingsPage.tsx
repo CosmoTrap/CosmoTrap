@@ -268,7 +268,7 @@ function Game() {
         <Toggle on={s.invertY} onChange={(v) => update({ invertY: v })} />
       </Row>
       <Row title={S.ghost} desc={S.ghostDesc}>
-        <Toggle on={s.ghost} onChange={(v) => update({ ghost: v })} />
+        <Toggle on={s.ghostReplay} onChange={(v) => update({ ghostReplay: v })} />
       </Row>
       <Row title={S.colorblind}>
         <Toggle on={s.colorblind} onChange={(v) => update({ colorblind: v })} />

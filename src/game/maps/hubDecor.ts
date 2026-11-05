@@ -36,7 +36,7 @@ export function hubDecorTechnical(room: RoomDef): Prop[] {
     atHub(room, 'storageShelf', 160, 6.9),
     atHub(room, 'crateSmall', 160, 6.65, 1.12), atHub(room, 'cleanerCan', 160, 6.65, 0.63), atHub(room, 'lubricant', 160, 6.65, 0.15),
     atHub(room, 'containerLow', 225, 6.92), atHub(room, 'toolbox', 225, 6.6, 0.43),
-    atHub(room, 'elecBox', 250, 6.9), atHub(room, 'powerBox', 292, 6.92),
+    atHub(room, 'elecBox', 250, 6.9), atHub(room, 'powerBox', 292, 6.98, 1.15),
     atHub(room, 'gasBottle', 315, 6.45), atHub(room, 'gasBottle', 322, 6.45),
     atHub(room, 'extinguisher', 340, 6.9), atHub(room, 'fireAlarm', 112, 6.95, 1.5),
   ]

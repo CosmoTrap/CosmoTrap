@@ -26,9 +26,26 @@ function band(s: Surface, r: number, a: number, b: number, low: number, high: nu
   for (const [angle, y] of [[a, low], [a, high], [b, low], [b, high]]) {
     s.p.push(Math.sin(angle) * r, y, Math.cos(angle) * r)
     s.n.push(-Math.sin(angle), 0, -Math.cos(angle))
-    s.uv.push(angle * r / 2, y / CEIL)
+    // Negative: seen from inside the hub, the angle runs right to left, and the wall's lettering would read backwards.
+    s.uv.push(-angle * r / 2, y / CEIL)
   }
   s.indices.push(start, start + 1, start + 2, start + 2, start + 1, start + 3)
+}
+
+/** A flat piece closing the wall's thickness, seen from both sides: from radius r0 to r1, between two angles and two heights. */
+function reveal(s: Surface, r0: number, r1: number, a: number, b: number, low: number, high: number) {
+  const start = s.p.length / 3
+  const corners: [number, number, number][] = [[r0, a, low], [r1, a, low], [r0, b, high], [r1, b, high]]
+  // A sill runs along the arc at one height; a jamb stands at one angle.
+  const flat = low === high
+  for (const [r, angle, y] of corners) s.p.push(Math.sin(angle) * r, y, Math.cos(angle) * r)
+  const mid = (a + b) / 2
+  for (let i = 0; i < 4; i++) {
+    if (flat) s.n.push(0, 1, 0)
+    else s.n.push(Math.cos(mid), 0, -Math.sin(mid))
+    s.uv.push(i & 1, i >> 1)
+  }
+  s.indices.push(start, start + 1, start + 2, start + 2, start + 1, start + 3, start, start + 2, start + 1, start + 2, start + 3, start + 1)
 }
 
 export function buildRoundHub(radius: number, exits = [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
@@ -57,6 +74,11 @@ export function buildRoundHub(radius: number, exits = [0, Math.PI / 2, Math.PI, 
         band(hull, radius + 0.05, a, b, 2.15, CEIL + 0.05)
         band(trim, radius - 0.045, a, b, 0.81, 0.9)
         band(trim, radius - 0.045, a, b, 2.1, 2.19)
+        // Close the wall's thickness all round the glass: no gap to see through at its edges.
+        reveal(trim, radius - 0.06, radius + 0.07, a, b, 0.85, 0.85)
+        reveal(trim, radius - 0.06, radius + 0.07, a, b, 2.15, 2.15)
+        if (i === 10) reveal(trim, radius - 0.06, radius + 0.07, a, a, 0.85, 2.15)
+        if (i === 21) reveal(trim, radius - 0.06, radius + 0.07, b, b, 0.85, 2.15)
       } else {
         band(wall, radius, a, b, 0, CEIL)
         band(hull, radius + 0.05, a, b, -0.05, CEIL + 0.05)
@@ -140,6 +162,9 @@ export function RoundHub({ room, shadows, zone }: { room: RoomDef; shadows: bool
   const windowGlass = useMemo(() => {
     const c = m.glass('#aac9da', 0.05).clone()
     c.specularIntensity = 0.1
+    // Clear glass: reflections of the bright room must not wash out the black of space.
+    c.opacity = Math.min(c.opacity, 0.05)
+    c.envMapIntensity = 0.04
     return c
   }, [m])
   useEffect(() => () => windowGlass.dispose(), [windowGlass])
@@ -175,6 +200,10 @@ export function RoundHub({ room, shadows, zone }: { room: RoomDef; shadows: bool
       <torusGeometry args={[3.8, 0.05, 8, 96]} />
     </mesh>
     </StaticBatch>
+    {/* Where the curved wall meets each corridor: a full post, so no gap can open on space. */}
+    {angles.flatMap((a, i) => [-1, 1].map((side) => (
+      <Box key={`${i}:${side}`} s={[0.16, CEIL, 0.16]} p={[Math.sin(a) * radius + Math.cos(a) * side, CEIL / 2, Math.cos(a) * radius - Math.sin(a) * side]} r={[0, a, 0]} m={frame} />
+    )))}
     {!room.exits && <Elevator zone={zone} cx={cx} cz={cz} />}
     <RigidBody type="fixed" colliders={false}>
       {built.colliders.map((c, i) => <CuboidCollider key={i} position={[c.x, CEIL / 2, c.z]} rotation={[0, c.angle, 0]} args={[c.half, CEIL / 2, 0.07]} />)}

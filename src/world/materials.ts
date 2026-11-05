@@ -2,7 +2,7 @@ import { createContext, useContext } from 'react'
 import * as THREE from 'three'
 import { G } from '../game/state'
 import { QUALITY } from './quality'
-import { ceilingSet, floorSet, paintedMetal, wallSet, type PBRSet, type WallTheme } from './textures'
+import { ceilingSet, drawTexture, floorSet, paintedMetal, wallSet, type PBRSet, type WallTheme } from './textures'
 import { photoSurface } from './photomaterials'
 
 // Matériaux partagés, mis en cache. Les pièces sombres ont leurs propres instances
@@ -64,7 +64,34 @@ export function ceilingMaterial(dark: boolean, roomId: string) {
 
 /** Exterior panels reuse the interior PBR detail, with a permanent material.
  * Both shadow faces seal seams; the window openings remain in the geometry. */
+/** The station's outer skin, as seen through the windows: white shield panels, not interior walls. */
+function exteriorSkin() {
+  return cached('hull:exterior', false, '', () => {
+    const map = drawTexture(512, 512, (c) => {
+      c.fillStyle = '#d7d9d7'
+      c.fillRect(0, 0, 512, 512)
+      // Each tile carries two rows of panels, each a slightly different white, with their bolts.
+      for (let x = 0; x < 2; x++) for (let y = 0; y < 2; y++) {
+        const v = 208 + ((x * 7 + y * 13) % 5) * 6
+        c.fillStyle = `rgb(${v},${v},${v - 3})`
+        c.fillRect(x * 256 + 4, y * 256 + 4, 248, 248)
+        c.fillStyle = '#85888b'
+        for (const px of [16, 128, 240]) for (const py of [16, 128, 240]) if (px !== 128 || py !== 128) c.fillRect(x * 256 + px - 2, y * 256 + py - 2, 4, 4)
+      }
+      c.fillStyle = 'rgba(58,60,64,.8)'
+      c.fillRect(0, 0, 512, 4); c.fillRect(0, 0, 4, 512); c.fillRect(254, 0, 4, 512); c.fillRect(0, 254, 512, 4)
+    })
+    map.anisotropy = 8
+    const detail = photoSurface('metal')
+    const material = new THREE.MeshStandardMaterial({ map, normalMap: detail.normalMap, normalScale: new THREE.Vector2(0.12, 0.12), roughnessMap: detail.roughnessMap, roughness: 0.75, metalness: 0.06, envMapIntensity: 0.35, emissive: '#c9cfd6', emissiveIntensity: 0.06, fog: false })
+    material.name = 'station-exterior-skin'
+    material.shadowSide = THREE.DoubleSide
+    return material
+  })
+}
+
 export function hullMaterial(kind: 'wall' | 'roof' = 'wall', theme: WallTheme = 'station') {
+  if (theme !== 'rocket') return exteriorSkin()
   return cached(`hull:${kind}:${theme}`, false, '', () => {
     const source = kind === 'wall' ? wallMaterial(theme, false, '') : ceilingMaterial(false, '')
     const material = source.clone()

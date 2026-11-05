@@ -9,6 +9,7 @@ import { fr } from '../../i18n/fr'
 import { levelName, tabletText } from './copy'
 import { Lock, ModuleArt, roomCode, roomStatus } from './moduleArt'
 import { roomPowerCut } from '../../world/roomPower'
+import { SOLAR_ARRAYS, SOLAR_CELL, SOLAR_GAP } from '../../game/maps/solarArrays'
 
 const DOT = { key: '#ff885c', res: '#75cfff', surv: '#45d7a2', exam: '#edc86e', exit: '#bfacff' }
 const square = (x: number, z: number, w = TILE, h = TILE) => `M${x},${z}h${w}v${h}h${-w}Z`
@@ -16,14 +17,8 @@ const square = (x: number, z: number, w = TILE, h = TILE) => `M${x},${z}h${w}v${
 /** The schematic comes from the same grid and room definitions as the 3D world. */
 export type MapMode = 'plan' | 'energy' | 'oxygen'
 
-/** Solar arrays: [x, z, strut end z, strut x] in world metres, clear of the modules on each floor. */
-const ARRAYS: Record<number, [number, number, number, number][]> = {
-  1: [[8, 17, 38, 16], [58, 17, 38, 65], [8, 58, 44, 16], [58, 58, 44, 65]],
-  2: [[2, 9, 32, 12], [55, 8, 34, 66], [8, 54, 40, 16], [62, 56, 40, 69]],
-}
-
 function SolarArray({ x, z, strutZ, strutX }: { x: number; z: number; strutZ: number; strutX: number }) {
-  const cell = 2.7, gap = .22
+  const cell = SOLAR_CELL, gap = SOLAR_GAP
   return <g pointerEvents="none">
     <path d={`M${strutX},${z + cell}V${strutZ}`} stroke="#6f7b92" strokeWidth=".28" />
     {[0, 1].map((row) => [0, 1, 2, 3, 4].map((col) => <g key={`${row}:${col}`} transform={`translate(${x + col * (cell + gap)} ${z + row * (cell * .78 + gap)})`}>
@@ -58,7 +53,7 @@ export function StationMap({ zone, selected, onSelect, mode = 'plan' }: { zone: 
       if (c === 'W' || c === 'V') windows += square(x * TILE + 0.55, z * TILE + 0.55, 0.9, 0.9)
     }))
     if (!map) { minX = BOUNDS.x0; minZ = BOUNDS.z0; maxX = BOUNDS.x1; maxZ = BOUNDS.z1 }
-    for (const [ax, az] of ARRAYS[zone] ?? []) { minX = Math.min(minX, ax); maxX = Math.max(maxX, ax + 15); minZ = Math.min(minZ, az); maxZ = Math.max(maxZ, az + 6) }
+    for (const { x: ax, z: az } of SOLAR_ARRAYS[zone] ?? []) { minX = Math.min(minX, ax); maxX = Math.max(maxX, ax + 15); minZ = Math.min(minZ, az); maxZ = Math.max(maxZ, az + 6) }
     if (zone === 2) minX = Math.min(minX, -8)
     return { floor, windows, minX: minX - 3, minZ: minZ - 6, w: maxX - minX + 6, h: maxZ - minZ + 11 }
   }, [map])
@@ -98,7 +93,7 @@ export function StationMap({ zone, selected, onSelect, mode = 'plan' }: { zone: 
         <radialGradient id="nav-node"><stop offset=".55" stopColor="#1a2a44" /><stop offset=".78" stopColor="#2d3a53" /><stop offset=".8" stopColor="#d3d8e0" /><stop offset="1" stopColor="#8a93a2" /></radialGradient>
       </defs>
       {map ? <>
-        {(ARRAYS[zone] ?? []).map(([ax, az, strutZ, strutX], i) => <SolarArray key={i} x={ax} z={az} strutZ={strutZ} strutX={strutX} />)}
+        {(SOLAR_ARRAYS[zone] ?? []).map((a, i) => <SolarArray key={i} {...a} />)}
         {zone === 2 && <g pointerEvents="none" data-testid="map-rocket">
           <rect x="-7.6" y="31.6" width="15.6" height="8.8" rx="1" fill="#0d1224" fillOpacity=".75" stroke="#ecc24a" strokeWidth=".14" strokeDasharray=".6 .4" />
           <path d="M-6.2,36l2-1.5h8.6v3h-8.6z" fill="#e9ecf0" /><path d="M-5.2,36l1.6-.9h7.6v1.8h-7.6z" fill="#e8772e" />

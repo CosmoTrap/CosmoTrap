@@ -148,6 +148,8 @@ function Parachute() {
   )
 }
 
+const CABIN_GABLE = new THREE.Shape([new THREE.Vector2(-1.68, 2.65), new THREE.Vector2(1.68, 2.65), new THREE.Vector2(0, 3.68)])
+
 function Cabin() {
   const m = useMats()
   const wood = woodMat()
@@ -161,8 +163,12 @@ function Cabin() {
       <Box s={[1.4, 2.4, 0.15]} p={[-1.4, 1.45, 1.6]} m={wood} />
       <Box s={[1.4, 2.4, 0.15]} p={[1.4, 1.45, 1.6]} m={wood} />
       <Box s={[1.4, 0.5, 0.15]} p={[0, 2.4, 1.6]} m={wood} />
-      <Box s={[4.8, 0.12, 2.3]} p={[0, 3.05, -0.85]} r={[0.55, 0, 0]} m={roof} />
-      <Box s={[4.8, 0.12, 2.3]} p={[0, 3.05, 0.85]} r={[-0.55, 0, 0]} m={roof} />
+      {/* Two slopes meeting at the ridge, with the gable walls closing each end. */}
+      <Box s={[4.8, 0.12, 2.3]} p={[0, 3.2, -0.85]} r={[-0.55, 0, 0]} m={roof} />
+      <Box s={[4.8, 0.12, 2.3]} p={[0, 3.2, 0.85]} r={[0.55, 0, 0]} m={roof} />
+      {[-2.125, 1.975].map((x) => <mesh key={x} position={[x, 0, 0]} rotation={[0, Math.PI / 2, 0]} material={wood} castShadow receiveShadow>
+        <extrudeGeometry args={[CABIN_GABLE, { depth: 0.15, bevelEnabled: false }]} />
+      </mesh>)}
       <Box s={[1.4, 0.06, 0.8]} p={[-0.5, 0.95, -0.9]} m={wood} />
       <Box s={[0.08, 0.7, 0.08]} p={[-1.1, 0.6, -0.6]} m={wood} />
       <Box s={[0.08, 0.7, 0.08]} p={[0.1, 0.6, -0.6]} m={wood} />
