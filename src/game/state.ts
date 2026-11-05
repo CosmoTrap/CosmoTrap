@@ -3,6 +3,7 @@ import { FLAGS, type Flags, type ItemId, type PuzzleId, type ZoneId } from './ty
 import { DEFAULT_KEYS, DEFAULT_PAD, detectKeyLayout, type KeyLayout, type KeyMap, type PadMap, type PadType } from '../player/input'
 import { DIFFICULTY, type Difficulty } from './difficulty'
 import { LAYOUT_VERSION, migrateStationSave } from './maps/layoutMigration'
+import { shuffle } from './shuffle'
 import { initialValves } from './valves'
 import { newLunarProgress, type LunarProgress } from './lunar/puzzles'
 
@@ -160,6 +161,8 @@ export interface GameData {
   valves: boolean[]
   /** grille de départ de cette partie, pour le bouton Réinitialiser */
   valveStart: boolean[]
+  /** ordre des boutons couleur du terminal, tiré une fois par partie */
+  algoOrder: string[]
   seq: string[]
   briefed: boolean
   ended: boolean
@@ -194,6 +197,10 @@ export interface GameData {
   splits: Record<string, number>
 }
 
+const ALGO_COLORS = ['blue', 'yellow', 'red', 'green']
+/** ordre des boutons du terminal : jamais l'ordre de la réponse, stable pour la partie */
+const terminalColors = () => shuffle([...ALGO_COLORS], (order) => order.every((c, i) => c === ALGO_COLORS[i]))
+
 export const newGameData = (character = 'nova', difficulty: Difficulty = 'astronaut', map: MissionMap = 'station'): GameData => {
   const valves = initialValves()
   return {
@@ -217,6 +224,7 @@ export const newGameData = (character = 'nova', difficulty: Difficulty = 'astron
   playTime: 0,
   valves,
   valveStart: [...valves],
+  algoOrder: terminalColors(),
   seq: [],
   briefed: false,
   ended: false,
@@ -261,6 +269,8 @@ export interface GameState extends GameData {
   settingsTab: number
   /** première connexion : on guide vers le choix du personnage */
   firstRun: boolean
+  /** une nouvelle partie attend le personnage choisi sur la page Profil */
+  missionPick: boolean
   creditsOpen: boolean
   tp: { pos: [number, number, number]; yaw: number; n: number } | null
   loading: number // 0..1, 1 = prêt
@@ -384,6 +394,7 @@ export const useGame = create<GameState>((set) => ({
   settingsOpen: false,
   settingsTab: 0,
   firstRun: false,
+  missionPick: false,
   creditsOpen: false,
   tp: null,
   loading: 1,
@@ -563,6 +574,9 @@ export function normalizeSave(d: any): SaveFile | null {
   }
   if (!Array.isArray(d.valveStart) || d.valveStart.length !== 9)
     saved.valveStart = Array.isArray(saved.valves) && saved.valves.length === 9 ? [...saved.valves] : [...saved.valveStart]
+  const colors = ['blue', 'yellow', 'red', 'green']
+  if (!Array.isArray(d.algoOrder) || d.algoOrder.length !== 4 || colors.some((c) => !d.algoOrder.includes(c)))
+    saved.algoOrder = fresh.algoOrder
   const items = (Object.keys(saved.inv) as ItemId[]).filter((it) => saved.inv[it] > 0)
   if (!items.includes(saved.selectedItem)) saved.selectedItem = items[0] ?? null
   if (!items.includes(saved.held)) saved.held = null

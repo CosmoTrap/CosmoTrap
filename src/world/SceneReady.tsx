@@ -25,11 +25,8 @@ function sceneTextures(scene: THREE.Scene) {
 export function SceneGate({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => {
-    let second = 0
-    const first = requestAnimationFrame(() => {
-      second = requestAnimationFrame(() => setMounted(true))
-    })
-    return () => { cancelAnimationFrame(first); cancelAnimationFrame(second) }
+    const first = requestAnimationFrame(() => setMounted(true))
+    return () => cancelAnimationFrame(first)
   }, [])
   return mounted ? children : null
 }
@@ -38,7 +35,7 @@ export function SceneGate({ children }: { children: ReactNode }) {
 export function SceneReady({ zone }: { zone: ZoneId }) {
   const active = useProgress((s) => s.active)
   const { gl, scene, camera } = useThree()
-  const ready = useRef({ frames: 0, compiling: false, compiled: false, done: false })
+  const ready = useRef({ compiling: false, compiled: false, done: false })
   const alive = useRef(true)
   const uploads = useRef<THREE.Texture[] | null>(null)
   const uploaded = useRef(0)
@@ -48,7 +45,6 @@ export function SceneReady({ zone }: { zone: ZoneId }) {
     const r = ready.current
     if (r.done || G().zone !== zone || live.playerZone !== zone) return
     if (active) {
-      r.frames = 0
       if (uploads.current) {
         // An inner Suspense boundary may reveal another model while warming up.
         generation.current++
@@ -57,26 +53,21 @@ export function SceneReady({ zone }: { zone: ZoneId }) {
       }
       return
     }
-    if (++r.frames < 3) return
-    // Compilation alone does not upload the textures in rooms outside the
-    // initial view. Do that under the loader, in short batches, before walking.
+    // Textures outside the first view still need an upload before the player walks.
+    // The shader compile runs during those uploads, so the loader is not the sum of both.
     uploads.current ??= sceneTextures(scene)
-    const until = performance.now() + 6
+    const until = performance.now() + 12
     while (uploaded.current < uploads.current.length && performance.now() < until) {
       gl.initTexture(uploads.current[uploaded.current++])
     }
-    if (uploaded.current < uploads.current.length) return
     if (!r.compiling) {
       r.compiling = true
       const version = generation.current
-      // KHR_parallel_shader_compile where available; normal rendering is the
-      // fallback on devices without it. No fixed five-second transition timer.
       gl.compileAsync(scene, camera).catch(() => {}).finally(() => {
-        if (alive.current && version === generation.current) { r.compiled = true; r.frames = 0 }
+        if (alive.current && version === generation.current) r.compiled = true
       })
-      return
     }
-    if (!r.compiled) return
+    if (uploaded.current < uploads.current.length || !r.compiled) return
     r.done = true
     useGame.setState({ loading: 1, cineT0: G().cine ? performance.now() : G().cineT0 })
   })

@@ -41,6 +41,7 @@ test('passer le prologue rend directement les commandes', async ({ page }) => {
   page.on('pageerror', (e) => errors.push(e.message))
   await guest(page)
   await page.getByTestId('launch-mission').click()
+  await page.getByTestId('confirm-character').click()
   await page.getByTestId('skip-prologue').click()
   await playable(page)
   expect(errors).toEqual([])

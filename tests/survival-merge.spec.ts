@@ -18,6 +18,7 @@ test('le lancement affiche les quatre jauges et leurs mises à jour sans erreur'
   page.on('pageerror', error => errors.push(error.message))
   await openGuest(page)
   await page.getByTestId('launch-mission').click()
+  await page.getByTestId('confirm-character').click()
   await page.getByTestId('skip-prologue').click()
   const gauges = page.locator('.hud-top .gauge')
   await expect(gauges).toHaveCount(4)

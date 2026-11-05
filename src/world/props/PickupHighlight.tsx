@@ -2,42 +2,39 @@ import { useFrame } from '@react-three/fiber'
 import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import * as THREE from 'three'
 
-/** A small self-lit contribution on the item itself. No extra light or draw pass;
- * cloned materials keep shared furniture and the equipped item unchanged. */
+const BORDER = new THREE.MeshBasicMaterial({
+  color: '#d7f3fb',
+  side: THREE.BackSide,
+  transparent: true,
+  opacity: 0.55,
+  depthWrite: false,
+  toneMapped: false,
+})
+
+/** A thin shell around each recoverable mesh. Shared furniture and the item in hand stay plain. */
 export function highlightPickups(root: THREE.Group) {
-  const changed = new Map<THREE.Mesh, { original: THREE.Material | THREE.Material[]; highlighted: THREE.Material | THREE.Material[] }>()
-  const copies = new Map<THREE.Material, THREE.Material>()
-  const tint = new THREE.Color('#c5e7ef').multiplyScalar(0.10)
-  const highlight = (source: THREE.Material) => {
-    if (!(source as THREE.MeshStandardMaterial).isMeshStandardMaterial || source.transparent) return source
-    let copy = copies.get(source)
-    if (!copy) {
-      const material = (source as THREE.MeshStandardMaterial).clone()
-      material.emissive.multiplyScalar(material.emissiveIntensity).add(tint)
-      material.emissiveIntensity = 1
-      material.userData.pickupHighlight = true
-      copy = material
-      copies.set(source, copy)
-    }
-    return copy
-  }
+  const shells: THREE.Mesh[] = []
   return {
     refresh() {
       root.traverseVisible(object => {
         const mesh = object as THREE.Mesh
-        if (!mesh.isMesh || changed.has(mesh)) return
-        const original = mesh.material
-        const highlighted = Array.isArray(original) ? original.map(highlight) : highlight(original)
-        if (highlighted !== original) {
-          changed.set(mesh, { original, highlighted })
-          mesh.material = highlighted
-        }
+        if (!mesh.isMesh || mesh.userData.pickupBorder || (mesh as THREE.InstancedMesh).isInstancedMesh) return
+        const source = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material
+        if (!source || source.transparent || source === BORDER) return
+        const shell = new THREE.Mesh(mesh.geometry, BORDER)
+        shell.name = 'pickup-border'
+        shell.scale.setScalar(1.035)
+        shell.renderOrder = 2
+        shell.raycast = () => {}
+        shell.userData.pickupBorder = true
+        mesh.add(shell)
+        mesh.userData.pickupBorder = true
+        shells.push(shell)
       })
     },
     dispose() {
-      changed.forEach(({ original, highlighted }, mesh) => { if (mesh.material === highlighted) mesh.material = original })
-      copies.forEach(material => material.dispose())
-      changed.clear(); copies.clear()
+      for (const shell of shells) shell.removeFromParent()
+      shells.length = 0
     },
   }
 }

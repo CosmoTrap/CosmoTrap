@@ -219,7 +219,7 @@ Le classement est séparé par difficulté.
        émettre couleurs[j]
    ```
 
-   j vaut 2, 1, 0 puis 3, donc couleurs[2], [1], [0], [3] : **BLEU · JAUNE · ROUGE · VERT**.
+   j vaut 2, 1, 0 puis 3, donc couleurs[2], [1], [0], [3] : **BLEU · JAUNE · ROUGE · VERT**. Les boutons sont mélangés à chaque partie ; la séquence correcte ne change pas.
 6. Le **sas d'amarrage** s'ouvre (il faut le courant, le sas alimenté et le programme chargé). Prendre l'écoutille de l'Hermès.
 
 ### Zone 3 — Fusée Hermès
@@ -235,7 +235,7 @@ Le classement est séparé par difficulté.
    7. Désamarrer (après l'écoutille, la centrale et le carburant).
    8. Autoriser l'allumage (après le désamarrage et l'O₂).
 3. **Dilemme** : garder ou larguer les échantillons.
-4. **Énigme 5, logique** (décompte, à partir de l'énigme 3) : le carnet donne BLEU · JAUNE · ROUGE · VERT. Le lancement se saisit **à l'envers** : **VERT · ROUGE · JAUNE · BLEU**. Une couleur fausse remet le décompte à zéro (−30 s). Suivent le décollage et la rentrée atmosphérique.
+4. **Énigme 5, logique** (décompte, à partir de l'énigme 3) : une fois le programme validé au terminal de la **zone 2**, le document « Terminal — séquence de lancement » est archivé dans **Messages**. Il donne BLEU · JAUNE · ROUGE · VERT et précise que le décompte se lit à l'envers. Au poste de la **zone 3**, saisir **VERT · ROUGE · JAUNE · BLEU**. Une couleur fausse remet le décompte à zéro (−30 s). Suivent le décollage et la rentrée atmosphérique.
 
 ### Zone 4 — Terre
 
@@ -288,9 +288,9 @@ Vue schématique dans le même sens que le plan de la tablette (haut = nord du p
 
 - **E** : ramasser un objet, lire une plaque ou ouvrir un terminal en le visant à proximité.
 - **F** : allumer la lampe après l’avoir ramassée ; utile pour examiner les plaques et pendant les coupures de courant.
-- **Tab → Plan** : voir les vrais modules, la position et l’orientation du joueur, les accès et la progression. Cliquer sur une pièce pour consulter ses épreuves.
-- **H → Journal** : retrouver les missions restantes et demander des indices. Les aides peuvent coûter du temps selon les réglages.
-- **Tablette → Messages** : relire les documents déjà consultés et les résultats archivés après validation. Les résultats du coffre, du thermique, de la radio et de la pression servent au départ.
+- **Tab → Plan** : voir les vrais modules, la position et l’orientation du joueur. Le plan ne liste pas les épreuves restantes.
+- **H → Messages** : relire les documents déjà consultés. Une aide explicite se demande ici et peut coûter du temps.
+- **Tablette → Messages** : les résultats archivés après validation (coffre, thermique, radio, pression) servent au départ.
 - **I → Inventaire** : consulter les objets possédés. Pour les épreuves lunaires, il suffit d’avoir l’objet requis dans l’inventaire : aucune sélection à la molette ni pose manuelle n’est nécessaire.
 
 ### Où trouver les objets

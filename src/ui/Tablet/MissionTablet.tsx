@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { allEnts, entActive, hintFor, hintKey, puzzleStatus, requestHint, stepsState } from '../../game/logic'
+import { allEnts, entActive, hintFor, hintKey, requestHint, stepsState } from '../../game/logic'
 import { GRID_MAPS, entWorld, roomAt } from '../../game/maps'
 import { isExplored } from '../../game/explore'
 import { live, timeLimit, useGame, type MissionMessage, type TabletTab } from '../../game/state'
@@ -10,35 +10,16 @@ import { labelFor, matches } from '../../player/input'
 import { InventoryContent } from '../Inventory'
 import { alarmOn, roomPowerCut } from '../../world/roomPower'
 import { StationMap, type MapMode } from './StationMap'
-import { ModuleArt, roomCode, roomLocked, roomStatus, roomSteps } from './moduleArt'
+import { ModuleArt, roomCode, roomStatus, roomSteps } from './moduleArt'
 import { elapsed, levelName, tabletText } from './copy'
 import './tablet.css'
 import { LunarPlan } from './LunarPlan'
-import { missionNote, missionPuzzles } from '../../game/lunar/logic'
+import { missionNote } from '../../game/lunar/logic'
 
 const ZONES: ZoneId[] = [1, 2, 3, 4]
 
 /** The station carries its mission name; the rocket and Earth keep theirs. */
 const brandName = (zone: ZoneId) => zone < 3 ? (useGame.getState().map === 'station' ? 'ORION' : 'SELENE-7') : zone === 3 ? 'HERMÈS' : 'TERRA'
-
-function MissionProgress({ zone }: { zone: ZoneId }) {
-  useGame((s) => s.flags)
-  useGame((s) => s.inv)
-  useGame((s) => s.notes)
-  useGame((s) => s.planDone)
-  useGame((s) => s.choice)
-  const activeZone = useGame((s) => s.zone)
-  const steps = stepsState(zone)
-  const complete = steps.filter((s) => s.status === 'done').length
-  const t = tabletText()
-  return <section className="nav-card nav-progress">
-    <div className="nav-eyebrow">MISSION · {complete} / {steps.length}</div>
-    <progress max={steps.length} value={complete} aria-label={t.progress} />
-    <ol>{steps.map((s, i) => <li key={s.id} className={s.status === 'current' && activeZone !== zone ? 'todo' : s.status}>
-      <i>{s.status === 'done' ? '✓' : s.status === 'current' && activeZone === zone ? '›' : '·'}</i><span>{i + 1}. {s.text}</span>
-    </li>)}</ol>
-  </section>
-}
 
 function Plan() {
   const currentZone = useGame((s) => s.zone)
@@ -66,8 +47,6 @@ function Plan() {
   const stationSolved = allSteps.filter((s) => s.status === 'done').length
   const status = room ? roomStatus(zone, room) : 'idle'
   const steps = room ? roomSteps(zone, room) : []
-  const openStep = steps.find((s) => s.status !== 'done')
-  const locked = !!room && roomLocked(zone, room)
   const statusText = !room ? t.selectRoom : status === 'locked' ? t.statusLocked : status === 'solved' ? t.statusSolved : status === 'current' ? t.statusCurrent : known ? t.visited : t.unknown
   const pressure = zone === 1 && room?.id === 'sas' && !f.pressurized ? '0,2 bar' : zone === 2 && !f.pw_o2 ? '0,6 bar' : '0,9 bar'
   const [x0, z0, x1, z1] = room?.rect ?? [0, 0, 0, 0]
@@ -105,16 +84,14 @@ function Plan() {
           <div><small>{t.pressure}</small><b>{pressure}</b></div>
           <div><small>{t.power}</small><b data-testid="module-power" className={room.noDynLight || roomPowerCut(room, zone) ? 'off' : ''}>{room.noDynLight || roomPowerCut(room, zone) ? t.off : t.on}</b></div>
         </div>}
-        <p className="nav-description">{openStep ? openStep.hint : room ? steps.length ? t.roomDone : t.noRoomTask : t.mapHelp}</p>
+        <p className="nav-description">{room ? (known ? t.visited : t.unknown) : t.mapHelp}</p>
         {room && <dl className="nav-rows">
           <div><dt>{t.tasks}</dt><dd>{steps.filter((s) => s.status === 'done').length} / {steps.length}</dd></div>
           <div><dt>{t.objects}</dt><dd>{known ? count : '—'}</dd></div>
           <div><dt>{t.mistakes}</dt><dd>{errors}</dd></div>
           <div><dt>{t.hintsUsedLabel}</dt><dd>{hints}</dd></div>
         </dl>}
-        <button className="nav-primary" disabled={locked} onClick={() => useGame.setState({ tab: 1 })}>{locked ? t.moduleLocked : t.journal}{!locked && <span>→</span>}</button>
       </section>
-      <MissionProgress zone={zone} />
     </aside>
   </div>
 }
@@ -138,48 +115,6 @@ function HelpPanel() {
     </div>
     {first && <blockquote>{hintFor(1)}</blockquote>}{second && <blockquote>{hintFor(2)}</blockquote>}
   </section>
-}
-
-function Journal() {
-  const zone = useGame((s) => s.zone)
-  const notes = useGame((s) => s.notes)
-  useGame((s) => s.flags); useGame((s) => s.inv)
-  useGame(s => s.lunar.solved);
-  useGame((s) => s.discovered); useGame((s) => s.planDone); useGame((s) => s.choice)
-  const [open, setOpen] = useState<string | null>(null)
-  const t = tabletText()
-  const statusLabel = (p: { id: string; zone: number }) => {
-    const value = puzzleStatus(p)
-    return { value, label: value === 'solved' ? fr.tablet.solved : value === 'progress' ? t.statusCurrent : t.puzzleLocked }
-  }
-  const solved = missionPuzzles().filter((p) => puzzleStatus(p) === 'solved').length
-  return <div className="nav-journal-sheet nav-card" data-testid="mission-journal">
-    <section className="nav-carnet">
-      <h1>{t.notebook}</h1>
-      {notes.length ? <ul className="nav-notes">{notes.map((id) => {
-        const note = missionNote(id)
-        return <li key={id}><button aria-expanded={open === id} onClick={() => setOpen(open === id ? null : id)}><b>{note?.title ?? id}</b><i>{open === id ? '−' : '+'}</i></button>{open === id && <p>{note?.text}</p>}</li>
-      })}</ul> : <p className="nav-empty-line">{t.noNotes}</p>}
-      <h2 className="nav-sub">{t.missions}</h2>
-      {(useGame.getState().map === 'base' ? [1] as ZoneId[] : ZONES).map((z) => {
-        const steps = stepsState(z), remaining = steps.filter((s) => s.status !== 'done').length
-        return <details key={z} className={`nav-mission-zone ${z === zone ? 'active' : ''}`} data-testid={`mission-zone-${z}`} open={z === zone}>
-          <summary><span>{useGame.getState().map === 'base' ? 'Séléné-7 · Surface lunaire' : `${fr.zones[z].name} · ${fr.zones[z].sub}`}</span><small>{remaining ? `${remaining} ${t.remaining}` : t.complete}</small></summary>
-          <ol>{steps.map((s) => {
-            const status = s.status === 'current' && z !== zone ? 'todo' : s.status
-            return <li key={s.id} className={status} data-testid={`mission-${z}-${s.id}`}><i>{status === 'done' ? '✓' : status === 'current' ? '›' : ''}</i><span>{s.text}</span></li>
-          })}</ol>
-        </details>
-      })}
-    </section>
-    <section className="nav-puzzle-list">
-      <header><h1>{t.puzzles}</h1><span>{solved} / {missionPuzzles().length}</span></header>
-      <ul>{missionPuzzles().map((p) => {
-        const { value, label } = statusLabel(p)
-        return <li key={p.id} className={value}><i>{value === 'solved' ? '✓' : ''}</i><span>{p.name}<small>{p.domain}</small></span><em>{label}</em></li>
-      })}</ul>
-    </section>
-  </div>
 }
 
 function Messages() {
@@ -220,7 +155,7 @@ function Header({ tab, onTab }: { tab: TabletTab; onTab: (tab: TabletTab) => voi
   const t = tabletText()
   return <header className="nav-header">
     <div className="nav-brand"><img src="/logo/badge-dark.png" alt="" /><div><b>{brandName(zone)} · NAV</b><small>{t.terminal}</small></div></div>
-    <nav className="nav-tabs" role="tablist" aria-label="Navigation"><>{t.tabs.map((label, i) => <button key={i} id={`tablet-tab-${i}`} role="tab" data-testid={`tab-${i}`} aria-selected={tab === i} aria-controls="tablet-panel" tabIndex={tab === i ? 0 : -1} onClick={() => onTab(i as TabletTab)} onKeyDown={(e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); const next = (i + (e.key === 'ArrowRight' ? 1 : 3)) % 4 as TabletTab; onTab(next); document.getElementById(`tablet-tab-${next}`)?.focus() } }}>{label}</button>)}</></nav>
+    <nav className="nav-tabs" role="tablist" aria-label="Navigation"><>{([0, 2, 3] as TabletTab[]).map((i) => <button key={i} id={`tablet-tab-${i}`} role="tab" data-testid={`tab-${i}`} aria-selected={tab === i} aria-controls="tablet-panel" tabIndex={tab === i ? 0 : -1} onClick={() => onTab(i)} onKeyDown={(e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); const tabs: TabletTab[] = [0, 2, 3]; const next = tabs[(tabs.indexOf(i) + (e.key === 'ArrowRight' ? 1 : 2)) % 3]; onTab(next); document.getElementById(`tablet-tab-${next}`)?.focus() } }}>{t.tabs[i]}</button>)}</></nav>
     <div className="nav-telemetry"><span><small>{t.clock}</small>{elapsed(timeLimit() - time)}</span><span className={res.o2 < 25 ? 'danger' : ''}><small>O₂</small>{Math.ceil(res.o2)}%</span><span><svg viewBox="0 0 25 14" aria-hidden="true"><rect x="1" y="1" width="20" height="12" rx="2" fill="none" stroke="currentColor" /><path d="M23 4v6" stroke="currentColor" strokeWidth="2" /><rect x="3" y="3" width={Math.max(0, res.lamp * .16)} height="8" rx="1" fill="currentColor" /></svg>{Math.ceil(res.lamp)}%</span></div>
     <button type="button" className="nav-close" onClick={closeTablet} aria-label={t.close} data-testid="close-tablet">×</button>
   </header>
@@ -246,7 +181,7 @@ export function Tablet() {
       <i className="nav-camera" aria-hidden="true" />
       <div className="nav-display"><Header tab={tab} onTab={(next) => useGame.setState({ tab: next })} />
         <main id="tablet-panel" className="nav-content" role="tabpanel" aria-labelledby={`tablet-tab-${tab}`}>
-          {tab === 0 ? (useGame.getState().map === 'base' ? <LunarPlan /> : <Plan />) : tab === 1 ? <Journal /> : tab === 2 ? <Messages /> : <InventoryContent />}
+          {tab === 0 ? (useGame.getState().map === 'base' ? <LunarPlan /> : <Plan />) : tab === 3 ? <InventoryContent /> : <Messages />}
         </main>
       </div>
     </div>

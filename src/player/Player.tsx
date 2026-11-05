@@ -65,7 +65,7 @@ export function useInputListeners() {
       }
       if (matches(k, 'hint', e.code)) {
         e.preventDefault()
-        if (!overlayOpen() || s.tabletOpen) openTablet(1)
+        if (!overlayOpen() || s.tabletOpen) openTablet(2)
         return
       }
       if (matches(k, 'tablet', e.code)) {

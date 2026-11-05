@@ -8,7 +8,7 @@ async function boot(page: Page, menu = false) {
   await page.addInitScript(() => localStorage.setItem('cosmotrap.settings.v1', JSON.stringify({ quality: 'high', resolution: 720, music: 0, voice: 0, sfx: 0, ambience: 0, browserVoice: false, map: 'base' })))
   await page.goto('/')
   await expect(page.getByTestId('launch')).toBeVisible()
-  if (menu) { await page.getByTestId('map-base').click(); await page.getByTestId('start').click(); await page.getByTestId('guest').click(); await page.getByTestId('launch-mission').click() }
+  if (menu) { await page.getByTestId('map-base').click(); await page.getByTestId('start').click(); await page.getByTestId('guest').click(); await page.getByTestId('launch-mission').click(); await page.getByTestId('confirm-character').click() }
   else await page.evaluate(() => window.__game.start('nova', true, 'astronaut', false, 'base'))
   await ready(page)
   await page.evaluate(() => window.__game.set({ lunar: { ...window.__game.state().lunar, seed: 42 } }))

@@ -566,7 +566,7 @@ export function submitAlgo(colors: string[]) {
     addNote('terminal')
     audio.sfx('success')
     toast(fr.algo.ok, 'good', 3500)
-    setTimeout(() => useGame.setState({ puzzle: null }), 900)
+    setTimeout(() => useGame.setState({ puzzle: null, readNote: 'terminal' }), 900)
     return true
   }
   audio.sfx('error')

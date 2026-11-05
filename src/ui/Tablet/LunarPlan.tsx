@@ -10,8 +10,8 @@ export function LunarPlan() {
   const [selected, select] = useState('habitat'), [zoom, setZoom] = useState(1)
   const [position, setPosition] = useState({ x: live.pos[0], z: live.pos[2], yaw: live.yaw })
   useEffect(() => { const timer = setInterval(() => setPosition({ x: live.pos[0], z: live.pos[2], yaw: live.yaw }), 100); return () => clearInterval(timer) }, [])
-  const module = MODULES.find(m => m.id === selected), tasks = TASKS.filter(t => t.room === selected)
-  const room = lunarMap.rooms.find(r => r.id === selected), current = tasks.find(t => !progress.solved.includes(t.id))
+  const module = MODULES.find(m => m.id === selected)
+  const room = lunarMap.rooms.find(r => r.id === selected)
   return <div className="nav-plan-layout lunar-plan" data-testid="lunar-plan">
     <section className="nav-map-panel nav-card">
       <header className="nav-map-head"><span className="nav-eyebrow">SELENE-7 · SURFACE LUNAIRE · NIVEAU 0</span><span className="nav-alert">{event?.kind === 'blackout' ? 'COUPURE TEMPORAIRE' : progress.solved.includes('loads') ? 'RÉSEAU EN SERVICE' : 'ALIMENTATION DE SECOURS'}</span></header>
@@ -40,7 +40,7 @@ export function LunarPlan() {
     </section>
     <aside className="nav-sidebar"><section className="nav-card nav-module"><div className="nav-eyebrow">MODULE · NIVEAU 0</div><h2>{module?.name ?? 'Fusée LV-1'}</h2>
       <div className="nav-metrics"><div><small>Accès</small><b>{lunarGate(selected, progress.solved) ? 'Disponible' : 'Verrouillé'}</b></div><div><small>Éclairage</small><b>{room && roomPowerCut(room) ? 'Secours' : 'En service'}</b></div></div>
-      <p className="nav-description">{current?.hint ?? 'Tous les systèmes de ce module sont validés.'}</p><ol>{tasks.map(t => <li key={t.id}>{progress.solved.includes(t.id) ? '✓ ' : '○ '}{t.name}</li>)}</ol><button className="nav-primary" onClick={() => useGame.setState({ tab: 1 })}>Ouvrir le journal →</button>
+      <p className="nav-description">{lunarGate(selected, progress.solved) ? 'Module accessible. Les consignes sont sur les plaques de la pièce.' : 'Accès verrouillé.'}</p>
     </section></aside>
   </div>
 }

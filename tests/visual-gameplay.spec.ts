@@ -28,6 +28,7 @@ test('passer à froid affiche la préparation, attend les ressources et rend imm
   await page.route('**/assets/models/adjustable_wrench.glb', async (route) => { await gate; await route.continue() })
   await guest(page)
   await page.getByTestId('launch-mission').click()
+  await page.getByTestId('confirm-character').click()
   await page.getByTestId('skip-prologue').click()
   await expect(page.getByTestId('scene-loading')).toBeVisible()
   expect(await page.evaluate(() => ({ cine: window.__game.state().cine, time: window.__game.state().playTime }))).toEqual({ cine: null, time: 0 })

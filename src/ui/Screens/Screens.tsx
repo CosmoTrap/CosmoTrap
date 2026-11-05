@@ -35,7 +35,7 @@ export function NoteReader() {
       <div className={`note-reader ${screen ? 'screen' : ''}`} onClick={(e) => e.stopPropagation()}>
         <h3>{n.title}</h3>
         {n.text}
-        <div className="foot">Ajouté au carnet · E ou clic pour fermer</div>
+        <div className="foot">Archivé dans les messages · E ou clic pour fermer</div>
       </div>
     </div>
   )

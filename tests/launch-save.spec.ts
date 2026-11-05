@@ -58,6 +58,7 @@ test('lancer une nouvelle partie ne demande plus de confirmation', async ({ page
   await expect(page.getByTestId('launch')).toBeVisible()
   await page.getByTestId('start').click()
   await expect(page.getByTestId('confirm-delete')).toBeHidden()
+  await page.getByTestId('confirm-character').click()
   await expect.poll(() => page.evaluate(() => window.__game.state().screen)).toBe('prologue')
   expect(await hasSave(page)).toBe(false)
 })

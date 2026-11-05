@@ -9,6 +9,11 @@ import { fr } from '../../i18n/fr'
 import { requestLock } from '../../player/Player'
 import { GearIcon, openPage, Stage } from './Stage'
 
+/** chaque nouvelle partie passe par la page des personnages avant le prologue */
+export function openCharacterPick() {
+  openPage('settings', { settingsTab: 0, missionPick: true })
+}
+
 // Menu principal (maquette 03 « Poste de commande ») : partie en cours + classement.
 
 const M = fr.menu2
@@ -41,7 +46,7 @@ export async function startNewGame(character: string, d: Difficulty, map: Missio
   loadExplored([])
   live.noEvents = false
   useGame.setState({ ...newGameData(character, d, map), screen: map === 'base' ? 'playing' : 'prologue', loading: 0, cine: null, toured: map === 'base' ? [1] : [], briefed: map === 'base', paused: false, tp: null, resume: null, tabletOpen: false, puzzle: null, readNote: null, lastResult: null })
-  if (map === 'base') recordMessage('SELENE-7 — Une micrométéorite a sectionné la liaison solaire. Rétablis les systèmes, certifie ta combinaison et rejoins la fusée LV-1. Lis le manifeste de la chambre. La tablette regroupe plan, consignes, missions et résultats.', 'radio')
+  if (map === 'base') recordMessage('SELENE-7 — Une micrométéorite a sectionné la liaison solaire. Rétablis les systèmes, certifie ta combinaison et rejoins la fusée LV-1. Lis le manifeste de la chambre. Les documents relus restent dans les messages de la tablette.', 'radio')
 }
 
 /** supprime la partie en cours, sur cet appareil et dans le compte */
@@ -146,7 +151,6 @@ export function MainMenu() {
   const myRank = useGame((s) => s.myRank)
   const character = useGame((s) => s.user?.character ?? s.settings.character)
   const map = useGame((s) => s.settings.map)
-  const difficulty = useGame((s) => s.settings.difficulty)
   const save = useCurrentSave()
   const L = fr.launch
   const sc = save ? solvedCount(save) : null
@@ -221,7 +225,7 @@ export function MainMenu() {
         ) : (
           <>
             <p className="mm-pitch">{M.pitch}</p>
-            <button type="button" className="x-primary mm-cta" data-testid="launch-mission" onClick={() => startNewGame(character, difficulty, map)}>
+            <button type="button" className="x-primary mm-cta" data-testid="launch-mission" onClick={openCharacterPick}>
               {M.launchMission}
             </button>
           </>
