@@ -82,13 +82,12 @@ function CineOverlay() {
 }
 
 function Chrono() {
-  const t = useGame((s) => s.playTime + s.penalty)
+  const left = useGame((s) => Math.max(0, Math.floor(timeLimit() - s.playTime - s.penalty)))
   const errors = useGame((s) => s.errors)
   const ev = useGame((s) => s.event)
-  const playTime = useGame((s) => s.playTime)
+  const eventLeft = useGame((s) => s.event ? Math.max(0, Math.ceil(s.event.until - s.playTime)) : 0)
   const ghostOn = useGame((s) => s.settings.ghost)
   useGame((s) => s.difficulty)
-  const left = Math.max(0, timeLimit() - t)
   const mm = Math.floor(left / 60)
   const ss = Math.floor(left % 60)
   return (
@@ -100,7 +99,7 @@ function Chrono() {
       {mm}:{String(ss).padStart(2, '0')}
       {ev && (
         <div className={`event-tag ${ev.kind}`} data-testid="event">
-          {ev.kind === 'blackout' ? '⚡ Coupure de courant' : '💨 Micro-fuite'} · {Math.max(0, Math.ceil(ev.until - playTime))} s
+          {ev.kind === 'blackout' ? '⚡ Coupure de courant' : '💨 Micro-fuite'} · {eventLeft} s
         </div>
       )}
       {live.ghost && ghostOn && <div className="ghost-tag">Fantôme : {live.ghost.pseudo} · {fmtTime(live.ghost.timeMs)}</div>}
@@ -173,7 +172,6 @@ function Fps() {
 }
 
 export function Hud() {
-  const res = useGame((s) => s.res)
   const zone = useGame((s) => s.zone)
   const label = useGame((s) => s.aimLabel)
   const toasts = useGame((s) => s.toasts)

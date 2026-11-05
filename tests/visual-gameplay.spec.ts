@@ -65,7 +65,7 @@ test('tous les objets tenus et la tablette se rendent sans interrompre le monde'
   expect(errors).toEqual([])
 })
 
-test('une coupure imprévue éteint les lumières sans déclencher les alarmes, qui ne concernent que le niveau 1', async ({ page }) => {
+test('une coupure imprévue éteint les plafonniers et allume les gyrophares rouges', async ({ page }) => {
   await guest(page)
   await page.evaluate(() => { window.__game.start('nova', true, 'astronaut', true); window.__game.set({ flags: { ...window.__game.state().flags, power: true, pw_lights: true, pressurized: true } }) })
   await ready(page)
@@ -81,10 +81,11 @@ test('une coupure imprévue éteint les lumières sans déclencher les alarmes, 
   })
   expect(await page.evaluate(() => window.__game.state().event?.kind)).toBe('blackout')
   await page.waitForFunction(() => (window as any).testScene.getObjectByName('room-light:couloir').intensity === 0)
-  expect(await page.evaluate(() => (window as any).testScene.getObjectByName('alert-beam:0').intensity)).toBe(0)
+  await page.waitForFunction(() => (window as any).testScene.getObjectByName('alert-beam:0').intensity > 0)
   await page.evaluate(() => window.__game.drain(33))
   expect(await page.evaluate(() => window.__game.state().event)).toBeNull()
   await page.waitForFunction(() => (window as any).testScene.getObjectByName('room-light:couloir').intensity > 10)
+  await page.waitForFunction(() => (window as any).testScene.getObjectByName('alert-beam:0').intensity === 0)
 })
 
 test('une fois l’ascenseur déverrouillé, plus aucune coupure régulière ni alarme, aux deux étages', async ({ page }) => {

@@ -4,19 +4,23 @@ import type { RoomDef } from '../game/types'
 
 /**
  * The alarm sounds on floor 1 only, until the lift unlocks with the last puzzle of that floor.
- * Until then the lights are out and the beacons turn; afterwards everything is back to normal.
+ * This mission alarm is independent of the electrical circuit.
  */
 export function alarmOn(zone = G().zone) {
   return zone === 1 && !G().flags.pressurized
+}
+
+export function blackoutActive() {
+  const s = G()
+  return s.zone < 4 && s.event?.kind === 'blackout' && s.playTime < s.event.until
 }
 
 /** One power state for the ceiling lights and the service panels. */
 export function roomPowerCut(room: RoomDef, zone = G().zone) {
   const s = G()
   if (room.noDynLight) return false // Deliberately dark storage rooms have no backup circuit.
-  if (s.event?.kind === 'blackout') return true
-  if (alarmOn(zone)) return true
-  return room.id === 'machinerie' && !(s.flags.power && s.flags.pw_lights)
+  if (blackoutActive()) return true
+  return zone === 2 && room.id === 'machinerie' && !(s.flags.power && s.flags.pw_lights)
 }
 
 /** World [x, z] of each ceiling lamp of a room, along its middle line (a ring in a round room). */

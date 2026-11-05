@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { audio } from '../../game/audio/audio'
 import { fr } from '../../i18n/fr'
 import { GRID_MAPS, placeOf, roomAt } from '../../game/maps'
-import { allEnts, entActive } from '../../game/logic'
+import { allEnts, canSeeInDark, entActive } from '../../game/logic'
 import { ITEM_KIND } from '../../game/items'
 import { live, useGame } from '../../game/state'
 import type { Ent, ZoneId } from '../../game/types'
@@ -16,6 +16,7 @@ import { useModel } from '../assets'
 import { RealModel } from './RealModel'
 import { ZONE4_ENT_MODELS } from '../zone4/Zone4Ents'
 import { SolidProp } from './SolidProps'
+import { PickupHighlight } from './PickupHighlight'
 
 // Objets interactifs + zones de détection invisibles (raycast).
 
@@ -67,10 +68,11 @@ function Glint({ resource }: { resource: boolean }) {
     () => new THREE.SpriteMaterial({ map: sparkTexture(), color: resource ? '#7dffb0' : '#fff1d6', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }),
     [resource],
   )
+  useEffect(() => () => mat.dispose(), [mat])
   useFrame(({ clock }) => {
     const t = clock.elapsedTime
     // les ressources gardent une lueur phosphorescente visible dans le noir
-    mat.opacity = (resource ? 0.35 : 0.05) + Math.pow(Math.max(0, Math.sin(t * 2.2)), 8) * 0.9
+    mat.opacity = (resource ? 0.16 : 0.06) + (0.5 + 0.5 * Math.sin(t * 1.2)) * 0.12
   })
   return <sprite position={[0, 0.14, 0.05]} scale={resource ? 0.14 : 0.1} material={mat} />
 }
@@ -368,13 +370,39 @@ function Board() {
 
 function Plate() {
   const m = useMats()
-  const mat = useMemo(() => {
-    const t = textTexture(['STATION SELENE-7', 'Agence spatiale européenne', '', 'MISE EN SERVICE', '2041'], { w: 512, h: 300, bg: '#9a7a3a', fg: '#3b2a10', size: 34, align: 'center', font: '700 34px "Rajdhani", sans-serif', pad: 30 })
-    return new THREE.MeshStandardMaterial({ map: t, metalness: 0.85, roughness: 0.35, color: '#e8c98a' })
+  const ref = useRef<THREE.Mesh>(null)
+  const { mat, hidden, revealed } = useMemo(() => {
+    const make = (date: string) => textTexture(['STATION SELENE-7', 'Agence spatiale européenne', '', 'MISE EN SERVICE', date], { w: 512, h: 300, bg: '#9a7a3a', fg: '#3b2a10', size: 34, align: 'center', font: '700 34px "Rajdhani", sans-serif', pad: 30 })
+    const hidden = make('2041'), revealed = make('2041')
+    hidden.name = 'plate-date-unreadable'; revealed.name = 'plate-date-readable'
+    const mat = new THREE.MeshStandardMaterial({ map: hidden, metalness: 0.65, roughness: 0.55, color: '#e8c98a', envMapIntensity: 0 })
+    // Absorb ambient and neighbouring lights without changing the printed text.
+    mat.onBeforeCompile = shader => {
+      shader.uniforms.uPlateLight = { value: 0 }
+      mat.userData.plateLight = shader.uniforms.uPlateLight
+      shader.fragmentShader = 'uniform float uPlateLight;\n' + shader.fragmentShader
+      shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', 'outgoingLight *= mix(0.00015, 1.0, uPlateLight);\n#include <opaque_fragment>')
+    }
+    mat.customProgramCacheKey = () => 'torch-readable-plate-v1'
+    return { mat, hidden, revealed }
   }, [])
+  const vectors = useMemo(() => ({ target: new THREE.Vector3(), direction: new THREE.Vector3() }), [])
+  useEffect(() => () => { mat.dispose(); hidden.dispose(); revealed.dispose() }, [mat, hidden, revealed])
+  useFrame(({ camera }) => {
+    if (!ref.current) return
+    ref.current.getWorldPosition(vectors.target).sub(camera.position)
+    const distance = vectors.target.length()
+    camera.getWorldDirection(vectors.direction)
+    // Ambient light and alarm beacons never reveal the date. It must be in the
+    // lit torch cone; keeping both textures ready avoids shader recompilation.
+    const readable = canSeeInDark() && distance < 6 && vectors.target.normalize().dot(vectors.direction) > Math.cos(0.45)
+    mat.map = readable ? revealed : hidden
+    if (mat.userData.plateLight) mat.userData.plateLight.value = readable ? 1 : 0
+    ref.current.userData.dateReadable = readable
+  })
   return (
     <group>
-      <mesh position={[0, 0, 0.012]} material={mat}>
+      <mesh ref={ref} name="station-date-plate" position={[0, 0, 0.012]} material={mat}>
         <boxGeometry args={[0.5, 0.3, 0.012]} />
       </mesh>
       {[-1, 1].map((sx) =>
@@ -750,7 +778,7 @@ function EntNode({ e, zone }: { e: Ent; zone: ZoneId }) {
   return (
     <RoomCtx.Provider value={{ id: room?.id ?? '', dark: !!room?.dark }}>
       <group name={`ent:${e.id}`} position={p} rotation={[0, r, 0]}>
-        {active && model ? model(e) : null}
+        {active && model ? (e.item ? <PickupHighlight>{model(e)}</PickupHighlight> : model(e)) : null}
         {!e.item && <SolidProp model={e.model} />}
         {shelf && <Bracket />}
         {active && e.item && <Glint resource={ITEM_KIND[e.item] === 'resource'} />}

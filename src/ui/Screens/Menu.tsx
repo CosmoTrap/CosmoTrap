@@ -3,7 +3,7 @@ import { deleteCloudSave, fetchCloudSave, leaderboard, type Row } from '../../ga
 import { audio } from '../../game/audio/audio'
 import { DIFFICULTY, type Difficulty } from '../../game/difficulty'
 import { loadExplored } from '../../game/explore'
-import { clearSave, loadSave, newGameData, useGame, type MissionMap, type SaveFile } from '../../game/state'
+import { clearSave, isResumable, live, loadSave, newGameData, useGame, type MissionMap, type SaveFile } from '../../game/state'
 import { fr } from '../../i18n/fr'
 import { requestLock } from '../../player/Player'
 import { GearIcon, openPage, Stage } from './Stage'
@@ -37,6 +37,7 @@ export async function startNewGame(character: string, d: Difficulty, map: Missio
   clearSave()
   deleteCloudSave()
   loadExplored([])
+  live.noEvents = false
   useGame.setState({ ...newGameData(character, d, map), screen: 'prologue', paused: false, tp: null, resume: null, tabletOpen: false, puzzle: null, readNote: null, lastResult: null })
 }
 
@@ -47,10 +48,13 @@ export function deleteCurrentSave() {
 }
 
 export async function resumeGame(save: SaveFile) {
+  if (!isResumable(save)) return
   await audio.init()
   const { pos, yaw, savedAt, ...data } = save
   void savedAt
   loadExplored(data.explored)
+  live.noEvents = false
+  data.nextEventAt = Math.min(data.nextEventAt ?? Infinity, data.playTime + 45)
   useGame.setState({ ...data, screen: 'playing', loading: 0, paused: false, cine: null, resume: pos ? { pos, yaw: yaw ?? 0 } : null, tp: null, tabletOpen: false, puzzle: null, readNote: null })
   requestLock()
 }
@@ -60,10 +64,12 @@ export function useCurrentSave() {
   const user = useGame((s) => s.user)
   const [save, setSave] = useState<SaveFile | null>(null)
   useEffect(() => {
-    const local = loadSave()
+    const loaded = loadSave()
+    const local = isResumable(loaded) ? loaded : null
     setSave(local)
     fetchCloudSave().then((cloud) => {
-      if (cloud && (!local || (cloud.savedAt ?? 0) > (local.savedAt ?? 0))) setSave(cloud)
+      if (!isResumable(cloud)) return
+      if (!local || (cloud.savedAt ?? 0) > (local.savedAt ?? 0)) setSave(cloud)
     })
   }, [user])
   return save

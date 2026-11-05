@@ -55,8 +55,12 @@ export function pbrMaterial(id: string, o: { repeat?: [number, number]; color?: 
 
 export const MODEL = (id: string) => `/assets/models/${id}.glb`
 
+// Only immutable scenery opts in. Animated actors and hand-held objects keep
+// private materials. Source textures and geometries are already loader-cached.
+const sceneryMaterials = new WeakMap<THREE.Material, Map<string, THREE.Material>>()
+
 /** modèle glTF compressé (meshopt) — renvoie une copie indépendante, ombres activées */
-export function useModel(id: string, opts: { shadows?: boolean; envIntensity?: number; tint?: string } = {}) {
+export function useModel(id: string, opts: { shadows?: boolean; envIntensity?: number; tint?: string; shared?: boolean } = {}) {
   const gltf = useGLTF(MODEL(id), false, true)
   return useMemo(() => {
     const root = cloneSkinned(gltf.scene) as THREE.Group
@@ -65,13 +69,20 @@ export function useModel(id: string, opts: { shadows?: boolean; envIntensity?: n
       if (!m.isMesh) return
       m.castShadow = opts.shadows ?? true
       m.receiveShadow = true
-      const mat = (m.material as THREE.MeshStandardMaterial).clone()
-      if (opts.envIntensity !== undefined) mat.envMapIntensity = opts.envIntensity
-      if (opts.tint) mat.color.multiply(new THREE.Color(opts.tint))
-      m.material = mat
+      const materialOf = (source: THREE.Material) => {
+        const key = `${opts.envIntensity}:${opts.tint}`
+        const variants = sceneryMaterials.get(source) ?? new Map<string, THREE.Material>()
+        if (opts.shared && variants.has(key)) return variants.get(key)!
+        const mat = source.clone() as THREE.MeshStandardMaterial
+        if (opts.envIntensity !== undefined) mat.envMapIntensity = opts.envIntensity
+        if (opts.tint) mat.color.multiply(new THREE.Color(opts.tint))
+        if (opts.shared) { variants.set(key, mat); sceneryMaterials.set(source, variants) }
+        return mat
+      }
+      m.material = Array.isArray(m.material) ? m.material.map(materialOf) : materialOf(m.material)
     })
     return root
-  }, [gltf, opts.shadows, opts.envIntensity, opts.tint])
+  }, [gltf, opts.shadows, opts.envIntensity, opts.tint, opts.shared])
 }
 
 /** maillages + matériaux d'un modèle (pour l'instanciation : arbres, rochers, herbe) */

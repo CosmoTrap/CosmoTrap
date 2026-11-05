@@ -6,7 +6,7 @@ import { G, live } from '../game/state'
 import type { GridMap, RoomDef } from '../game/types'
 import { useMats } from './materials'
 import { Cyl, Lathe } from './props/models'
-import { alarmOn, lampPositions } from './roomPower'
+import { blackoutActive, lampPositions, roomPowerCut } from './roomPower'
 
 type BeaconDef = { room: RoomDef; pos: [number, number, number]; id: string }
 function beaconsFor(room: RoomDef): BeaconDef[] {
@@ -33,7 +33,7 @@ function Beacon({ room, pos, id }: BeaconDef) {
     metalness: 0.15, clearcoat: 1, emissive: '#ff1806', emissiveIntensity: 0 }), [])
   useEffect(() => () => lens.dispose(), [lens])
   useFrame(() => {
-    const on = alarmOn()
+    const on = roomPowerCut(room)
     lens.emissiveIntensity = on ? 2.6 : 0
     // Out of alarm the beacon is simply switched off: no light and no turning.
     if (on && rotor.current) rotor.current.rotation.y = angle(room)
@@ -66,7 +66,7 @@ function Beacon({ room, pos, id }: BeaconDef) {
 function Darkness() {
   const scene = useThree((state) => state.scene)
   useFrame((_, dt) => {
-    const out = alarmOn() || G().event?.kind === 'blackout'
+    const out = blackoutActive()
     scene.environmentIntensity = THREE.MathUtils.damp(scene.environmentIntensity, out ? 0.26 : 1, 4, Math.min(dt, 0.1))
   })
   useEffect(() => () => { scene.environmentIntensity = 1 }, [scene])
@@ -90,7 +90,7 @@ export function EmergencyLights({ map }: { map: GridMap }) {
   useFrame(() => {
     const distance = (b: BeaconDef) => Math.hypot(b.pos[0] - live.pos[0], b.pos[2] - live.pos[2]) + (b.room.id === live.roomId ? 0 : 30)
     // These lights cast no shadows, so a beam from next door would shine straight through the wall.
-    const active = (alarmOn() ? beacons : []).filter(({ room }) => room.id === live.roomId || !live.roomId).sort((a, b) => distance(a) - distance(b))
+    const active = beacons.filter(({ room }) => roomPowerCut(room, map.zone) && (room.id === live.roomId || !live.roomId)).sort((a, b) => distance(a) - distance(b))
     beams.forEach(({ light, spill, target }, i) => {
       const entry = active[i]
       light.intensity = entry ? 48 : 0

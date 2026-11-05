@@ -8,6 +8,7 @@ import { NOISE } from '../Exterior/glsl'
 import { rockGeometry } from '../Exterior/Asteroids'
 import { photoSurface } from '../photomaterials'
 import { makeTreeGeometry, foliageMaterial } from './foliage'
+import { spatialBatches } from './spatialBatches'
 
 export const SUN4 = new THREE.Vector3(-0.55, 0.13, -0.82).normalize()
 export const SUN4_COLOR = new THREE.Color('#ffbd7a')
@@ -155,7 +156,7 @@ function grassOK(x: number, z: number) {
 }
 
 export function Grass({ count }: { count: number }) {
-  const { geo, mat } = useMemo(() => {
+  const { geometries, mat } = useMemo(() => {
     const blade = new THREE.BufferGeometry()
     const w = 0.022
     // Six curved blades per tuft, instead of isolated luminous sticks.
@@ -170,9 +171,6 @@ export function Grass({ count }: { count: number }) {
     }
     blade.setAttribute('position', new THREE.Float32BufferAttribute(v, 3))
     blade.setIndex(indices)
-    const g = new THREE.InstancedBufferGeometry()
-    g.index = blade.index
-    g.attributes.position = blade.attributes.position
     const off = new Float32Array(count * 3)
     const sc = new Float32Array(count * 2)
     let n = 0
@@ -189,9 +187,27 @@ export function Grass({ count }: { count: number }) {
       sc.set([0.25 + Math.random() * 0.55 + Math.max(0, clump) * 0.35, Math.random() * Math.PI * 2], n * 2)
       n++
     }
-    g.setAttribute('aOffset', new THREE.InstancedBufferAttribute(off, 3))
-    g.setAttribute('aScale', new THREE.InstancedBufferAttribute(sc, 2))
-    g.instanceCount = n
+    const cells = spatialBatches(Array.from({ length: n }, (_, i) => ({ i, x: off[i * 3], z: off[i * 3 + 2] })), 16)
+    const geometries = cells.map(cell => {
+      const g = new THREE.InstancedBufferGeometry()
+      g.index = blade.index
+      g.attributes.position = blade.attributes.position
+      const offsets = new Float32Array(cell.length * 3), scales = new Float32Array(cell.length * 2)
+      const bounds = new THREE.Box3(), point = new THREE.Vector3()
+      cell.forEach(({ i }, j) => {
+        offsets.set(off.subarray(i * 3, i * 3 + 3), j * 3)
+        scales.set(sc.subarray(i * 2, i * 2 + 2), j * 2)
+        bounds.expandByPoint(point.fromArray(off, i * 3))
+      })
+      g.setAttribute('aOffset', new THREE.InstancedBufferAttribute(offsets, 3))
+      g.setAttribute('aScale', new THREE.InstancedBufferAttribute(scales, 2))
+      g.instanceCount = cell.length
+      // Shader offsets are world-space. Include the full blade height and the
+      // maximum gust displacement, so no blade disappears at the screen edge.
+      g.boundingBox = bounds.expandByScalar(1.5)
+      g.boundingSphere = g.boundingBox.getBoundingSphere(new THREE.Sphere())
+      return g
+    })
     const mat = new THREE.ShaderMaterial({
       vertexShader: grassVert,
       fragmentShader: grassFrag,
@@ -202,10 +218,10 @@ export function Grass({ count }: { count: number }) {
         { uTime: { value: 0 }, uSun: { value: SUN4.clone() }, uSunCol: { value: SUN4_COLOR.clone().multiplyScalar(2.2) }, uSky: { value: SKY4.clone() } },
       ]),
     })
-    return { geo: g, mat }
+    return { geometries, mat }
   }, [count])
   useFrame(({ clock }) => (mat.uniforms.uTime.value = clock.elapsedTime))
-  return <mesh geometry={geo} material={mat} frustumCulled={false} />
+  return <group>{geometries.map((geo, i) => <mesh key={i} geometry={geo} material={mat} />)}</group>
 }
 
 // ——— arbres ———
@@ -257,36 +273,45 @@ export function placeTrees(count: number): TreeInst[] {
   return out
 }
 
+function TreeCell({ items, wood, leaves, bark, foliage }: {
+  items: TreeInst[]; wood: THREE.BufferGeometry; leaves: THREE.BufferGeometry;
+  bark: THREE.Material; foliage: THREE.Material
+}) {
+  const trunk = useRef<THREE.InstancedMesh>(null)
+  const crown = useRef<THREE.InstancedMesh>(null)
+  useLayoutEffect(() => {
+    const matrix = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0)
+    const position = new THREE.Vector3(), scale = new THREE.Vector3()
+    for (const im of [trunk.current, crown.current]) {
+      if (!im) continue
+      items.forEach((t, i) => {
+        q.setFromAxisAngle(up, t.r)
+        matrix.compose(position.set(t.x, terrainHeight(t.x, t.z) - 0.1, t.z), q, scale.setScalar(t.s))
+        im.setMatrixAt(i, matrix)
+      })
+      im.instanceMatrix.needsUpdate = true
+      im.computeBoundingSphere()
+      if (im === crown.current) {
+        leaves.computeBoundingBox()
+        const sway = Math.max(0, leaves.boundingBox!.max.y - 1.5) * 0.035
+        im.boundingSphere!.radius += sway * Math.hypot(1, 0.6) * Math.max(...items.map(t => t.s))
+      }
+    }
+  }, [items, leaves])
+  return <group>
+    <instancedMesh ref={trunk} args={[wood, bark, items.length]} castShadow receiveShadow />
+    <instancedMesh ref={crown} args={[leaves, foliage, items.length]} castShadow receiveShadow />
+  </group>
+}
+
 export function Trees({ trees }: { trees: TreeInst[] }) {
-  const pineRef = useRef<THREE.InstancedMesh>(null)
-  const oakRef = useRef<THREE.InstancedMesh>(null)
-  const pineTrunk = useRef<THREE.InstancedMesh>(null)
-  const oakTrunk = useRef<THREE.InstancedMesh>(null)
   const { pine, oak, pineMat, oakMat, bark } = useMemo(() => {
     const bark = new THREE.MeshStandardMaterial({ ...photoSurface('bark', 2), roughness: 1, normalScale: new THREE.Vector2(0.7, 0.7) })
     return { pine: makeTreeGeometry('pine'), oak: makeTreeGeometry('oak'),
       pineMat: windMaterial(foliageMaterial('pine')), oakMat: windMaterial(foliageMaterial('oak')), bark }
   }, [])
-  const pines = trees.filter((t) => t.kind === 'pine')
-  const oaks = trees.filter((t) => t.kind === 'oak')
-  useLayoutEffect(() => {
-      const m = new THREE.Matrix4()
-      const q = new THREE.Quaternion()
-      const fill = (im: THREE.InstancedMesh | null, list: TreeInst[]) => {
-        if (!im) return
-        list.forEach((t, i) => {
-          q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), t.r)
-          m.compose(new THREE.Vector3(t.x, terrainHeight(t.x, t.z) - 0.1, t.z), q, new THREE.Vector3(t.s, t.s, t.s))
-          im.setMatrixAt(i, m)
-        })
-        im.instanceMatrix.needsUpdate = true
-        im.computeBoundingSphere()
-      }
-      fill(pineRef.current, pines)
-      fill(oakRef.current, oaks)
-      fill(pineTrunk.current, pines)
-      fill(oakTrunk.current, oaks)
-  }, [trees])
+  const pines = useMemo(() => spatialBatches(trees.filter(t => t.kind === 'pine')), [trees])
+  const oaks = useMemo(() => spatialBatches(trees.filter(t => t.kind === 'oak')), [trees])
   useFrame(({ clock }) => {
     for (const mat of [pineMat, oakMat]) {
       const sh = mat.userData.shader
@@ -295,10 +320,8 @@ export function Trees({ trees }: { trees: TreeInst[] }) {
   })
   return (
     <group>
-      <instancedMesh ref={pineTrunk} args={[pine.wood, bark, pines.length]} castShadow receiveShadow />
-      <instancedMesh ref={oakTrunk} args={[oak.wood, bark, oaks.length]} castShadow receiveShadow />
-      <instancedMesh ref={pineRef} args={[pine.leaves, pineMat, pines.length]} castShadow receiveShadow />
-      <instancedMesh ref={oakRef} args={[oak.leaves, oakMat, oaks.length]} castShadow receiveShadow />
+      {pines.map((items, i) => <TreeCell key={`pine-${i}`} items={items} wood={pine.wood} leaves={pine.leaves} bark={bark} foliage={pineMat} />)}
+      {oaks.map((items, i) => <TreeCell key={`oak-${i}`} items={items} wood={oak.wood} leaves={oak.leaves} bark={bark} foliage={oakMat} />)}
     </group>
   )
 }

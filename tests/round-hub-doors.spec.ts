@@ -16,6 +16,48 @@ async function teleport(page: Page, x: number, z: number, yaw: number) {
   await page.waitForFunction(({ x, z }) => Math.hypot(window.__game.live.pos[0] - x, window.__game.live.pos[2] - z) < 0.1 && window.__game.live.pos[1] < 0.021, { x, z })
 }
 
+test('les portes libèrent le passage dès leur ouverture même avec des images lentes', async ({ page }) => {
+  await start(page)
+  await page.evaluate(async () => {
+    const { _roots } = await import('/node_modules/.vite/deps/@react-three_fiber.js' as string)
+    const store = _roots.get(document.querySelector('canvas')).store, w = window as any
+    w.doorSamples = []
+    // Reproduce an overloaded main thread without relying on this PC's speed.
+    const stall = { priority: -999, store, ref: { current: () => { const end = performance.now() + 55; while (performance.now() < end) {} } } }
+    const sample = { priority: 0.5, store, ref: { current: ({ scene }: any) => {
+      const target = w.crossing
+      if (!target) return
+      let door: any
+      scene.traverse((o: any) => { if (o.name.startsWith('bulkhead:') && o.position.x === target.x && o.position.z === target.z) door = o })
+      if (!door) throw new Error('Porte introuvable')
+      const pairs = door.children.filter((o: any) => Math.abs(Math.abs(o.position.z) - 0.62) < 0.001)
+      const clear = pairs.length === 2 && pairs.every((o: any) => o.children[1].position.x - o.children[0].position.x - 0.74 >= 0.66)
+      w.doorSamples.push({ position: window.__game.live.pos[target.axis], clear })
+    } } }
+    store.getState().internal.subscribers.push(stall, sample)
+    store.getState().internal.subscribers.sort((a: any, b: any) => a.priority - b.priority)
+  })
+  for (const door of [{ x: 41, z: 23, yaw: 0, axis: 2 }, { x: 23, z: 41, yaw: Math.PI / 2, axis: 0 }]) {
+    await teleport(page, door.x + (door.axis === 0 ? 2.8 : 0), door.z + (door.axis === 2 ? 2.8 : 0), door.yaw)
+    await page.evaluate(d => { (window as any).crossing = d; (window as any).doorSamples = [] }, door)
+    await page.keyboard.down('ArrowUp')
+    try { await page.waitForFunction(d => window.__game.live.pos[d.axis] < (d.axis === 0 ? d.x : d.z) - 1.6, door, { timeout: 10000 }) }
+    finally { await page.keyboard.up('ArrowUp') }
+    const samples = await page.evaluate(() => (window as any).doorSamples as { position: number; clear: boolean }[])
+    const center = door.axis === 0 ? door.x : door.z
+    let blockedFrames = 0, longest = 0, checked = 0
+    samples.slice(1).forEach((s, i) => {
+      if (s.clear && samples[i].clear && Math.abs(s.position - center) < 1.3) {
+        checked++
+        blockedFrames = samples[i].position - s.position < 0.005 ? blockedFrames + 1 : 0
+        longest = Math.max(longest, blockedFrames)
+      } else blockedFrames = 0
+    })
+    expect(checked).toBeGreaterThan(2)
+    expect(longest).toBeLessThanOrEqual(1)
+  }
+})
+
 test('les deux nœuds sont courbes, vitrés et solides, avec quatre passages dégagés', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))

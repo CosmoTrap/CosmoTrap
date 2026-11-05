@@ -109,12 +109,15 @@ export function Sun({ dir }: { dir: THREE.Vector3 }) {
     g.addColorStop(1, 'rgba(0,0,0,0)')
     ctx.fillStyle = g
     ctx.fillRect(0, 0, 256, 256)
-    return new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), color: new THREE.Color(14, 13, 12), blending: THREE.AdditiveBlending, depthWrite: false, fog: false })
+    return new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), color: new THREE.Color(14, 13, 12), blending: THREE.AdditiveBlending, depthWrite: false, depthTest: true, fog: false })
   }, [])
-  useFrame(({ camera }) => ref.current?.position.copy(camera.position).addScaledVector(dir, R * 0.8))
+  // Assez près pour que le tampon de profondeur distingue un rocher du disque : un astéroïde devant le soleil le masque.
+  const dist = 420
+  const scale = 1100 * (dist / (R * 0.8))
+  useFrame(({ camera }) => ref.current?.position.copy(camera.position).addScaledVector(dir, dist))
   return (
     <group ref={ref}>
-      <sprite material={mat} scale={[1100, 1100, 1]} />
+      <sprite material={mat} scale={[scale, scale, 1]} />
     </group>
   )
 }

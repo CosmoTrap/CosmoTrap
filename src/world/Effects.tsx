@@ -98,6 +98,16 @@ const Grade = forwardRef<GradeEffect>(function Grade(_, ref) {
 
 export function Effects() {
   const composer = useRef<Composer>(null)
+  const gl = useThree(s => s.gl)
+  // AO renders transparency in extra passes. They must reuse the complete
+  // scene's shadows, rather than recomputing them with opaque casters hidden.
+  // Refresh every game frame, so doors, actors and the torch remain dynamic.
+  useEffect(() => {
+    const previous = gl.shadowMap.autoUpdate
+    gl.shadowMap.autoUpdate = false
+    return () => { gl.shadowMap.autoUpdate = previous; gl.shadowMap.needsUpdate = true }
+  }, [gl])
+  useFrame(() => { gl.shadowMap.needsUpdate = true }, 0.9)
   const dpr = useThree((s) => s.viewport.dpr)
   const size = useThree((s) => s.size)
   const quality = useGame((s) => s.settings.quality)

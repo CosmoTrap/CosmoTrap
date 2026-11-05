@@ -3,7 +3,7 @@ import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { CEIL } from '../game/maps'
 import type { RoomDef } from '../game/types'
-import { ceilingMaterial, floorMaterial, useMats, wallMaterial } from './materials'
+import { ceilingMaterial, floorMaterial, hullMaterial, useMats, wallMaterial } from './materials'
 import { Elevator } from './Elevator'
 import { Box, Cyl } from './props/models'
 import { drawTexture } from './textures'
@@ -123,6 +123,14 @@ export function RoundHub({ room, shadows, zone }: { room: RoomDef; shadows: bool
   const radius = room.rect[2] - room.rect[0] + 1
   const cx = room.rect[0] + room.rect[2] + 1, cz = room.rect[1] + room.rect[3] + 1
   const built = useMemo(() => buildRoundHub(radius), [radius])
+  const roof = useMemo(() => {
+    const g = new THREE.CircleGeometry(radius + 0.7, 64)
+    const p = g.attributes.position, uv = g.attributes.uv
+    // Repeat at the same two-metre scale as the interior ceiling panels.
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, p.getX(i) / 2, p.getY(i) / 2)
+    return g
+  }, [radius])
+  useEffect(() => () => roof.dispose(), [roof])
   useEffect(() => () => { for (const g of [built.floor, built.ceiling, built.wall, built.glass, built.trim, built.hull]) g.dispose() }, [built])
   const m = useMats()
   // Clear panes onto space: no opaque tint, no glare from the sun or the lamps.
@@ -136,17 +144,15 @@ export function RoundHub({ room, shadows, zone }: { room: RoomDef; shadows: bool
   const destinations = zone === 1 ? ['INFIRMERIE / RESERVE', 'SAS', 'REFECTOIRE', 'DORTOIR']
     : ['MACHINERIE', 'ENERGIE', 'SERRE / LABORATOIRE', 'AMARRAGE']
   return <group name="round-hub" position={[cx, 0, cz]}>
-    <mesh name="hub-floor" geometry={built.floor} material={floorMaterial(zone === 2 ? 'grate' : 'rubber', false, room.id)} receiveShadow castShadow />
-    <mesh geometry={built.ceiling} material={ceilingMaterial(false, room.id)} receiveShadow castShadow />
-    <mesh name="hub-curved-wall" geometry={built.wall} material={wallMaterial(zone === 2 ? 'machine' : 'station', false, room.id)} receiveShadow castShadow />
+    <mesh renderOrder={-1} name="hub-floor" geometry={built.floor} material={floorMaterial(zone === 2 ? 'grate' : 'rubber', false, room.id)} receiveShadow castShadow />
+    <mesh renderOrder={-1} geometry={built.ceiling} material={ceilingMaterial(false, room.id)} receiveShadow castShadow />
+    <mesh renderOrder={-1} name="hub-curved-wall" geometry={built.wall} material={wallMaterial(zone === 2 ? 'machine' : 'station', false, room.id)} receiveShadow castShadow />
     <mesh name="hub-observation-windows" geometry={built.glass} material={windowGlass} />
     <mesh geometry={built.trim} material={frame} castShadow={shadows} receiveShadow />
     {/* Opaque shell behind the curved wall, so that no seam can show open space. */}
-    <mesh name="hub-hull" geometry={built.hull} castShadow><meshBasicMaterial color="#000000" side={THREE.DoubleSide} /></mesh>
+    <mesh name="hub-hull" geometry={built.hull} material={hullMaterial('wall', zone === 2 ? 'machine' : 'station')} castShadow receiveShadow />
     {/* Roof and underside overhang the wall: the sun enters through the windows only, never at the wall's edges. */}
-    {[CEIL + 0.06, -0.06].map((y) => <mesh key={y} name="hub-sun-stop" position={[0, y, 0]} rotation={[-Math.PI / 2, 0, 0]} castShadow>
-      <circleGeometry args={[radius + 0.7, 64]} /><meshBasicMaterial color="#000000" side={THREE.DoubleSide} />
-    </mesh>)}
+    {[CEIL + 0.06, -0.06].map((y) => <mesh key={y} name="hub-sun-stop" geometry={roof} position={[0, y, 0]} rotation={[-Math.PI / 2, 0, 0]} material={hullMaterial('roof')} castShadow receiveShadow />)}
     {built.posts.map((a, i) => <group key={i} position={[Math.sin(a) * (radius - 0.04), 0, Math.cos(a) * (radius - 0.04)]} rotation={[0, a, 0]}>
       <Box s={[0.065, CEIL, 0.12]} p={[0, CEIL / 2, 0]} m={frame} />
       {[0.26, 2.5].map((y) => <Cyl key={y} a={[0.02, 0.02, 0.02]} p={[0, y, -0.075]} r={[Math.PI / 2, 0, 0]} m={m.metal('#a9aeb0')} seg={6} />)}
