@@ -4,9 +4,13 @@
 //  3. le serveur installe cette version : tout de suite si le jeton de déploiement est connu
 //     (.deploy-token, non versionné, ou DEPLOY_TOKEN), sinon dans les 5 minutes (tâche Cron Hostinger).
 import { execSync } from 'node:child_process'
+import dns from 'node:dns'
 import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+
+// certaines box ont un IPv6 qui ne répond pas : sans ça, fetch attend indéfiniment
+dns.setDefaultResultOrder('ipv4first')
 
 const SITE = process.env.SITE_URL ?? 'https://royalblue-wolverine-280146.hostingersite.com'
 // REPO_URL : URL avec jeton d'accès dans GitHub Actions ; en local, les identifiants git habituels
@@ -48,13 +52,13 @@ if (!token) {
 }
 // le serveur télécharge la branche et remplace les fichiers
 console.log('Installation sur Hostinger…')
-const res = await fetch(`${SITE}/api/deploy.php`, { method: 'POST', headers: { 'X-Deploy-Token': token } })
+const res = await fetch(`${SITE}/api/deploy.php`, { method: 'POST', headers: { 'X-Deploy-Token': token }, signal: AbortSignal.timeout(300000) })
 const body = await res.json().catch(() => ({}))
 if (!res.ok || !body.ok) {
   console.error('Échec de la mise en ligne :', res.status, body)
   process.exit(1)
 }
 console.log(body.upToDate ? `Déjà en ligne (version ${body.version}).` : `En ligne : version ${body.version}, ${body.files} fichiers installés.`)
-const health = await (await fetch(`${SITE}/api/health.php`)).json().catch(() => ({}))
+const health = await fetch(`${SITE}/api/health.php`, { signal: AbortSignal.timeout(30000) }).then((r) => r.json()).catch(() => ({}))
 console.log(health.ok ? `API et base de données OK (${health.driver}).` : 'Attention : l’API ne répond pas correctement.')
 console.log(SITE)
