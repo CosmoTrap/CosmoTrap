@@ -41,21 +41,36 @@ export function cached<T extends THREE.Material>(key: string, dark: boolean, roo
 export function wallMaterial(theme: WallTheme, dark: boolean, roomId: string) {
   return cached(`wall:${theme}`, dark, roomId, () => {
     const s = getSet(`wall:${theme}`, () => wallSet(theme, texSize()))
-    return new THREE.MeshStandardMaterial({ ...s, metalness: 1, roughness: 1, normalScale: new THREE.Vector2(0.9, 0.9) })
+    // The hull uses inward-facing surfaces, with actual holes for windows.
+    // Its back must also occlude rooms seen through another module's window.
+    // Keep the existing shadow face to preserve the interior sun lighting.
+    return new THREE.MeshStandardMaterial({ ...s, metalness: 1, roughness: 1, normalScale: new THREE.Vector2(0.9, 0.9), side: THREE.DoubleSide, shadowSide: THREE.BackSide })
   })
 }
 
 export function floorMaterial(kind: 'plate' | 'rubber' | 'grate', dark: boolean, roomId: string) {
   return cached(`floor:${kind}`, dark, roomId, () => {
     const s = getSet(`floor:${kind}`, () => floorSet(kind, texSize()))
-    return new THREE.MeshStandardMaterial({ ...s, metalness: 1, roughness: 1, normalScale: new THREE.Vector2(1, 1) })
+    return new THREE.MeshStandardMaterial({ ...s, metalness: 1, roughness: 1, normalScale: new THREE.Vector2(1, 1), side: THREE.DoubleSide, shadowSide: THREE.BackSide })
   })
 }
 
 export function ceilingMaterial(dark: boolean, roomId: string) {
   return cached('ceil', dark, roomId, () => {
     const s = getSet('ceil', () => ceilingSet(texSize()))
-    return new THREE.MeshStandardMaterial({ ...s, metalness: 0.1, roughness: 1 })
+    return new THREE.MeshStandardMaterial({ ...s, metalness: 0.1, roughness: 1, side: THREE.DoubleSide, shadowSide: THREE.BackSide })
+  })
+}
+
+/** Exterior panels reuse the interior PBR detail, with a permanent material.
+ * Both shadow faces seal seams; the window openings remain in the geometry. */
+export function hullMaterial(kind: 'wall' | 'roof' = 'wall', theme: WallTheme = 'station') {
+  return cached(`hull:${kind}:${theme}`, false, '', () => {
+    const source = kind === 'wall' ? wallMaterial(theme, false, '') : ceilingMaterial(false, '')
+    const material = source.clone()
+    material.name = `station-hull-${kind}`
+    material.shadowSide = THREE.DoubleSide
+    return material
   })
 }
 

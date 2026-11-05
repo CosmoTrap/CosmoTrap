@@ -178,6 +178,7 @@ export interface GameData {
   /** imprévu en cours */
   event: { kind: 'blackout' | 'leak'; until: number } | null
   nextEventAt: number
+  nextEventKind: 'blackout' | 'leak'
   /** positions monde du mobilier déplacé par le joueur */
   propPositions: Record<string, [number, number, number]>
   /** temps de jeu (pénalités comprises) à la résolution de chaque énigme, par id */
@@ -221,7 +222,8 @@ export const newGameData = (character = 'nova', difficulty: Difficulty = 'astron
   difficulty,
   track: [],
   event: null,
-  nextEventAt: DIFFICULTY[difficulty].events * 0.7,
+  nextEventAt: Math.min(45, DIFFICULTY[difficulty].events * 0.3),
+  nextEventKind: 'blackout',
   propPositions: {},
   splits: {},
   }

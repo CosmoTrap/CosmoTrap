@@ -72,7 +72,7 @@ export function isDarkAt(x: number, z: number, zone = G().zone) {
 
 export function canSeeInDark() {
   const s = G()
-  return s.lampOn && s.res.lamp > 0
+  return has('lamp') && s.lampOn && s.res.lamp > 0
 }
 
 /** l'entité est-elle visible / active (pas encore ramassée, etc.) */
@@ -194,7 +194,7 @@ export function act(id: string) {
   // sinon une lampe vide sans piles bloquerait la partie. Les objets clés et la lecture exigent de la lumière.
   const glows = !!e.item && ITEM_KIND[e.item] === 'resource'
   const needsLight = (!!e.item && !glows) || ['board', 'plate', 'postit', 'labNote', 'serreNote', 'cargoNote', 'terminal', 'locker'].includes(e.id)
-  if (needsLight && isDarkAt(p[0], p[2]) && !canSeeInDark()) {
+  if ((e.id === 'plate' || needsLight && isDarkAt(p[0], p[2])) && !canSeeInDark()) {
     toast(!has('lamp') ? M.noLamp : s.res.lamp <= 0 ? M.lampEmpty : M.tooDark, 'bad')
     audio.sfx('error', { vol: 0.5 })
     return false
@@ -731,14 +731,16 @@ function updateEvents(dt: number): 'blackout' | 'leak' | null {
   const s = G()
   const D = diff()
   if (s.event && s.playTime >= s.event.until) endEvent()
-  if (!s.event && D.events && s.zone < 4 && !live.noEvents && !s.puzzle && s.playTime >= s.nextEventAt && s.briefed) startEvent(Math.random() < 0.5 ? 'blackout' : 'leak')
+  // The briefing is optional: skipping its hologram must not disable incidents.
+  // Alternate with leaks so random choices cannot postpone every power cut.
+  if (!s.event && D.events && s.zone < 4 && !live.noEvents && !s.puzzle && s.playTime >= s.nextEventAt) startEvent(s.nextEventKind ?? 'blackout')
   void dt
   return G().event?.kind ?? null
 }
 
 export function startEvent(kind: 'blackout' | 'leak') {
   const s = G()
-  const dur = kind === 'blackout' ? 32 : 28
+  const dur = kind === 'blackout' ? 20 + Math.random() * 10 : 28
   useGame.setState({ event: { kind, until: s.playTime + dur } })
   audio.sting('danger')
   if (kind === 'blackout') {
@@ -755,7 +757,8 @@ export function endEvent(sealed = false) {
   const s = G()
   const k = s.event?.kind
   const D = diff()
-  useGame.setState({ event: null, nextEventAt: s.playTime + D.events * (0.7 + Math.random() * 0.6) })
+  const interval = Math.min(110, Math.max(45, D.events * (0.4 + Math.random() * 0.2)))
+  useGame.setState({ event: null, nextEventAt: s.playTime + interval, nextEventKind: k === 'blackout' ? 'leak' : 'blackout' })
   if (k === 'leak') {
     audio.stopLoop('leak')
     toast(sealed ? fr.events.sealed : fr.events.leakEnd, 'good', 3000)

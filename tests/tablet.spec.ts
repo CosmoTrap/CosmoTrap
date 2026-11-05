@@ -23,17 +23,29 @@ test('le bras gauche se lève avant la tablette ; plan réel, position, niveaux 
   await page.waitForFunction(() => Math.abs(window.__game.live.pos[0] - 41) < 0.05)
   await page.evaluate(async () => {
     const { _roots } = await import('/node_modules/.vite/deps/@react-three_fiber.js' as string)
-    ;(window as any).__scene = _roots.get(document.querySelector('canvas')).store.getState().scene
+    const w = window as any
+    w.__scene = _roots.get(document.querySelector('canvas')).store.getState().scene
+    w.raiseSamples = []
+    // Observe each frame inside the browser. Separate Playwright round trips
+    // can outlast the short animation on a busy machine.
+    const sample = () => {
+      const s = w.__scene, tablet = !!document.querySelector('[data-testid="tablet"]')
+      if (document.querySelector('[data-testid="tablet-raising"]')) w.raiseSamples.push({
+        progress: s.getObjectByName('tablet-arm-animation').userData.raiseProgress,
+        wrist: !!s.getObjectByName('left-wrist-tablet'), arm: !!s.getObjectByName('left-forearm'), tablet,
+      })
+      if (!tablet) w.raiseFrame = requestAnimationFrame(sample)
+    }
+    w.raiseFrame = requestAnimationFrame(sample)
   })
   await page.keyboard.press('Tab')
-  await expect(page.getByTestId('tablet-raising')).toBeVisible()
-  await expect(page.getByTestId('tablet')).toBeHidden()
-  await page.waitForFunction(() => (window as any).__scene.getObjectByName('tablet-arm-animation').userData.raiseProgress > 0.35)
+  await page.waitForFunction(() => (window as any).raiseSamples.some((s: any) => s.progress > 0.35 && s.progress < 1))
   const raised = await page.evaluate(() => {
-    const s = (window as any).__scene
-    return { progress: s.getObjectByName('tablet-arm-animation').userData.raiseProgress, wrist: !!s.getObjectByName('left-wrist-tablet'), arm: !!s.getObjectByName('left-forearm') }
+    const w = window as any
+    cancelAnimationFrame(w.raiseFrame)
+    return w.raiseSamples.find((s: any) => s.progress > 0.35 && s.progress < 1)
   })
-  expect(raised).toMatchObject({ wrist: true, arm: true })
+  expect(raised).toMatchObject({ wrist: true, arm: true, tablet: false })
   expect(raised.progress).toBeLessThan(1)
   await page.screenshot({ path: 'test-results/tablet-arm-raising.png' })
   await page.keyboard.down('ArrowUp')
@@ -47,9 +59,14 @@ test('le bras gauche se lève avant la tablette ; plan réel, position, niveaux 
   await page.getByTestId('map-room-couloir').click()
   await page.waitForTimeout(400)
   await page.screenshot({ path: 'test-results/tablet-plan.png' })
-  // Level 1 is on alert until its last puzzle, then back in service for good.
-  await expect(page.getByTestId('module-power')).toContainText('Secours')
+  // The mission alarm is independent of the electrical circuit. The tablet
+  // follows actual temporary outages, including after the lift is unlocked.
+  await expect(page.getByTestId('module-power')).toHaveText('En service')
   await page.evaluate(() => window.__game.set({ flags: { ...window.__game.state().flags, pressurized: true } }))
+  await expect(page.getByTestId('module-power')).toHaveText('En service')
+  await page.evaluate(() => window.__game.startEvent('blackout'))
+  await expect(page.getByTestId('module-power')).toContainText('Secours')
+  await page.evaluate(() => window.__game.drain(33))
   await expect(page.getByTestId('module-power')).toHaveText('En service')
   await page.getByTestId('minimap').hover()
   await page.mouse.wheel(0, -120)

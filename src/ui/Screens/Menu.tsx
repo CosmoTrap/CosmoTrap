@@ -3,7 +3,7 @@ import { deleteCloudSave, fetchCloudSave, leaderboard, type Row } from '../../ga
 import { audio } from '../../game/audio/audio'
 import { DIFFICULTY, type Difficulty } from '../../game/difficulty'
 import { loadExplored } from '../../game/explore'
-import { clearSave, isResumable, loadSave, newGameData, useGame, type MissionMap, type SaveFile } from '../../game/state'
+import { clearSave, isResumable, live, loadSave, newGameData, useGame, type MissionMap, type SaveFile } from '../../game/state'
 import { fr } from '../../i18n/fr'
 import { requestLock } from '../../player/Player'
 import { GearIcon, openPage, Stage } from './Stage'
@@ -37,6 +37,7 @@ export async function startNewGame(character: string, d: Difficulty, map: Missio
   clearSave()
   deleteCloudSave()
   loadExplored([])
+  live.noEvents = false
   useGame.setState({ ...newGameData(character, d, map), screen: 'prologue', paused: false, tp: null, resume: null, tabletOpen: false, puzzle: null, readNote: null, lastResult: null })
 }
 
@@ -52,6 +53,8 @@ export async function resumeGame(save: SaveFile) {
   const { pos, yaw, savedAt, ...data } = save
   void savedAt
   loadExplored(data.explored)
+  live.noEvents = false
+  data.nextEventAt = Math.min(data.nextEventAt ?? Infinity, data.playTime + 45)
   useGame.setState({ ...data, screen: 'playing', loading: 0, paused: false, cine: null, resume: pos ? { pos, yaw: yaw ?? 0 } : null, tp: null, tabletOpen: false, puzzle: null, readNote: null })
   requestLock()
 }

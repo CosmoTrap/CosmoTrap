@@ -1,6 +1,6 @@
 import { useFrame } from '@react-three/fiber'
-import { CuboidCollider, RigidBody } from '@react-three/rapier'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { CuboidCollider, RigidBody, type RapierCollider } from '@react-three/rapier'
+import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { audio } from '../game/audio/audio'
 import { CEIL } from '../game/maps'
@@ -102,7 +102,8 @@ export function Door({ id, x, z, alongZ }: { id: string; x: number; z: number; a
   const m = useMats()
   const leaves = useRef<(THREE.Group | null)[]>([])
   const anim = useRef([0, 0]), target = useRef(0)
-  const [closed, setClosed] = useState([true, true])
+  const blockers = useRef<(RapierCollider | null)[]>([])
+  const closed = useRef([true, true])
   const lamp = useMemo(() => new THREE.MeshStandardMaterial({ color: '#081218', emissive: '#ff4128', emissiveIntensity: 2.4 }), [])
   const chamberLight = useMemo(() => new THREE.MeshStandardMaterial({ color: '#081218', emissive: '#e8f6ff', emissiveIntensity: 1.2 }), [])
   const portal = useMemo(portalGeometry, [])
@@ -123,7 +124,6 @@ export function Door({ id, x, z, alongZ }: { id: string; x: number; z: number; a
     const goal = [0, 0]
     goal[near] = t
     goal[far] = t && anim.current[near] > 0.55 ? 1 : 0
-    const next = [...closed]
     anim.current.forEach((value, i) => {
       const v = THREE.MathUtils.damp(value, goal[i], goal[i] ? 3.6 : 4, dt)
       anim.current[i] = v
@@ -131,9 +131,14 @@ export function Door({ id, x, z, alongZ }: { id: string; x: number; z: number; a
       const pair = i * 2
       if (leaves.current[pair]) leaves.current[pair]!.position.x = -0.37 - k * LEAF_TRAVEL
       if (leaves.current[pair + 1]) leaves.current[pair + 1]!.position.x = 0.37 + k * LEAF_TRAVEL
-      next[i] = v < 0.55
+      // Match the actual clear width to the player's 0.64 m collision envelope.
+      // Apply before the physics step, without waiting for a React commit.
+      const blocked = 2 * k * LEAF_TRAVEL < 0.66
+      if (blocked !== closed.current[i] && blockers.current[i]) {
+        blockers.current[i]!.setEnabled(blocked)
+        closed.current[i] = blocked
+      }
     })
-    if (next[0] !== closed[0] || next[1] !== closed[1]) setClosed(next)
     // In the same red breath as the lift while the alarm lasts; otherwise white, and green or red for the lock.
     if (alarmOn()) {
       const pulse = 0.5 + 0.5 * Math.sin(clock.elapsedTime * 2.2)
@@ -146,7 +151,7 @@ export function Door({ id, x, z, alongZ }: { id: string; x: number; z: number; a
       chamberLight.emissive.set('#e8f6ff')
       chamberLight.emissiveIntensity = 1.2
     }
-  })
+  }, -100)
   const frame = m.painted('#4a545b', 0.42, 0.7)
   const chamber = m.painted('#2c363d', 0.5, 0.65)
   const steel = m.metal('#a3adb3', 0.26)
@@ -180,8 +185,7 @@ export function Door({ id, x, z, alongZ }: { id: string; x: number; z: number; a
       <CuboidCollider position={[-0.85, CEIL / 2, 0]} args={[0.15, CEIL / 2, 1.05]} />
       <CuboidCollider position={[0.85, CEIL / 2, 0]} args={[0.15, CEIL / 2, 1.05]} />
       <CuboidCollider name={`door-lintel:${id}`} position={[0, (CEIL + DOOR_HEIGHT) / 2, 0]} args={[0.7, (CEIL - DOOR_HEIGHT) / 2, 1.05]} />
-      {closed[0] && <CuboidCollider position={[0, DOOR_HEIGHT / 2, LEAF_Z]} args={[0.7, DOOR_HEIGHT / 2, 0.05]} />}
-      {closed[1] && <CuboidCollider position={[0, DOOR_HEIGHT / 2, -LEAF_Z]} args={[0.7, DOOR_HEIGHT / 2, 0.05]} />}
+      {[LEAF_Z, -LEAF_Z].map((pz, i) => <CuboidCollider key={pz} ref={c => { blockers.current[i] = c }} name={`door-blocker:${id}:${i}`} position={[0, DOOR_HEIGHT / 2, pz]} args={[0.7, DOOR_HEIGHT / 2, 0.05]} />)}
     </RigidBody>
   </group>
 }

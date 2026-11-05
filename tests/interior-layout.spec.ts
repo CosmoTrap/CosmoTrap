@@ -22,8 +22,9 @@ async function boxes(page: Page): Promise<Box[]> {
       if (!/^(prop|ent):/.test(o.name)) return
       const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity]
       o.traverse((m: any) => {
-        // An entity's invisible hit box still locates it; furniture is measured by what is drawn.
-        if (!m.isMesh || !m.geometry || m.isInstancedMesh || (!m.visible && !o.name.startsWith('ent:'))) return
+        // Batched furniture is drawn by a shared mesh, but keeps its original bounds.
+        // An entity's invisible hit box still locates it.
+        if (!m.isMesh || !m.geometry || m.isInstancedMesh || (!m.visible && !m.userData.staticBatchSource && !o.name.startsWith('ent:'))) return
         m.geometry.computeBoundingBox()
         const b = m.geometry.boundingBox
         for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) {
@@ -49,8 +50,10 @@ async function floating(page: Page) {
     const pattern = new RegExp(resting)
     const meshes: any[] = []
     scene.traverse((o: any) => {
-      if (!o.isMesh || !o.geometry) return
-      for (let p = o; p; p = p.parent) if (!p.visible) return
+      // Use source meshes to exclude the resting object's own triangles, even
+      // when it shares a render batch with its supporting furniture.
+      if (!o.isMesh || !o.geometry || o.userData.staticBatch) return
+      for (let p = o; p; p = p.parent) if (!p.visible && !(p === o && o.userData.staticBatchSource)) return
       meshes.push(o)
     })
     const out: { name: string; x: number; z: number; y: number; gap: number }[] = []
