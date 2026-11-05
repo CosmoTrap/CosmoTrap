@@ -21,6 +21,19 @@ function sceneTextures(scene: THREE.Scene) {
   return [...textures]
 }
 
+/** Three.compile traverses even hidden batching sources. Compile just the
+ * actual drawables, with the real scene's lights/environment. Shallow clones
+ * preserve instancing/skinning variants without reparenting the live objects. */
+function drawables(scene: THREE.Scene) {
+  const group = new THREE.Group()
+  scene.traverseVisible(object => {
+    if (object instanceof THREE.Mesh || object instanceof THREE.Points || object instanceof THREE.Line || object instanceof THREE.Sprite) {
+      group.add(object.clone(false))
+    }
+  })
+  return group
+}
+
 /** Give the DOM a paint before constructing a new level on the main thread. */
 export function SceneGate({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false)
@@ -40,7 +53,14 @@ export function SceneReady({ zone }: { zone: ZoneId }) {
   const uploads = useRef<THREE.Texture[] | null>(null)
   const uploaded = useRef(0)
   const generation = useRef(0)
+  const warmup = useRef({ frames: 0, programs: -1, stable: 0 })
+  const culling = useRef(new Map<THREE.Object3D, boolean>())
+  const restoreCulling = () => {
+    culling.current.forEach((value, object) => { object.frustumCulled = value })
+    culling.current.clear()
+  }
   useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
+  useEffect(() => () => restoreCulling(), [])
   useFrame(() => {
     const r = ready.current
     if (r.done || G().zone !== zone || live.playerZone !== zone) return
@@ -50,6 +70,8 @@ export function SceneReady({ zone }: { zone: ZoneId }) {
         generation.current++
         uploads.current = null; uploaded.current = 0
         r.compiling = r.compiled = false
+        restoreCulling()
+        warmup.current = { frames: 0, programs: -1, stable: 0 }
       }
       return
     }
@@ -63,11 +85,35 @@ export function SceneReady({ zone }: { zone: ZoneId }) {
     if (!r.compiling) {
       r.compiling = true
       const version = generation.current
-      gl.compileAsync(scene, camera).catch(() => {}).finally(() => {
+      gl.compileAsync(drawables(scene), camera, scene).catch(() => {}).finally(() => {
         if (alive.current && version === generation.current) r.compiled = true
       })
     }
     if (uploaded.current < uploads.current.length || !r.compiled) return
+    const w = warmup.current
+    if (w.frames === 0) {
+      // compileAsync does not upload geometry or warm shadow/AO variants. Draw
+      // every visible mesh through the real composer while the loader covers it,
+      // including objects behind the initial camera. No camera/physics teleport.
+      scene.traverseVisible(object => {
+        if (!(object instanceof THREE.Mesh || object instanceof THREE.Points || object instanceof THREE.Line)) return
+        culling.current.set(object, object.frustumCulled)
+        object.frustumCulled = false
+      })
+    }
+    w.frames++
+    if (w.frames <= 2) return
+    restoreCulling()
+    const programs = gl.info.programs ?? []
+    // Three's async compile only waits for the last variant of a shared
+    // material. Poll every program before its first-use diagnostics/uniforms.
+    const context = gl.getContext()
+    const parallel = gl.extensions.get('KHR_parallel_shader_compile')
+    if (parallel && programs.some(p => !context.getProgramParameter(p.program, parallel.COMPLETION_STATUS_KHR))) return
+    for (const program of programs) { program.getUniforms(); program.getAttributes() }
+    w.stable = programs.length === w.programs ? w.stable + 1 : 0
+    w.programs = programs.length
+    if (w.stable < 2) return
     r.done = true
     useGame.setState({ loading: 1, cineT0: G().cine ? performance.now() : G().cineT0 })
   })

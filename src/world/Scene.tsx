@@ -37,7 +37,15 @@ function InteriorSun({ map }: { map: GridMap }) {
   }, [map])
   // Le volume d'ombre englobe les rochers qui rasent la coque, pour qu'ils coupent le soleil intérieur.
   const ext = Math.max(W, H) * 0.95 + 28
-  useFrame(() => { if (light.current) light.current.intensity = size && !stationPowerDown(map.zone) ? 6 : 0 })
+  useFrame(() => {
+    const sunLight = light.current
+    if (!sunLight) return
+    sunLight.intensity = size && !stationPowerDown(map.zone) ? 6 : 0
+    // Keep the light/shader layout stable, but do not redraw the entire station
+    // into a shadow map whose light contributes nothing during the outage.
+    sunLight.shadow.autoUpdate = sunLight.intensity > 0
+    sunLight.shadow.needsUpdate = sunLight.shadow.map === null
+  })
   return (
     <>
       <primitive object={target} />

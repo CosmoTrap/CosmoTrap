@@ -18,7 +18,7 @@ async function scene(page: Page) {
 }
 const captured = (page: Page) => page.evaluate(() => !!document.pointerLockElement)
 
-test('souris reprise après tablette, document, digicode validé et pause ; journal conservé', async ({ page }) => {
+test('souris reprise après tablette, document, digicode validé et pause', async ({ page }) => {
   await boot(page)
   // One explicit gesture permits capture even on browsers with a stricter policy.
   if (!await captured(page)) await page.locator('canvas').click({ position: { x: 600, y: 300 } })
@@ -26,9 +26,10 @@ test('souris reprise après tablette, document, digicode validé et pause ; jour
   await page.keyboard.press('Tab')
   await expect(page.getByTestId('tablet')).toBeVisible()
   await expect.poll(() => captured(page)).toBe(false)
-  await expect(page.getByRole('tab')).toHaveCount(4)
-  await page.getByRole('tab', { name: 'Journal', exact: true }).click()
-  await expect(page.getByTestId('mission-journal')).toBeVisible()
+  // Follow the three tabs shipped on main; the former Journal assertion was stale.
+  await expect(page.getByRole('tab')).toHaveCount(3)
+  await page.getByRole('tab', { name: 'Messages', exact: true }).click()
+  await expect(page.getByRole('tabpanel', { name: 'Messages' })).toBeVisible()
   await page.keyboard.press('Tab')
   await expect.poll(() => captured(page)).toBe(true)
   await page.evaluate(() => window.__game.interact('board'))

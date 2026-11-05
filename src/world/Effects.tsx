@@ -6,6 +6,7 @@ import * as THREE from 'three'
 import { G, useGame } from '../game/state'
 import { QUALITY } from './quality'
 import { film } from './FilmScenes'
+import { installStaticShadowPass } from './props/StaticShadows'
 
 // Étalonnage « clair-obscur » : ombres froides, hautes lumières chaudes, contraste doux,
 // grain de film, et effets d'état (O₂ bas : vignette rouge + flou ; soif : flou).
@@ -99,6 +100,7 @@ const Grade = forwardRef<GradeEffect>(function Grade(_, ref) {
 export function Effects() {
   const composer = useRef<Composer>(null)
   const gl = useThree(s => s.gl)
+  useEffect(() => installStaticShadowPass(gl), [gl])
   // AO renders transparency in extra passes. They must reuse the complete
   // scene's shadows, rather than recomputing them with opaque casters hidden.
   // Refresh every game frame, so doors, actors and the torch remain dynamic.

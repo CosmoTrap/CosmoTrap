@@ -10,5 +10,23 @@ export function skipUnlitBRDF(source: string) {
   )
 }
 
+/** Reject strictly zero contributions before normalisation, attenuation and
+ * shadow sampling. In the station most lamps are off or in another room. The
+ * original Three equations are retained verbatim for every contributing light. */
+export function skipInactiveLights(source: string) {
+  for (const light of ['pointLight', 'spotLight']) {
+    const vector = `vec3 lVector = ${light}.position - geometryPosition;`
+    source = source.replace(vector, `${vector}
+      if (${light}.color == vec3(0.0) || (${light}.distance > 0.0 && dot(lVector, lVector) >= ${light}.distance * ${light}.distance)) {
+        light.color = vec3(0.0);
+        light.direction = vec3(0.0, 0.0, 1.0);
+        light.visible = false;
+        return;
+      }`)
+  }
+  return source.replace('light.visible = true;', 'light.visible = (directionalLight.color != vec3(0.0));')
+}
+
 // Install before any material is compiled, including materials loaded from GLTF.
 ShaderChunk.lights_fragment_begin = skipUnlitBRDF(ShaderChunk.lights_fragment_begin)
+ShaderChunk.lights_pars_begin = skipInactiveLights(ShaderChunk.lights_pars_begin)

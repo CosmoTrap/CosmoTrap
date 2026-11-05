@@ -16,6 +16,7 @@ import { lampPositions, roomPowerCut } from './roomPower'
 import { RoundHub } from './RoundHub'
 import { StationPower } from './StationPower'
 import { doorShadows } from './doorShadows'
+import { TransmissionCulling } from './TransmissionCulling'
 
 export const WIN_R = 0.42
 export const WIN_Y = 1.5
@@ -391,6 +392,7 @@ export function Level({ map, shadows }: { map: GridMap; shadows: boolean }) {
 
   return (
     <group ref={root} name="station-level">
+      <TransmissionCulling root={root} />
       {map.zone === 2 && <StationPower root={root} />}
       {map.rooms.map((room) => {
         const geo = built.rooms[room.id]

@@ -59,6 +59,8 @@ test('les portes libèrent le passage dès leur ouverture même avec des images 
 })
 
 test('les deux nœuds sont courbes, vitrés et solides, avec quatre passages dégagés', async ({ page }) => {
+  // Includes two cold GPU shader warmups, now completed under the loader.
+  test.setTimeout(180000)
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
   await start(page)
