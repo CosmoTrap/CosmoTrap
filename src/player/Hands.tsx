@@ -176,7 +176,10 @@ export function Hands() {
     <group ref={tablet} name="tablet-arm-animation" visible={false}><TabletModel /></group>
     <group ref={torch} visible={false} name="torch-hand">
       <Glove side={-1} />
-      <group position={[0, -0.07, 0.012]}><Flashlight on={lampOn} /></group>
+      {/* Aimed forward through the fist, and slightly inward so its length shows. */}
+      <group position={[0.006, 0.02, 0.03]} rotation={[0.12, -0.35, 0]}>
+        <group position={[0, 0, 0.08]} rotation={[-Math.PI / 2, 0, 0]}><Flashlight on={lampOn} /></group>
+      </group>
     </group>
     <group ref={held} visible={false} name="held-item">
       <group position={right}><Glove /></group>

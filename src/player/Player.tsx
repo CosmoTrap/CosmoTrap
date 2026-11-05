@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { audio } from '../game/audio/audio'
 import { act, cycleItem, drinkPouch, entById, labelOf, toggleLamp, useBattery, useO2, useSelectedItem, useSlot } from '../game/logic'
 import { GRID_MAPS, roomAt, spawnOf } from '../game/maps'
-import { G, ability, live, toggleFullscreen, useGame, type TabletTab } from '../game/state'
+import { G, NO_BLANKET_SPEED, ability, live, toggleFullscreen, useGame, type TabletTab } from '../game/state'
 import { QUALITY } from '../world/quality'
 import { hitboxes } from '../world/props/EntModels'
 import { lampCookie } from '../world/textures'
@@ -318,8 +318,8 @@ export function Player() {
     const crouching = !frozen && (isDown(keys, 'crouch') || pad.crouch)
     S.crouch = THREE.MathUtils.damp(S.crouch, crouching ? 1 : 0, 10, dt)
     let speed = (running && !crouching ? 4.4 : crouching ? 1.4 : 2.5) * ability().speed
-    if (s.res.water <= 0) speed *= 0.55
     if (s.zone < 4 && s.res.o2 < 10) speed *= 0.8
+    if (s.zone === 4 && !s.inv.blanket) speed *= NO_BLANKET_SPEED
     fwd.set(-Math.sin(live.yaw), 0, -Math.cos(live.yaw))
     right.set(Math.cos(live.yaw), 0, -Math.sin(live.yaw))
     mv.set(0, 0, 0).addScaledVector(fwd, -iz * speed * dt).addScaledVector(right, ix * speed * dt)

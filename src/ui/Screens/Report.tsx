@@ -104,7 +104,7 @@ function Progress({ mode, steps }: { mode: Mode; steps: Step[] }) {
           )
         })}
       </ol>
-      <footer className="rp-foot" title={`${R.hints} ${s.hintsUsed} · ${R.errors} ${s.errors} · ${R.faints} ${s.faints}${mode === 'win' ? ` · ${R.score} ${computeScore()}` : ''}`}>
+      <footer className="rp-foot" title={`${R.hints} ${s.hintsUsed} · ${R.errors} ${s.errors}${mode === 'win' ? ` · ${R.score} ${computeScore()}` : ''}`}>
         {mode === 'win' ? `${R.longest} · ${longest?.name ?? '—'}` : `${mode === 'fail' ? R.blocking : R.currentPuzzle} · ${cur?.name ?? '—'}`}
       </footer>
     </section>
@@ -206,6 +206,9 @@ export function End() {
     })
   }, [])
   const earth = s.zone >= 4
+  const cause = s.failCause ?? 'time'
+  const lost = R.fail[cause]
+  const outOfTime = cause === 'time'
   const again = () => {
     useGame.setState({ ended: false })
     startNewGame(s.character, s.difficulty, s.map)
@@ -214,11 +217,11 @@ export function End() {
     <Stage tint={mode} testId="end">
       <Head
         mode={mode}
-        kicker={fail ? (earth ? R.failKickerEarth : R.failKicker) : R.winKicker}
-        title={fail ? R.failTitle : R.winTitle}
-        sub={fail ? (earth ? R.failSubEarth : R.failSub) : R.winSub}
-        clockLabel={fail ? R.limit : R.total}
-        clock={fail ? '00:00:00' : hms(total)}
+        kicker={fail ? (earth ? lost.kickerEarth : lost.kicker) : R.winKicker}
+        title={fail ? lost.title : R.winTitle}
+        sub={fail ? (earth ? lost.subEarth : lost.sub) : R.winSub}
+        clockLabel={fail ? (outOfTime ? R.limit : R.remaining) : R.total}
+        clock={fail ? hms(timeLimit() - total) : hms(total)}
         testId="end-time"
       />
       <Progress mode={mode} steps={steps} />

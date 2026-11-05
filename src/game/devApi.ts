@@ -30,7 +30,8 @@ export function installDevApi() {
         puzzle: s.puzzle,
         cine: s.cine,
         ended: s.ended,
-        faints: s.faints,
+        o2Critical: s.o2Critical,
+        failCause: s.failCause,
         penalty: s.penalty,
         errors: s.errors,
         hintsUsed: s.hintsUsed,
@@ -75,7 +76,7 @@ export function installDevApi() {
     },
     interact: (id: string) => act(id),
     give: (item: ItemId, n = 1) => addItem(item, n),
-    setRes: (r: Partial<{ o2: number; lamp: number; water: number }>) => useGame.setState({ res: { ...G().res, ...r } }),
+    setRes: (r: Partial<{ o2: number; lamp: number; water: number; hp: number }>) => useGame.setState({ res: { ...G().res, ...r } }),
     /** simule n secondes de jeu pour les ressources */
     drain: (seconds: number) => {
       for (let i = 0; i < seconds * 10; i++) tick(0.1)

@@ -101,7 +101,7 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
 
   // ——— Zone 2 ———
   await waitIdle(page, 2)
-  // le disjoncteur est inaccessible avant la vanne : la vapeur bloque le couloir
+  // le disjoncteur est inaccessible avant la vanne : le gaz bloque le couloir
   await g(page, 'teleportXZ', 51, 37, -Math.PI / 2)
   await page.waitForTimeout(600)
   await holdKey(page, 'w', 2500)
@@ -201,30 +201,31 @@ test('ressources à zéro, pénalités, indices et limite de temps', async ({ pa
   await signedInPage(page, request)
   await startGame(page)
   await waitIdle(page, 1)
-  // oxygène à zéro sans bouteille → évanouissement, retour au départ avec 50 %
-  await g(page, 'setRes', { o2: 0.5 })
-  await g(page, 'drain', 3)
-  await page.waitForFunction(() => window.__game.state().faints === 1)
-  await page.waitForFunction(() => !window.__game.state().cine, null, { timeout: 30000 })
   let s = await st(page)
-  expect(s.faints).toBe(1)
-  expect(Math.round(s.res.o2)).toBeGreaterThanOrEqual(49)
-  // bouteille branchée automatiquement à 0
+  // bouteille refusée tant que ses 55 % ne tiennent pas dans la jauge
   await g(page, 'give', 'o2')
-  await g(page, 'setRes', { o2: 0.2 })
+  await g(page, 'setRes', { o2: 45.5 })
+  expect(await g(page, 'useItem', 'o2')).toBe(false)
+  s = await st(page)
+  expect(s.inv.o2).toBe(1)
+  await g(page, 'setRes', { o2: 45 })
+  expect(await g(page, 'useItem', 'o2')).toBe(true)
+  s = await st(page)
+  expect(s.inv.o2).toBeUndefined()
+  expect(s.res.o2).toBeGreaterThan(99)
+  // bouteille branchée automatiquement à 15 %
+  await g(page, 'give', 'o2')
+  await g(page, 'setRes', { o2: 15.1 })
   await g(page, 'drain', 1)
   s = await st(page)
-  expect(s.res.o2).toBeGreaterThan(50)
+  expect(s.inv.o2).toBeUndefined()
+  expect(s.res.o2).toBeGreaterThan(65)
   // lampe vide → elle s'éteint
   await g(page, 'give', 'lamp')
   await page.keyboard.press('f')
-  await g(page, 'setRes', { lamp: 0.5 })
+  await g(page, 'setRes', { lamp: 0.2 })
   await g(page, 'drain', 2)
   expect((await st(page)).lampOn).toBe(false)
-  // eau à zéro
-  await g(page, 'setRes', { water: 0.1 })
-  await g(page, 'drain', 2)
-  expect((await st(page)).res.water).toBe(0)
   // indice léger : compté et pénalisé
   await page.keyboard.press('Tab')
   await expect(page.getByTestId('tablet')).toBeVisible()

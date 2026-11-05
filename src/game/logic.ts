@@ -23,6 +23,7 @@ import {
   timeLimit,
 } from './state'
 import { SURVIVAL_ITEMS } from './items'
+import type { FailCause } from './state'
 import { valveHint } from './valves'
 import { checkCartographer, checkCollector, unlock } from './achievements'
 import type { Ent, Flag, ItemId, ZoneId } from './types'
@@ -115,6 +116,7 @@ export function labelOf(e: Ent): string | null {
     case 'plate':
       return L.plate
     case 'postit':
+    case 'postitO2':
     case 'labNote':
     case 'serreNote':
     case 'cargoNote':
@@ -193,8 +195,8 @@ export function act(id: string) {
   // les ressources (O₂, piles, eau) portent un marquage phosphorescent : on peut les prendre dans le noir,
   // sinon une lampe vide sans piles bloquerait la partie. Les objets clés et la lecture exigent de la lumière.
   const glows = !!e.item && ITEM_KIND[e.item] === 'resource'
-  const needsLight = (!!e.item && !glows) || ['board', 'plate', 'postit', 'labNote', 'serreNote', 'cargoNote', 'terminal', 'locker'].includes(e.id)
-  if ((e.id === 'plate' || needsLight && isDarkAt(p[0], p[2])) && !canSeeInDark()) {
+  const needsLight = (!!e.item && !glows) || ['board', 'plate', 'postit', 'postitO2', 'labNote', 'serreNote', 'cargoNote', 'terminal', 'locker'].includes(e.id)
+  if (needsLight && isDarkAt(p[0], p[2]) && !canSeeInDark()) {
     toast(!has('lamp') ? M.noLamp : s.res.lamp <= 0 ? M.lampEmpty : M.tooDark, 'bad')
     audio.sfx('error', { vol: 0.5 })
     return false
@@ -218,6 +220,9 @@ export function act(id: string) {
       return true
     case 'postit':
       readNote('postit')
+      return true
+    case 'postitO2':
+      readNote('postitO2')
       return true
     case 'labNote':
       readNote('lab')
@@ -365,6 +370,7 @@ export function act(id: string) {
       addItem('carBattery')
       addItem('rope')
       addItem('manual')
+      addItem('medkit')
       addNote('manual')
       audio.sfx('pickup_key')
       toast(M.capsuleDone, 'item', 4200)
@@ -597,6 +603,23 @@ export function choose(c: 'keep' | 'drop') {
 }
 
 // ——— ressources ———
+/** O₂ rendu par une bouteille (%) */
+const O2_BOTTLE = 55
+/** niveau d'O₂ (%) auquel une bouteille se branche seule, avant les effets de manque */
+const O2_AUTO_AT = 15
+/** niveau de vie (%) auquel une trousse se déclenche seule */
+const MEDKIT_AUTO_AT = 15
+/** niveau d'eau (%) auquel une poche se boit seule */
+const WATER_AUTO_AT = 15
+/** vie perdue à chaque contact avec le gaz (%) */
+const GAS_DAMAGE = 75
+/** délai avant un nouveau dégât si on reste dans le gaz (s) */
+const GAS_REPEAT = 4
+/** portée du gaz autour de la conduite (m), juste assez pour toucher le nuage */
+const GAS_REACH = 2
+/** vie perdue sur Terre sans couverture de survie (%/s) */
+const NO_BLANKET_DAMAGE = 0.1
+
 export function useO2(auto = false) {
   const s = G()
   if (!has('o2')) {
@@ -604,14 +627,29 @@ export function useO2(auto = false) {
     return false
   }
   if (s.zone === 4) return false
-  if (!auto && s.res.o2 >= 99) {
-    toast(M.full)
+  // Une bouteille entamée ne se récupère pas : on refuse tant que ses 55 % ne tiennent pas dans la jauge.
+  if (!auto && s.res.o2 + O2_BOTTLE > 100) {
+    toast(M.o2TooHigh, 'bad')
     return false
   }
   removeItem('o2')
-  useGame.setState({ res: { ...G().res, o2: Math.min(100, G().res.o2 + 55) } })
+  useGame.setState({ res: { ...G().res, o2: Math.min(100, G().res.o2 + O2_BOTTLE) } })
   audio.sfx('breathe_o2')
   if (auto) toast(M.autoO2, 'good')
+  return true
+}
+
+export function useMedkit(auto = false) {
+  const s = G()
+  if (!has('medkit')) return false
+  if (!auto && s.res.hp >= 100) {
+    toast(M.full)
+    return false
+  }
+  removeItem('medkit')
+  useGame.setState({ res: { ...G().res, hp: Math.min(100, G().res.hp + ability().medkitHeal) } })
+  audio.sfx('pickup_bonus')
+  if (auto) toast(M.autoMedkit, 'good')
   return true
 }
 
@@ -632,19 +670,20 @@ export function useBattery(auto = false) {
   return true
 }
 
-export function drinkPouch() {
+export function drinkPouch(auto = false) {
   const s = G()
   if (!has('water')) {
-    toast(M.noWater, 'bad')
+    if (!auto) toast(M.noWater, 'bad')
     return false
   }
-  if (s.res.water >= 99) {
+  if (!auto && s.res.water >= 99) {
     toast(M.full)
     return false
   }
   removeItem('water')
   useGame.setState({ res: { ...G().res, water: Math.min(100, G().res.water + 50) } })
   audio.sfx('drink')
+  if (auto) toast(M.autoWater, 'good')
   return true
 }
 
@@ -712,6 +751,7 @@ export function useItem(item: ItemId) {
   if (item === 'o2') return useO2()
   if (item === 'battery') return useBattery()
   if (item === 'water') return drinkPouch()
+  if (item === 'medkit') return useMedkit()
   if (item === 'lamp') return toggleLamp()
   if (item === 'tape') return sealLeak()
   const s = G()
@@ -723,6 +763,8 @@ export function useItem(item: ItemId) {
 // ——— boucle des ressources ———
 let alarmT = 0
 let lowO2On = false
+let noBlanketWarned = false
+let gasHitT = 0
 let lastTick = -1
 let urgentWarned = false
 
@@ -813,10 +855,16 @@ export function tick(dt: number) {
   const D = diff()
   const ev = updateEvents(dt)
   recordTrack()
+  // Une seule fois à l'arrivée sur Terre, une fois la cinématique finie.
+  if (s.zone !== 4) noBlanketWarned = false
+  else if (!noBlanketWarned) {
+    noBlanketWarned = true
+    if (!has('blanket')) toast(M.noBlanket, 'bad', 6000)
+  }
   // oxygène (zones 1 à 3)
   if (s.zone < 4) {
     const AB = ability()
-    let rate = 0.42 * D.drain * AB.o2
+    let rate = 0.21 * D.drain * AB.o2
     if (ev === 'leak') rate *= 2.2
     if (s.zone === 2 && !f.steamFixed) rate *= 1.5
     if (s.zone === 2 && f.power && f.pw_o2) rate = 0
@@ -825,7 +873,7 @@ export function tick(dt: number) {
   // lampe
   let lampOn = s.lampOn
   if (lampOn) {
-    res.lamp = Math.max(0, res.lamp - 0.75 * D.drain * ability().lamp * dt)
+    res.lamp = Math.max(0, res.lamp - 0.2 * D.drain * ability().lamp * dt)
     if (res.lamp <= 0) {
       if (has('battery')) {
         removeItem('battery')
@@ -841,16 +889,38 @@ export function tick(dt: number) {
   }
   // eau
   res.water = Math.max(0, res.water - 0.11 * D.drain * ability().water * dt)
+  // vie : gaz de la conduite cassée, puis froid sur Terre sans couverture
+  const gas = s.zone === 2 && !f.steamFixed ? entById('steam') : null
+  const gasAt = gas ? entWorld(gas).p : null
+  if (gasAt && Math.abs(live.pos[0] - gasAt[0]) <= GAS_REACH && Math.abs(live.pos[2] - gasAt[2]) <= GAS_REACH) {
+    gasHitT -= dt
+    if (gasHitT <= 0) {
+      gasHitT = GAS_REPEAT
+      res.hp = Math.max(0, res.hp - GAS_DAMAGE)
+      audio.sfx('impact')
+      toast(M.gasBurn, 'bad')
+    }
+  } else gasHitT = 0
+  if (s.zone === 4 && !s.inv.blanket) res.hp = Math.max(0, res.hp - NO_BLANKET_DAMAGE * dt)
   useGame.setState({ res, lampOn, playTime: s.playTime + dt })
   if (s.playTime + dt + s.penalty >= timeLimit()) {
-    useGame.setState({ cine: 'fail', cineT0: performance.now(), tabletOpen: false, puzzle: null, readNote: null })
+    loseGame('time')
     return
   }
 
-  if (res.o2 <= 0 && s.zone < 4) {
-    if (has('o2')) useO2(true)
-    else faint()
+  // Les réserves prennent le relais à 15 %, avant que la jauge n'atteigne 0, qui est mortel.
+  if (res.hp <= MEDKIT_AUTO_AT) useMedkit(true)
+  if (s.zone < 4 && res.o2 <= O2_AUTO_AT) useO2(true)
+  if (res.water <= WATER_AUTO_AT) drinkPouch(true)
+  const after = G().res
+  const cause = after.hp <= 0 ? 'hp' : s.zone < 4 && after.o2 <= 0 ? 'o2' : after.water <= 0 ? 'water' : null
+  if (cause) {
+    loseGame(cause)
+    return
   }
+  if (s.zone < 4 && after.o2 < O2_AUTO_AT && !s.o2Critical) useGame.setState({ o2Critical: true })
+  if (after.hp < 25 && s.res.hp >= 25) toast(M.hpLow, 'bad')
+  if (after.water < 25 && s.res.water >= 25) toast(M.waterLow, 'bad')
   // retours O₂ faible
   const low = res.o2 < 25 && s.zone < 4
   if (low) {
@@ -886,17 +956,8 @@ export function tick(dt: number) {
   audio.setMuffle(s.zone < 4 && res.o2 < 10 ? 1 - res.o2 / 10 : 0)
 }
 
-export function faint() {
-  const s = G()
-  audio.sfx('faint')
-  useGame.setState({ cine: 'faint', cineT0: performance.now(), faints: s.faints + 1, tabletOpen: false, puzzle: null })
-}
-
-export function respawnAfterFaint() {
-  const s = G()
-  const sp = spawnOf(s.zone)
-  useGame.setState({ res: { ...s.res, o2: ability().faintO2 }, tp: { pos: sp.pos, yaw: sp.yaw, n: Date.now() } })
-  audio.sfx('gasp')
+function loseGame(cause: FailCause) {
+  useGame.setState({ cine: 'fail', cineT0: performance.now(), failCause: cause, tabletOpen: false, puzzle: null, readNote: null })
 }
 
 // ——— changement de zone ———

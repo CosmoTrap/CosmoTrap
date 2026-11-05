@@ -114,10 +114,10 @@ export function ItemIcon({ item }: { item: ItemId | 'survival' }) {
   )
 }
 
-export function GaugeIcon({ kind }: { kind: 'o2' | 'lamp' | 'water' }) {
+export function GaugeIcon({ kind }: { kind: 'hp' | 'o2' | 'lamp' | 'water' }) {
   return (
     <svg className="ico" viewBox="0 0 24 24" aria-hidden>
-      {PATHS[kind === 'lamp' ? 'lamp' : kind]}
+      {PATHS[kind === 'hp' ? 'medkit' : kind]}
     </svg>
   )
 }
