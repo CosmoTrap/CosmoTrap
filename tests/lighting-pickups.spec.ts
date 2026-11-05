@@ -17,31 +17,41 @@ async function start(page: Page) {
   })
 }
 
-test('la surbrillance garde les textures et épargne les matériaux partagés, même après un chargement tardif', () => {
+test('le contour des objets à ramasser laisse leurs matériaux intacts, même après un chargement tardif', () => {
+  // Surbrillance actuelle : une fine coque lumineuse (« pickup-border ») autour de chaque mesh,
+  // sans toucher au matériau de l'objet (textures et matériaux partagés préservés).
   const root = new THREE.Group(), texture = new THREE.Texture()
   const source = new THREE.MeshStandardMaterial({ map: texture, color: '#996633', emissive: '#223344', emissiveIntensity: 0.3 })
   const originalEmission = source.emissive.clone()
   const geometry = new THREE.BoxGeometry()
   const a = new THREE.Mesh(geometry, source), b = a.clone()
-  root.add(a)
+  const glass = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ transparent: true, opacity: 0.4 }))
+  root.add(a, glass)
   const effect = highlightPickups(root)
   effect.refresh()
-  expect(a.material).not.toBe(source)
-  expect(a.material.map).toBe(texture)
-  expect(a.material.color.equals(source.color)).toBe(true)
+  const border = (m: THREE.Mesh) => m.children.find((c) => c.name === 'pickup-border') as THREE.Mesh | undefined
+  expect(a.material).toBe(source)
+  expect(source.map).toBe(texture)
   expect(source.emissive.equals(originalEmission)).toBe(true)
   expect(source.emissiveIntensity).toBe(0.3)
-  expect(a.material.emissive.r).toBeGreaterThan(source.emissive.r * 0.3)
-  root.add(b) // An asynchronously loaded model joins the same pickup later.
+  const shell = border(a)!
+  expect(shell).toBeTruthy()
+  expect(shell.geometry).toBe(geometry)
+  expect((shell.material as THREE.Material).side).toBe(THREE.BackSide)
+  expect(shell.scale.x).toBeGreaterThan(1)
+  expect(border(glass)).toBeUndefined() // le verre transparent n'a pas de contour
+  effect.refresh() // pas de double contour
+  expect(a.children.filter((c) => c.name === 'pickup-border')).toHaveLength(1)
+  root.add(b) // un modèle chargé plus tard rejoint le même objet
   effect.refresh()
-  expect(b.material).toBe(a.material)
-  let disposed = false, textureDisposed = false
-  a.material.addEventListener('dispose', () => { disposed = true })
+  expect(border(b)).toBeTruthy()
+  expect(b.material).toBe(source)
+  let textureDisposed = false
   texture.addEventListener('dispose', () => { textureDisposed = true })
   effect.dispose()
+  expect(border(a)).toBeUndefined()
+  expect(border(b)).toBeUndefined()
   expect(a.material).toBe(source)
-  expect(b.material).toBe(source)
-  expect(disposed).toBe(true)
   expect(textureDisposed).toBe(false)
   geometry.dispose(); source.dispose(); texture.dispose()
 })
@@ -94,7 +104,7 @@ test('la plaque ne révèle 2041 qu’avec la torche et les objets brillent jusq
   })
   await page.waitForFunction(() => {
     let count = 0
-    ;(window as any).lightingScene.getObjectByName('ent:ration').traverse((o: any) => { if (o.material?.userData.pickupHighlight) count++ })
+    ;(window as any).lightingScene.getObjectByName('ent:ration').traverse((o: any) => { if (o.name === 'pickup-border') count++ })
     return count > 0
   })
   await page.evaluate(() => window.__game.teleport('lamp', 0.9))

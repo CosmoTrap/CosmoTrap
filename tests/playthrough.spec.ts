@@ -127,6 +127,10 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
   await page.getByTestId('algo-load').click()
   await expect.poll(async () => (await st(page)).flags.readTerminal).toBe(true)
   expect(await g(page, 'doorOpen', 'door_dock')).toBe(true)
+  // le terminal décodé ouvre son document (séquence de lancement) : on le referme comme un joueur
+  await expect(page.getByTestId('note')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('note')).toHaveCount(0)
   await page.waitForTimeout(1200)
   await page.screenshot({ path: 'test-results/zone2.png' })
   await act(page, 'dockExit')

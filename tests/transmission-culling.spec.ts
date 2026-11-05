@@ -57,6 +57,7 @@ test('la réfraction cachée ne redessine plus la scène ; fenêtres et ombres c
 test('le vrai décor conserve ses pixels depuis le hub, le sas et près d’un vitrage',async({page})=>{
  test.setTimeout(180000)
  await page.addInitScript(()=>localStorage.setItem('cosmotrap.settings.v1',JSON.stringify({quality:'high',resolution:720,music:0,voice:0,sfx:0,ambience:0})))
+ await page.route('**/api/**', (route) => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
  await page.goto('/');await expect(page.getByTestId('launch')).toBeVisible();await page.getByTestId('start').click();await page.getByTestId('guest').click()
  await page.evaluate(()=>{window.__game.start();window.__game.set({toured:[1,2,3,4],cine:null})})
  await page.waitForFunction(()=>window.__game.state().loading===1)

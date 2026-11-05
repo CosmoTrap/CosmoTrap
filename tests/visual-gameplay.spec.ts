@@ -129,7 +129,10 @@ test('passer après impact efface immédiatement le flou et toutes les particule
   await expect(page.getByTestId('scene-loading')).toBeHidden()
 })
 
-test('le niveau 1 reste en alerte, lumières éteintes, jusqu’à sa dernière énigme, dortoir compris', async ({ page }) => {
+test('l’alarme de mission du niveau 1 ne coupe pas l’éclairage du dortoir, avant comme après sa dernière énigme', async ({ page }) => {
+  // Choix de conception (commit « optimisation et extérieur de la station ») : l'alarme de mission est
+  // indépendante du circuit électrique. Le niveau 1 garde son éclairage ; seules les vraies coupures
+  // (imprévus) allument les gyrophares. Voir aussi lighting-pickups « les trois zones retrouvent la lumière ».
   await guest(page)
   await page.evaluate(() => window.__game.start())
   await ready(page)
@@ -140,9 +143,12 @@ test('le niveau 1 reste en alerte, lumières éteintes, jusqu’à sa dernière 
       panel: s.getObjectByName('ceiling-light:dortoir').material.emissiveIntensity }
   })
   await page.waitForFunction(() => window.__game.live.roomId === 'dortoir')
-  await expect.poll(look).toEqual({ red: 48, light: 0, panel: 0 })
-  await page.evaluate(() => window.__game.drain(40)) // Past any local power cycle: still on alert.
-  await expect.poll(look).toEqual({ red: 48, light: 0, panel: 0 })
+  expect(await page.evaluate(() => window.__game.state().flags.pressurized)).toBe(false)
+  await expect.poll(async () => (await look()).red).toBe(0)
+  await expect.poll(async () => (await look()).light).toBeGreaterThan(10)
+  expect((await look()).panel).toBeGreaterThan(0)
+  await page.evaluate(() => window.__game.drain(40))
+  await expect.poll(async () => (await look()).red).toBe(0)
   await page.screenshot({ path: 'test-results/alert-dortoir.png' })
   await page.evaluate(() => window.__game.set({ flags: { ...window.__game.state().flags, pressurized: true } }))
   await expect.poll(async () => (await look()).red).toBe(0)

@@ -5,6 +5,8 @@ import { ORDER_LABELS, TASKS, initialDraft, pipePorts, values } from '../src/gam
 test.setTimeout(240000)
 async function boot(page: Page, menu = false) {
   page.setDefaultTimeout(30000)
+  // menu : API injoignable pour jouer en invité
+  if (menu) await page.route('**/api/**', (route) => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
   await page.addInitScript(() => localStorage.setItem('cosmotrap.settings.v1', JSON.stringify({ quality: 'high', resolution: 720, music: 0, voice: 0, sfx: 0, ambience: 0, browserVoice: false, map: 'base' })))
   await page.goto('/')
   await expect(page.getByTestId('launch')).toBeVisible()
