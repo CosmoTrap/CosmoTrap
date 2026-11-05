@@ -495,8 +495,40 @@ export function saveGame(cloud = true) {
 
 /** branché par api.ts pour éviter une dépendance circulaire */
 export let cloudSave: ((d: unknown) => void) | null = null
+export let cloudDelete: (() => void) | null = null
 export function setCloudSave(fn: (d: unknown) => void) {
   cloudSave = fn
+}
+export function setCloudDelete(fn: () => void) {
+  cloudDelete = fn
+}
+
+/** une partie finie ou échouée ne doit plus être proposée au menu */
+const closedKey = () => `cosmotrap.closed.v2.${G().user?.id ?? 'guest'}`
+
+export function saveBlocked(savedAt?: number) {
+  try {
+    const at = Number(localStorage.getItem(closedKey()) || 0)
+    return !!at && (savedAt ?? 0) <= at
+  } catch {
+    return false
+  }
+}
+
+export function isResumable(s: SaveFile | null | undefined): s is SaveFile {
+  if (!s || s.ended || s.ending === 'fail' || s.ending === 'rescue') return false
+  return !saveBlocked(s.savedAt)
+}
+
+/** retire la partie locale et distante, et bloque les sauvegardes plus anciennes */
+export function closeFinishedRun() {
+  try {
+    localStorage.setItem(closedKey(), String(Date.now()))
+  } catch {
+    /* stockage indisponible */
+  }
+  clearSave()
+  cloudDelete?.()
 }
 
 export type SaveFile = GameData & { pos?: [number, number, number]; yaw?: number; savedAt?: number }
