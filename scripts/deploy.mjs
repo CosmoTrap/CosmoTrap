@@ -5,7 +5,7 @@
 //     (.deploy-token, non versionné, ou DEPLOY_TOKEN), sinon dans les 5 minutes (tâche Cron Hostinger).
 import { execSync } from 'node:child_process'
 import dns from 'node:dns'
-import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
+import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -38,6 +38,8 @@ try {
 const site = join(tmp, 'site')
 for (const f of readdirSync(site)) if (f !== '.git') rmSync(join(site, f), { recursive: true, force: true })
 cpSync(join(root, 'dist'), site, { recursive: true, filter: (src) => !src.endsWith('.DS_Store') })
+// version en ligne : https://<site>/version.json
+writeFileSync(join(site, 'version.json'), JSON.stringify({ commit: rev, local: !!dirty, builtAt: new Date().toISOString() }) + '\n')
 sh('git add -A', site)
 if (out('git status --porcelain', site)) {
   sh(`git -c user.name="Cosmotrap deploy" -c user.email="deploy@cosmotrap.local" commit --quiet -m "Build ${rev}${dirty}"`, site)

@@ -519,7 +519,7 @@ Le site est en ligne sur `https://royalblue-wolverine-280146.hostingersite.com`.
 3. Sur Hostinger, une tâche Cron lance `api/deploy.php` toutes les 5 minutes. Elle est configurée dans hPanel → Avancé → Tâches Cron.
 4. `deploy.php` compare la dernière version de la branche `hostinger` avec celle en ligne. Si elle est nouvelle, il la télécharge depuis GitHub et remplace les fichiers de `public_html`. Sinon, il ne fait rien.
 
-Le site est donc à jour au plus 5 minutes après la fin du workflow (onglet Actions de GitHub, 2 à 3 minutes). Il n'y a ni FTP ni mot de passe, et aucun secret GitHub n'est nécessaire.
+`https://…/version.json` indique le commit en ligne. Le site est donc à jour au plus 5 minutes après la fin du workflow (onglet Actions de GitHub, 2 à 3 minutes). Il n'y a ni FTP ni mot de passe, et aucun secret GitHub n'est nécessaire.
 
 **Mise à jour immédiate depuis un poste :**
 
