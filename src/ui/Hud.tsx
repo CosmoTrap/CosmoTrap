@@ -9,7 +9,8 @@ import { GaugeIcon } from './Icons'
 import { fmtTime } from '../game/api'
 import { gridMap } from '../game/maps'
 
-function Gauge({ kind, value, color, label }: { kind: 'hp' | 'o2' | 'lamp' | 'water'; value: number; color: string; label: string }) {
+function Gauge({ kind, color, label }: { kind: 'hp' | 'o2' | 'lamp' | 'water'; color: string; label: string }) {
+  const value = useGame(s => s.res[kind])
   const low = value < 25
   const beat = kind === 'o2' && low ? 60 / (70 + 80 * (1 - value / 25)) : 0
   return (
@@ -194,10 +195,10 @@ export function Hud() {
       {showUi && (
         <>
           <div className="hud-top">
-            <Gauge kind="hp" value={res.hp} color="#7ee08a" label={fr.hud.hp} />
-            {zone < 4 && <Gauge kind="o2" value={res.o2} color="#7fe3ff" label={fr.hud.o2} />}
-            <Gauge kind="lamp" value={res.lamp} color="#ffd27a" label={fr.hud.lamp} />
-            <Gauge kind="water" value={res.water} color="#5aa8ff" label={fr.hud.water} />
+            <Gauge kind="hp" color="#7ee08a" label={fr.hud.hp} />
+            {zone < 4 && <Gauge kind="o2" color="#7fe3ff" label={fr.hud.o2} />}
+            <Gauge kind="lamp" color="#ffd27a" label={fr.hud.lamp} />
+            <Gauge kind="water" color="#5aa8ff" label={fr.hud.water} />
           </div>
           <Objective />
           {showChrono && <Chrono />}
