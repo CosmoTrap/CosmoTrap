@@ -3,9 +3,11 @@ import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { CEIL } from '../game/maps'
 import type { RoomDef } from '../game/types'
-import { ceilingMaterial, floorMaterial, useMats, wallMaterial } from './materials'
+import { ceilingMaterial, floorMaterial, hullMaterial, useMats, wallMaterial } from './materials'
 import { Elevator } from './Elevator'
-import { Box, Cyl, Screen } from './props/models'
+import { Box, Cyl } from './props/models'
+import { drawTexture } from './textures'
+import { StaticBatch } from './props/StaticBatch'
 
 type Surface = { p: number[]; n: number[]; uv: number[]; indices: number[] }
 const surface = (): Surface => ({ p: [], n: [], uv: [], indices: [] })
@@ -29,16 +31,17 @@ function band(s: Surface, r: number, a: number, b: number, low: number, high: nu
   s.indices.push(start, start + 1, start + 2, start + 2, start + 1, start + 3)
 }
 
-export function buildRoundHub(radius: number) {
+export function buildRoundHub(radius: number, exits = [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
   const opening = Math.asin(1 / radius) // Two-metre corridors remain full width.
-  const wall = surface(), glass = surface(), trim = surface()
+  const wall = surface(), glass = surface(), trim = surface(), hull = surface()
   const boundary: [number, number][] = []
   const posts: number[] = []
   const colliders: { x: number; z: number; angle: number; half: number }[] = []
   const segments = 32
-  for (let quadrant = 0; quadrant < 4; quadrant++) {
-    const begin = quadrant * Math.PI / 2 + opening
-    const end = (quadrant + 1) * Math.PI / 2 - opening
+  for (let quadrant = 0; quadrant < exits.length; quadrant++) {
+    const begin = exits[quadrant] + opening
+    const next = quadrant + 1 < exits.length ? exits[quadrant + 1] : exits[0] + Math.PI * 2
+    const end = next - opening
     const step = (end - begin) / segments
     for (let i = 0; i <= segments; i++) {
       const a = begin + i * step
@@ -50,9 +53,14 @@ export function buildRoundHub(radius: number) {
         band(wall, radius, a, b, 0, 0.85)
         band(wall, radius, a, b, 2.15, CEIL)
         band(glass, radius + 0.015, a, b, 0.85, 2.15)
+        band(hull, radius + 0.05, a, b, -0.05, 0.85)
+        band(hull, radius + 0.05, a, b, 2.15, CEIL + 0.05)
         band(trim, radius - 0.045, a, b, 0.81, 0.9)
         band(trim, radius - 0.045, a, b, 2.1, 2.19)
-      } else band(wall, radius, a, b, 0, CEIL)
+      } else {
+        band(wall, radius, a, b, 0, CEIL)
+        band(hull, radius + 0.05, a, b, -0.05, CEIL + 0.05)
+      }
       band(trim, radius - 0.035, a, b, 0, 0.11)
       band(trim, radius - 0.035, a, b, CEIL - 0.11, CEIL)
       const mid = (a + b) / 2
@@ -60,7 +68,7 @@ export function buildRoundHub(radius: number) {
     }
     // The circle meets the corridor sides just before the grid edge. Include
     // that short throat in the floor/ceiling polygon, without overlapping tiles.
-    const direction = (quadrant + 1) * Math.PI / 2
+    const direction = next
     for (const side of [-1, 1]) boundary.push([
       Math.sin(direction) * radius + Math.cos(direction) * side,
       Math.cos(direction) * radius - Math.sin(direction) * side,
@@ -77,34 +85,87 @@ export function buildRoundHub(radius: number) {
     })
     return geometry(s)
   }
-  return { floor: disk(0, true), ceiling: disk(CEIL, false), wall: geometry(wall), glass: geometry(glass), trim: geometry(trim), posts, colliders }
+  return { floor: disk(0, true), ceiling: disk(CEIL, false), wall: geometry(wall), glass: geometry(glass), trim: geometry(trim), hull: geometry(hull), posts, colliders }
+}
+
+const ACCENTS = ['#3fb6e0', '#e8903a', '#62d6b1', '#d96ad0']
+
+/** Backlit corridor sign: a colour bar, the destination in large letters, and an arrow straight ahead. */
+function DestinationSign({ text, accent }: { text: string; accent: string }) {
+  const m = useMats()
+  const material = useMemo(() => {
+    const map = drawTexture(1024, 128, (c) => {
+      c.fillStyle = '#0c1420'
+      c.fillRect(0, 0, 1024, 128)
+      c.fillStyle = accent
+      c.fillRect(0, 0, 22, 128)
+      c.beginPath()
+      c.moveTo(946, 34); c.lineTo(984, 92); c.lineTo(908, 92)
+      c.closePath()
+      c.fill()
+      c.fillStyle = '#f2f6f8'
+      c.textBaseline = 'middle'
+      let size = 74
+      do {
+        c.font = `700 ${size}px 'Space Grotesk', Inter, system-ui, sans-serif`
+        size -= 2
+      } while (c.measureText(text).width > 840 && size > 30)
+      c.fillText(text, 54, 68)
+    })
+    return new THREE.MeshStandardMaterial({ map, emissiveMap: map, emissive: '#ffffff', emissiveIntensity: 1.1, roughness: 0.4 })
+  }, [text, accent])
+  useEffect(() => () => { material.map?.dispose(); material.dispose() }, [material])
+  return <group position={[0, CEIL - 0.17, 0.075]}>
+    <Box s={[1.78, 0.25, 0.05]} m={m.painted('#2a3137', 0.4, 0.7)} />
+    <mesh position={[0, 0, 0.027]} material={material}><planeGeometry args={[1.68, 0.21]} /></mesh>
+  </group>
 }
 
 export function RoundHub({ room, shadows, zone }: { room: RoomDef; shadows: boolean; zone: number }) {
   const radius = room.rect[2] - room.rect[0] + 1
   const cx = room.rect[0] + room.rect[2] + 1, cz = room.rect[1] + room.rect[3] + 1
-  const built = useMemo(() => buildRoundHub(radius), [radius])
-  useEffect(() => () => { for (const g of [built.floor, built.ceiling, built.wall, built.glass, built.trim]) g.dispose() }, [built])
+  const angles = useMemo(() => room.exits?.map(e => e.angle) ?? [0, Math.PI / 2, Math.PI, Math.PI * 1.5], [room])
+  const built = useMemo(() => buildRoundHub(radius, angles), [radius, angles])
+  const roof = useMemo(() => {
+    const g = new THREE.CircleGeometry(radius + 0.7, 64)
+    const p = g.attributes.position, uv = g.attributes.uv
+    // Repeat at the same two-metre scale as the interior ceiling panels.
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, p.getX(i) / 2, p.getY(i) / 2)
+    return g
+  }, [radius])
+  useEffect(() => () => roof.dispose(), [roof])
+  useEffect(() => () => { for (const g of [built.floor, built.ceiling, built.wall, built.glass, built.trim, built.hull]) g.dispose() }, [built])
   const m = useMats()
+  // Clear panes onto space: no opaque tint, no glare from the sun or the lamps.
+  const windowGlass = useMemo(() => {
+    const c = m.glass('#aac9da', 0.05).clone()
+    c.specularIntensity = 0.1
+    return c
+  }, [m])
+  useEffect(() => () => windowGlass.dispose(), [windowGlass])
   const frame = m.painted('#596168', 0.4, 0.7)
   const destinations = zone === 1 ? ['INFIRMERIE / RESERVE', 'SAS', 'REFECTOIRE', 'DORTOIR']
     : ['MACHINERIE', 'ENERGIE', 'SERRE / LABORATOIRE', 'AMARRAGE']
   return <group name="round-hub" position={[cx, 0, cz]}>
-    <mesh name="hub-floor" geometry={built.floor} material={floorMaterial('rubber', false, room.id)} receiveShadow castShadow={shadows} />
-    <mesh geometry={built.ceiling} material={ceilingMaterial(false, room.id)} receiveShadow castShadow={shadows} />
-    <mesh name="hub-curved-wall" geometry={built.wall} material={wallMaterial('station', false, room.id)} receiveShadow castShadow={shadows} />
-    <mesh name="hub-observation-windows" geometry={built.glass} material={m.glass('#aac9da', 0.12)} />
+    <mesh renderOrder={-1} name="hub-floor" geometry={built.floor} material={floorMaterial(zone === 2 ? 'grate' : 'rubber', false, room.id)} receiveShadow castShadow />
+    <mesh renderOrder={-1} geometry={built.ceiling} material={ceilingMaterial(false, room.id)} receiveShadow castShadow />
+    <mesh renderOrder={-1} name="hub-curved-wall" geometry={built.wall} material={wallMaterial(zone === 2 ? 'machine' : 'station', false, room.id)} receiveShadow castShadow />
+    <mesh name="hub-observation-windows" geometry={built.glass} material={windowGlass} />
     <mesh geometry={built.trim} material={frame} castShadow={shadows} receiveShadow />
+    {/* Opaque shell behind the curved wall, so that no seam can show open space. */}
+    <mesh name="hub-hull" geometry={built.hull} material={hullMaterial('wall', zone === 2 ? 'machine' : 'station')} castShadow receiveShadow />
+    {/* Roof and underside overhang the wall: the sun enters through the windows only, never at the wall's edges. */}
+    {[CEIL + 0.06, -0.06].map((y) => <mesh key={y} name="hub-sun-stop" geometry={roof} position={[0, y, 0]} rotation={[-Math.PI / 2, 0, 0]} material={hullMaterial('roof')} castShadow receiveShadow />)}
+    <StaticBatch>
     {built.posts.map((a, i) => <group key={i} position={[Math.sin(a) * (radius - 0.04), 0, Math.cos(a) * (radius - 0.04)]} rotation={[0, a, 0]}>
       <Box s={[0.065, CEIL, 0.12]} p={[0, CEIL / 2, 0]} m={frame} />
       {[0.26, 2.5].map((y) => <Cyl key={y} a={[0.02, 0.02, 0.02]} p={[0, y, -0.075]} r={[Math.PI / 2, 0, 0]} m={m.metal('#a9aeb0')} seg={6} />)}
     </group>)}
-    {[0, 1, 2, 3].map((i) => {
-      const a = i * Math.PI / 2
+    {angles.map((a, i) => {
       return <group key={i} position={[Math.sin(a) * (radius - 0.02), 0, Math.cos(a) * (radius - 0.02)]} rotation={[0, a + Math.PI, 0]}>
         {/* A short bulkhead above each connection, with a readable destination. */}
         <Box s={[2, 0.3, 0.12]} p={[0, CEIL - 0.15, 0]} m={frame} />
-        <Screen w={1.65} h={0.17} p={[0, CEIL - 0.15, 0.07]} lines={[destinations[i]]} intensity={0.5} />
+        <DestinationSign text={room.exits?.[i].label ?? destinations[i]} accent={ACCENTS[i % ACCENTS.length]} />
       </group>
     })}
     <mesh position={[0, 0.008, 0]} rotation={[-Math.PI / 2, 0, 0]} material={m.metal('#718087', 0.6)}>
@@ -113,11 +174,11 @@ export function RoundHub({ room, shadows, zone }: { room: RoomDef; shadows: bool
     <mesh position={[0, CEIL - 0.04, 0]} rotation={[Math.PI / 2, 0, 0]} material={frame}>
       <torusGeometry args={[3.8, 0.05, 8, 96]} />
     </mesh>
-    <Elevator zone={zone} cx={cx} cz={cz} />
+    </StaticBatch>
+    {!room.exits && <Elevator zone={zone} cx={cx} cz={cz} />}
     <RigidBody type="fixed" colliders={false}>
       {built.colliders.map((c, i) => <CuboidCollider key={i} position={[c.x, CEIL / 2, c.z]} rotation={[0, c.angle, 0]} args={[c.half, CEIL / 2, 0.07]} />)}
-      {[0, 1, 2, 3].map((i) => {
-        const a = i * Math.PI / 2
+      {angles.map((a, i) => {
         return <CuboidCollider key={`header-${i}`} position={[Math.sin(a) * radius, CEIL - 0.15, Math.cos(a) * radius]} rotation={[0, a, 0]} args={[1, 0.15, 0.08]} />
       })}
     </RigidBody>

@@ -1,9 +1,10 @@
-import { Suspense, useMemo } from 'react'
+import { Suspense, useLayoutEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { useModel } from '../assets'
 import { RoomCtx, ENV_DARK, ENV_LIT } from '../materials'
 import { useContext } from 'react'
 import { CuboidCollider, RigidBody } from '@react-three/rapier'
+import { StaticBatchContext } from './StaticBatch'
 
 // Modèle photoscanné posé proprement : au sol (centré, base à y = 0) ou contre un mur (dos à z = 0).
 export interface RealModelProps {
@@ -22,7 +23,9 @@ export interface RealModelProps {
 
 function Inner({ id, fit = 'floor', p = [0, 0, 0], r = 0, height, scale = 1, tint, shadows = true, solid = false }: RealModelProps) {
   const room = useContext(RoomCtx)
-  const obj = useModel(id, { shadows, envIntensity: room.dark ? ENV_DARK : ENV_LIT, tint })
+  const invalidateBatch = useContext(StaticBatchContext)
+  const obj = useModel(id, { shadows, envIntensity: room.dark ? ENV_DARK : ENV_LIT, tint, shared: !!invalidateBatch })
+  useLayoutEffect(() => { invalidateBatch?.(); return () => invalidateBatch?.() }, [obj, invalidateBatch])
   const { offset, k, center, half } = useMemo(() => {
     const b = new THREE.Box3().setFromObject(obj)
     const size = b.getSize(new THREE.Vector3())

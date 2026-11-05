@@ -83,7 +83,7 @@ export function InventoryContent() {
           <section className="inventory-storage">
             <nav className="inventory-filters" aria-label={t.title}>
               {(['all', 'resource', 'key', 'survival'] as const).map((kind) => <button key={kind} type="button"
-                aria-pressed={category === kind} className={category === kind ? 'active' : ''} onClick={() => filter(kind)}>{t[kind]}</button>)}
+                aria-pressed={category === kind} className={category === kind ? 'active' : ''} onClick={() => filter(kind)}>{t[kind]}<small>{kind === 'all' ? items.length : items.filter((it) => ITEM_KIND[it] === kind).length}</small></button>)}
             </nav>
             {!visible.length && <p className="inventory-empty">{items.length ? t.noCategory : t.empty}<small>{!items.length && t.emptyHint}</small></p>}
             <div className="inventory-grid">
@@ -92,7 +92,7 @@ export function InventoryContent() {
                 <span className={`inventory-category kind-${ITEM_KIND[item]}`}>{t[ITEM_KIND[item]]}</span>
                 <ItemIcon item={item} /><b>{fr.items[item].name}</b><span className="inventory-count">×{inv[item]}</span>
               </button>)}
-              {Array.from({ length: Math.max(0, 12 - visible.length) }, (_, i) => <div key={`empty-${i}`} className="inventory-cell empty" aria-hidden="true"><span>+</span></div>)}
+              {Array.from({ length: visible.length < 15 ? 15 - visible.length : (5 - visible.length % 5) % 5 }, (_, i) => <div key={`empty-${i}`} className="inventory-cell empty" aria-hidden="true" />)}
             </div>
           </section>
           <aside className="inventory-detail" data-testid="inventory-detail">

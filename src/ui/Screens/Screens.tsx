@@ -14,6 +14,8 @@ import { Valves } from '../../game/puzzles/Valves'
 import { Algo } from '../../game/puzzles/Algo'
 import { Plan } from '../../game/puzzles/Plan'
 import { Dilemma } from '../../game/puzzles/Dilemma'
+import { LunarPuzzle } from '../../game/lunar/LunarPuzzle'
+import { missionNote } from '../../game/lunar/logic'
 import { update } from './Settings'
 
 const M = fr.menu
@@ -21,7 +23,7 @@ const M = fr.menu
 export function NoteReader() {
   const id = useGame((s) => s.readNote)
   if (!id) return null
-  const n = fr.notes[id]
+  const n = missionNote(id)
   if (!n) return null
   const screen = id === 'terminal' || id === 'lab' || id === 'cargo'
   const close = () => {
@@ -33,7 +35,7 @@ export function NoteReader() {
       <div className={`note-reader ${screen ? 'screen' : ''}`} onClick={(e) => e.stopPropagation()}>
         <h3>{n.title}</h3>
         {n.text}
-        <div className="foot">Ajouté au carnet · E ou clic pour fermer</div>
+        <div className="foot">Archivé dans les messages · E ou clic pour fermer</div>
       </div>
     </div>
   )
@@ -57,6 +59,7 @@ export function PuzzleHost() {
         {p === 'algo' && <Algo />}
         {p === 'plan' && <Plan />}
         {p === 'dilemma' && <Dilemma />}
+        {p === 'lunar' && <LunarPuzzle key={useGame.getState().lunar.current} />}
         <div style={{ textAlign: 'center', marginTop: 12 }}>
           <button className="btn ghost" data-testid="puzzle-close" onClick={close}>
             {fr.puzzles.close} (Échap)
@@ -80,7 +83,7 @@ export function SkipCine() {
     window.addEventListener('keydown', k)
     return () => window.removeEventListener('keydown', k)
   }, [])
-  if (!cine || cine === 'faint' || cine === 'fail' || cine === 'lift') return null
+  if (!cine || cine === 'fail' || cine === 'lift') return null
   return (
     <button className="btn ghost skip" data-testid="skip" onClick={() => skipCine()}>
       Passer ▸ <span className="key" style={{ marginLeft: 8, marginRight: 0 }}>Entrée</span>
@@ -133,7 +136,7 @@ export function Prologue() {
     <>
       <div className="flash" ref={flash} style={{ opacity: 0 }} />
       {line && (
-        <div className="subtitle" style={{ bottom: 90 }}>
+        <div className="subtitle film-subtitle" data-testid="prologue-subtitle">
           <small>Prologue</small>
           {line}
         </div>

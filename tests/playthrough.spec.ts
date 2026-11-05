@@ -80,7 +80,18 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
   await act(page, 'door_d1')
   expect((await st(page)).flags.door_d1).toBe(true)
   await act(page, 'valves')
-  for (const i of [0, 4, 8]) await page.getByTestId(`valve-${i}`).click()
+  const grid = await st(page)
+  expect(grid.valves).toEqual(grid.valveStart)
+  const presses = await g<number[]>(page, 'valveSolution')
+  expect(presses.length).toBeGreaterThanOrEqual(4)
+  expect(presses.length).toBeLessThanOrEqual(7)
+  const hint = await g<string>(page, 'valveHint')
+  for (const i of presses) expect(hint).toContain(`ligne ${Math.floor(i / 3) + 1}, colonne ${(i % 3) + 1}`)
+  await page.getByTestId(`valve-${presses[0]}`).click()
+  expect((await st(page)).valves).not.toEqual(grid.valveStart)
+  await page.getByTestId('valve-reset').click()
+  expect((await st(page)).valves).toEqual(grid.valveStart)
+  for (const i of presses) await page.getByTestId(`valve-${i}`).click()
   await expect.poll(async () => (await st(page)).flags.pressurized).toBe(true)
   await page.waitForTimeout(1500)
   await page.screenshot({ path: 'test-results/zone1.png' })
@@ -90,7 +101,7 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
 
   // ——— Zone 2 ———
   await waitIdle(page, 2)
-  // le disjoncteur est inaccessible avant la vanne : la vapeur bloque le couloir
+  // le disjoncteur est inaccessible avant la vanne : le gaz bloque le couloir
   await g(page, 'teleportXZ', 51, 37, -Math.PI / 2)
   await page.waitForTimeout(600)
   await holdKey(page, 'w', 2500)
@@ -103,7 +114,9 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
   expect((await st(page)).flags.steamFixed).toBe(true)
   await act(page, 'breaker')
   await expect(page.getByTestId('power')).toBeVisible()
-  for (const k of ['pw_terminal', 'pw_sas', 'pw_o2']) await page.getByTestId(`power-${k}`).click()
+  await page.getByTestId('power-pw_terminal').click()
+  expect((await st(page)).flags.pw_terminal).toBe(false)
+  for (const k of ['pw_sas', 'pw_terminal', 'pw_o2']) await page.getByTestId(`power-${k}`).click()
   const f2 = (await st(page)).flags
   expect(f2.power && f2.pw_terminal && f2.pw_sas && f2.pw_o2 && !f2.pw_lights).toBe(true)
   await page.getByTestId('puzzle-close').click()
@@ -124,12 +137,19 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
   await act(page, 'engine')
   expect((await st(page)).flags.engine).toBe(true)
   await act(page, 'pilot')
-  for (const t of ['hatch', 'traj', 'press', 'undock', 'suits', 'ignite']) await page.getByTestId(`plan-${t}`).click()
+  const planPenalty = (await st(page)).penalty
+  await page.getByTestId('plan-ignite').click()
+  expect((await st(page)).penalty).toBe(planPenalty + 20)
+  await expect(page.getByTestId('dilemma')).toHaveCount(0)
+  for (const t of ['hatch', 'traj', 'fuel', 'press', 'nav', 'suits', 'undock', 'ignite']) await page.getByTestId(`plan-${t}`).click()
   await expect(page.getByTestId('dilemma')).toBeVisible()
   await page.getByTestId('choice-drop').click()
   await expect(page.getByTestId('sequence')).toBeVisible()
   await page.screenshot({ path: 'test-results/zone3.png' })
-  for (const c of ['blue', 'yellow', 'red', 'green']) await page.getByTestId(`seq-${c}`).click()
+  const seqPenalty = (await st(page)).penalty
+  await page.getByTestId('seq-blue').click()
+  expect((await st(page)).penalty).toBe(seqPenalty + 30)
+  for (const c of ['green', 'red', 'yellow', 'blue']) await page.getByTestId(`seq-${c}`).click()
   await page.waitForFunction(() => window.__game.state().cine === 'launch')
   await page.waitForTimeout(1500)
   await page.keyboard.press('Enter') // passer la cinématique
@@ -147,6 +167,10 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
   await act(page, 'bridge')
   expect((await st(page)).flags.bridge).toBe(true)
   await act(page, 'beacon')
+  const radioPenalty = (await st(page)).penalty
+  await page.getByTestId('radio-emit').click()
+  expect((await st(page)).flags.beacon).toBe(false)
+  expect((await st(page)).penalty).toBe(radioPenalty + 20)
   for (let i = 0; i < 3; i++) await page.getByTestId('radio-p1').click()
   for (let i = 0; i < 5; i++) await page.getByTestId('radio-p01').click()
   await expect(page.getByTestId('radio-freq')).toContainText('121,5')
@@ -177,34 +201,35 @@ test('ressources à zéro, pénalités, indices et limite de temps', async ({ pa
   await signedInPage(page, request)
   await startGame(page)
   await waitIdle(page, 1)
-  // oxygène à zéro sans bouteille → évanouissement, retour au départ avec 50 %
-  await g(page, 'setRes', { o2: 0.5 })
-  await g(page, 'drain', 3)
-  await page.waitForFunction(() => window.__game.state().faints === 1)
-  await page.waitForFunction(() => !window.__game.state().cine, null, { timeout: 30000 })
   let s = await st(page)
-  expect(s.faints).toBe(1)
-  expect(Math.round(s.res.o2)).toBeGreaterThanOrEqual(49)
-  // bouteille branchée automatiquement à 0
+  // bouteille refusée tant que ses 55 % ne tiennent pas dans la jauge
   await g(page, 'give', 'o2')
-  await g(page, 'setRes', { o2: 0.2 })
+  await g(page, 'setRes', { o2: 45.5 })
+  expect(await g(page, 'useItem', 'o2')).toBe(false)
+  s = await st(page)
+  expect(s.inv.o2).toBe(1)
+  await g(page, 'setRes', { o2: 45 })
+  expect(await g(page, 'useItem', 'o2')).toBe(true)
+  s = await st(page)
+  expect(s.inv.o2).toBeUndefined()
+  expect(s.res.o2).toBeGreaterThan(99)
+  // bouteille branchée automatiquement à 15 %
+  await g(page, 'give', 'o2')
+  await g(page, 'setRes', { o2: 15.1 })
   await g(page, 'drain', 1)
   s = await st(page)
-  expect(s.res.o2).toBeGreaterThan(50)
+  expect(s.inv.o2).toBeUndefined()
+  expect(s.res.o2).toBeGreaterThan(65)
   // lampe vide → elle s'éteint
   await g(page, 'give', 'lamp')
   await page.keyboard.press('f')
-  await g(page, 'setRes', { lamp: 0.5 })
+  await g(page, 'setRes', { lamp: 0.2 })
   await g(page, 'drain', 2)
   expect((await st(page)).lampOn).toBe(false)
-  // eau à zéro
-  await g(page, 'setRes', { water: 0.1 })
-  await g(page, 'drain', 2)
-  expect((await st(page)).res.water).toBe(0)
   // indice léger : compté et pénalisé
   await page.keyboard.press('Tab')
   await expect(page.getByTestId('tablet')).toBeVisible()
-  await page.getByTestId('tab-1').click()
+  await page.getByTestId('tab-2').click()
   const before = (await st(page)).penalty
   await page.getByTestId('hint').click()
   s = await st(page)
@@ -273,9 +298,9 @@ test('difficulté, imprévus, succès, fantôme et manette', async ({ page, requ
   // coupure de courant : se termine seule
   await g(page, 'startEvent', 'blackout')
   expect((await st(page)).event?.kind).toBe('blackout')
-  await g(page, 'drain', 25)
+  await g(page, 'drain', 18)
   expect((await st(page)).event?.kind).toBe('blackout')
-  await g(page, 'drain', 10)
+  await g(page, 'drain', 15)
   expect((await st(page)).event).toBeNull()
 
   // trajectoire enregistrée pour la réplique fantôme
@@ -290,7 +315,7 @@ test('difficulté, imprévus, succès, fantôme et manette', async ({ page, requ
   await expect(page.getByTestId('achievements')).toContainText('Bricoleur')
 })
 
-test('menu principal, nouvelle partie, paramètres et langue', async ({ page, request }) => {
+test('menu principal, nouvelle partie et paramètres', async ({ page, request }) => {
   await signedInPage(page, request)
   await expect(page.getByTestId('leaderboard')).toBeVisible()
   // paramètres : profil → choix d'un personnage à capacité
@@ -303,11 +328,9 @@ test('menu principal, nouvelle partie, paramètres et langue', async ({ page, re
   // K12's new jump action also appears in main's redesigned settings page.
   await page.getByTestId('stab-2').click()
   await expect(page.getByTestId('bind-jump-0')).toContainText('Espace')
-  // onglet Jeu : passage en anglais puis retour
+  // onglet Jeu : le français est la seule langue du jeu
   await page.getByTestId('stab-1').click()
-  await page.getByRole('button', { name: 'English' }).click()
-  await expect(page.getByText('Help level')).toBeVisible()
-  await page.getByRole('button', { name: 'Français' }).click()
+  await expect(page.getByRole('button', { name: 'English' })).toHaveCount(0)
   await expect(page.getByText('Niveau d’aide')).toBeVisible()
   await expect(page.getByRole('button', { name: /Se déconnecter/ })).toBeVisible()
   await page.evaluate(() => window.__game.set({ screen: 'title' }))
@@ -316,6 +339,7 @@ test('menu principal, nouvelle partie, paramètres et langue', async ({ page, re
   await page.getByTestId('map-station').click()
   await page.getByTestId('diff-explorer').click()
   await page.getByTestId('start').click()
+  await page.getByTestId('confirm-character').click()
   await page.waitForFunction(() => window.__game.state().screen === 'prologue')
   expect((await st(page)).difficulty).toBe('explorer')
   expect((await st(page)).character).toBe('leo')

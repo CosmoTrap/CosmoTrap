@@ -1,4 +1,5 @@
 import { act, allEnts, doorUnlocked, enterZone, entById, startEvent, tick, useItem } from './logic'
+import { solveValves, valveHint } from './valves'
 import { WALL_DIR, entWorld, spawnOf } from './maps'
 import { G, addItem, live, newGameData, timeLimit, useGame } from './state'
 import type { ItemId, ZoneId } from './types'
@@ -29,7 +30,8 @@ export function installDevApi() {
         puzzle: s.puzzle,
         cine: s.cine,
         ended: s.ended,
-        faints: s.faints,
+        o2Critical: s.o2Critical,
+        failCause: s.failCause,
         penalty: s.penalty,
         errors: s.errors,
         hintsUsed: s.hintsUsed,
@@ -40,12 +42,15 @@ export function installDevApi() {
         difficulty: s.difficulty,
         event: s.event,
         trackLen: s.track.length,
+        valves: [...s.valves],
+        valveStart: [...s.valveStart],
         pos: [...live.pos],
         aimed: live.aimed,
         propPositions: { ...s.propPositions },
         character: s.character,
         map: s.map,
-        settings: { character: s.settings.character, lang: s.settings.lang, help: s.settings.help },
+        lunar: structuredClone(s.lunar),
+        settings: { character: s.settings.character, help: s.settings.help },
       }
     },
     ents: () => allEnts(G().zone).map((e) => e.id),
@@ -72,18 +77,18 @@ export function installDevApi() {
     },
     interact: (id: string) => act(id),
     give: (item: ItemId, n = 1) => addItem(item, n),
-    setRes: (r: Partial<{ o2: number; lamp: number; water: number }>) => useGame.setState({ res: { ...G().res, ...r } }),
+    setRes: (r: Partial<{ o2: number; lamp: number; water: number; hp: number }>) => useGame.setState({ res: { ...G().res, ...r } }),
     /** simule n secondes de jeu pour les ressources */
     drain: (seconds: number) => {
       for (let i = 0; i < seconds * 10; i++) tick(0.1)
     },
     goto: (z: ZoneId) => enterZone(z),
     doorOpen: (id: string) => doorUnlocked(id),
-    start(character = 'nova', skipIntro = true, difficulty: 'explorer' | 'astronaut' | 'survival' = 'astronaut', events = false) {
+    start(character = 'nova', skipIntro = true, difficulty: 'explorer' | 'astronaut' | 'survival' = 'astronaut', events = false, map: 'base' | 'station' = 'station') {
       live.explored.clear()
       live.noEvents = !events
-      const loading = G().screen === 'playing' && G().zone === 1 ? G().loading : 0
-      useGame.setState({ ...newGameData(character, difficulty), screen: 'playing', loading, tabletOpen: false, briefed: skipIntro, cine: null, paused: false })
+      const loading = G().screen === 'playing' && G().zone === 1 && G().map === map ? G().loading : 0
+      useGame.setState({ ...newGameData(character, difficulty, map), screen: 'playing', loading, tabletOpen: false, briefed: skipIntro, toured: map === 'base' ? [1] : [], cine: null, paused: false, puzzle: null, readNote: null })
       const sp = spawnOf(1)
       useGame.setState({ tp: { pos: sp.pos, yaw: sp.yaw, n: Date.now() } })
     },
@@ -91,6 +96,8 @@ export function installDevApi() {
     startEvent: (k: 'blackout' | 'leak') => startEvent(k),
     useItem: (it: ItemId) => useItem(it),
     timeLimit: () => timeLimit(),
+    valveSolution: () => solveValves(G().valves),
+    valveHint: () => valveHint(G().valves),
     live,
   }
   ;(window as any).__game = api

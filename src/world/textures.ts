@@ -529,23 +529,23 @@ export function concreteSet(S: number): PBRSet {
   return build(S, paint, 2, {})
 }
 
-/** gobo de lampe frontale : point chaud + anneaux */
+/** gobo de lampe torche : point chaud + anneaux */
 export function lampCookie(S = 256) {
   const c = canvas(S)
   const ctx = c.getContext('2d')!
   const g = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2)
+  // A bright core fading smoothly into a wide spill, as from a real reflector, without a visible ring.
   g.addColorStop(0, 'rgb(255,255,255)')
-  g.addColorStop(0.18, 'rgb(240,240,240)')
-  g.addColorStop(0.32, 'rgb(150,150,150)')
-  g.addColorStop(0.42, 'rgb(190,190,190)')
-  g.addColorStop(0.55, 'rgb(90,90,90)')
-  g.addColorStop(0.75, 'rgb(40,40,40)')
+  g.addColorStop(0.22, 'rgb(250,250,250)')
+  g.addColorStop(0.4, 'rgb(170,170,170)')
+  g.addColorStop(0.62, 'rgb(70,70,70)')
+  g.addColorStop(0.85, 'rgb(18,18,18)')
   g.addColorStop(1, 'rgb(0,0,0)')
   ctx.fillStyle = g
   ctx.fillRect(0, 0, S, S)
   const n = noiseCanvas(256, 10, 3, 61)
   ctx.globalCompositeOperation = 'multiply'
-  ctx.globalAlpha = 0.25
+  ctx.globalAlpha = 0.1
   ctx.drawImage(n, 0, 0, S, S)
   const t = new THREE.CanvasTexture(c)
   t.colorSpace = THREE.SRGBColorSpace

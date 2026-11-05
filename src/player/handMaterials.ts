@@ -44,6 +44,10 @@ export function handFabric(color: string, leather = false) {
   const material = new THREE.MeshPhysicalMaterial({ map, normalMap: detail.normalMap,
     normalScale: new THREE.Vector2(0.5, 0.5), roughnessMap: detail.roughnessMap,
     roughness: leather ? 0.85 : 0.96, sheen: leather ? 0.12 : 0.3, sheenRoughness: 0.8, envMapIntensity: 0.65 })
+  // A faint glow of its own, so the avatar's colours stay recognisable when the room is dark.
+  material.emissive.set('#ffffff')
+  material.emissiveMap = map
+  material.emissiveIntensity = 0.12
   material.userData.fabric = true
   cache.set(key, material)
   return material

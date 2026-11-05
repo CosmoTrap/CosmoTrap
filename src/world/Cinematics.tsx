@@ -2,17 +2,19 @@ import { useFrame } from '@react-three/fiber'
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { audio } from '../game/audio/audio'
-import { enterZone, pendingZone, respawnAfterFaint, tick } from '../game/logic'
+import { enterZone, pendingZone, tick } from '../game/logic'
 import { GRID_MAPS, spawnOf } from '../game/maps'
 import { riverCenter, terrainHeight } from '../game/maps/zone4'
-import { AUTOSAVE_EVERY, G, clearSave, live, saveGame, useGame } from '../game/state'
+import { AUTOSAVE_EVERY, G, closeFinishedRun, live, saveGame, useGame } from '../game/state'
 import { fr } from '../i18n/fr'
 import { Astronaut, type AstronautHandle } from './Astronaut'
 import { endScene, runScene } from './FilmScenes'
 import { heli } from './zone4/Zone4'
 import { input } from '../player/input'
+import { finishLunar } from '../game/lunar/logic'
+import { ROCKET } from '../game/lunar/map'
 
-// Metteur en scène : briefing holographique, évanouissement, transitions de zone,
+// Metteur en scène : briefing holographique, transitions de zone,
 // décollage + rentrée atmosphérique, arrivée de l'hélicoptère et fin.
 
 const sm = THREE.MathUtils.smoothstep
@@ -68,6 +70,13 @@ export function CineDirector() {
       live.flash = Math.max(0, live.flash - 0.03)
       return
     }
+    if (cine === 'lunarLaunch') {
+      live.camOverride = { pos: [ROCKET[0] - 12, 5 + t * 1.2, ROCKET[1] - 16], look: [ROCKET[0], 4 + Math.max(0, t - 3) ** 2 * 1.3, ROCKET[1]], fov: 62 }
+      live.countdown = t < 3 ? String(3 - Math.floor(t)) : null
+      once('ignition', () => { audio.sfx('airlock'); audio.playMusic('hermes') })
+      if (t > 9) once('lunar-finish', finishLunar)
+      return
+    }
     if (cine === 'briefing') {
       const lines = fr.briefing
       const per = 4.6
@@ -81,14 +90,6 @@ export function CineDirector() {
         once('end', () => {
           resumePlaying(true)
         })
-    } else if (cine === 'faint') {
-      live.fade = Math.min(1, t / 1.8)
-      if (t > 2.2) once('respawn', respawnAfterFaint)
-      if (t > 2.6) {
-        live.fade = Math.max(0, 1 - (t - 2.6) / 1.5)
-        useGame.setState({ subtitle: fr.msg.fainted })
-      }
-      if (t > 4.4) useGame.setState({ cine: null, subtitle: null })
     } else if (cine === 'zoneCard') {
       live.fade = t < 1.2 ? t / 1.2 : t < 2.4 ? 1 : Math.max(0, 1 - (t - 2.4) / 1.4)
       if (t > 1.2 && pendingZone) once('enter', () => enterZone(pendingZone!))
@@ -124,7 +125,7 @@ export function CineDirector() {
       flags.current.started = true
     } else if (cine === 'fail') {
       live.fade = Math.min(1, t / 3)
-      const lines = fr.story.fail
+      const lines = fr.story.fail[s.failCause ?? 'time']
       const i = Math.min(lines.length - 1, Math.floor(t / 3))
       once(`f${i}`, () => {
         useGame.setState({ subtitle: lines[i] })
@@ -135,7 +136,7 @@ export function CineDirector() {
       })
       if (t > 7)
         once('end', () => {
-          clearSave()
+          closeFinishedRun()
           live.fade = 0
           useGame.setState({ cine: null, ended: true, ending: 'fail', screen: 'end', subtitle: null })
         })
@@ -209,7 +210,7 @@ export function CineDirector() {
           audio.oneShotMusic('victory')
           live.camOverride = null
           heli.visible = false
-          clearSave()
+          closeFinishedRun()
           useGame.setState({ cine: null, ended: true, ending: 'rescue', screen: 'end', subtitle: null })
           live.fade = 0
         })
@@ -263,13 +264,14 @@ function resumePlaying(briefed = G().briefed) {
 /** Skip is a complete transition, never a timer adjustment waiting on WebGL. */
 export function skipCine() {
   const s = G()
-  if (!s.cine || s.cine === 'faint' || s.cine === 'fail' || s.cine === 'lift') return
+  if (s.cine === 'lunarLaunch') { finishLunar(); return }
+  if (!s.cine || s.cine === 'fail' || s.cine === 'lift') return
   if (s.cine === 'zoneCard' && pendingZone) enterZone(pendingZone)
   if (s.cine === 'launch') enterZone(4)
   if (s.cine === 'heli') {
     audio.stopAllLoops()
     heli.visible = false
-    clearSave()
+    closeFinishedRun()
     resumePlaying()
     audio.oneShotMusic('victory')
     useGame.setState({ ended: true, ending: 'rescue', screen: 'end' })

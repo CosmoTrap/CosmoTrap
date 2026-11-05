@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import { installDevApi } from './game/devApi'
 import './ui/styles.css'
+import './world/lightingOptimization'
 
 if (import.meta.env.DEV || new URLSearchParams(location.search).has('test')) installDevApi()
 

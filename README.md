@@ -2,7 +2,9 @@
 
 Cosmo Team · Cercle de projets 2026 · Institut G4 Marseille
 
-Un astronaute se réveille seul sur la base lunaire Selene-7, après l'impact d'une micro-météorite. Il doit gérer son oxygène, sa lampe et son eau, résoudre les énigmes de 4 zones et rentrer sur Terre avant la fin du chronomètre (30 min).
+Deux missions indépendantes sont sélectionnables dans le menu : **Station spatiale** (quatre zones, jusqu’au retour sur Terre) et **Base lunaire Séléné-7** (cinq modules autour d’un nœud central, douze épreuves et une évacuation en fusée). Il faut gérer son oxygène, sa lampe et son eau, et s’échapper avant la fin du chronomètre, dont la durée dépend de la difficulté.
+
+Guides : [solution de la station spatiale](#solution-station) · [plan et repères de la base lunaire](#base-lunaire) · [solution des douze épreuves lunaires](#solution-lunaire).
 
 Le jeu est en 3D à la première personne. Il se joue dans le navigateur, sans installation, sur ordinateur et sur mobile en mode paysage.
 
@@ -22,7 +24,7 @@ Ouvrir l'URL publique : `https://royalblue-wolverine-280146.hostingersite.com`. 
 | Nova | Économe : la lampe consomme 35 % de piles en moins |
 | Kenji | Décodeur : pénalités d'erreur divisées par 2 |
 | Inès | Sang-froid : +3 min au chrono |
-| Sam | Endurant : −40 % d'eau, 75 % d'O₂ après un malaise |
+| Sam | Endurant : −40 % d'eau, trousses de secours à +60 % de vie |
 | Maya | Souffle long : −25 % d'O₂ |
 
 **Paramètres → Jeu.** Niveau d'aide (Recrue : 1er indice gratuit ; Pilote : 30 s / 60 s ; Commandant : 60 s / 120 s), chronomètre, sous-titres, sauvegarde à chaque énigme, langue FR / EN, qualité, luminosité, sensibilité, champ de vision (70–110°), plein écran et résolution.
@@ -99,7 +101,7 @@ et demandent une carte graphique plus puissante. Garder la résolution sur
 | Pause | P ou Échap | Bouton « Pause » |
 | Passer une cinématique | Entrée ou bouton « Passer » | Bouton « Passer » |
 
-**Regard.** Il marche à la souris (clic pour la verrouiller), au glisser-cliquer, et à Alt + glisser à deux doigts sur le pavé tactile (réglage activé par défaut).
+**Regard.** La souris reste verrouillée dans la vue pendant le jeu. Elle se libère pour les interfaces (tablette, documents, énigmes, pause), puis est reprise à leur fermeture. Si le navigateur exige une nouvelle interaction, cliquer dans la vue pour la reprendre. Échap permet toujours de mettre en pause. Le geste Alt + glisser à deux doigts sur le pavé tactile reste disponible (réglage activé par défaut).
 
 **Tablette de poignet.** Le bras gauche se lève avant l'ouverture du terminal.
 Ses quatre onglets regroupent le **Plan** (pièces réelles, position et orientation,
@@ -149,7 +151,7 @@ Le classement est séparé par difficulté.
 
 ### Succès et réplique fantôme
 
-- **Succès.** Il y en a 10 : partie terminée, sans indice, sans faute, moins de 10 min, 11 objets de survie, sans évanouissement, échantillons gardés, Survie terminée, fuite colmatée, station explorée en entier. Ils sont gardés dans le compte et visibles depuis le menu **Succès**.
+- **Succès.** Il y en a 10 : partie terminée, sans indice, sans faute, moins de 10 min, 10 objets de survie, O₂ jamais sous 15 %, échantillons gardés, Survie terminée, fuite colmatée, station explorée en entier. Ils sont gardés dans le compte et visibles depuis le menu **Succès**.
 - **Réplique fantôme.** Le parcours du meilleur temps de ta difficulté est rejoué en hologramme orange, en même temps que toi. Il se désactive dans Réglages.
 
 - **Chronomètre.** La partie dure au plus 30 minutes, avec le temps restant affiché en haut. À zéro, c'est l'échec : la station est perdue.
@@ -163,18 +165,20 @@ Le classement est séparé par difficulté.
 
   Leur nombre est compté et affiché à la fin.
 - **Ressources.**
-  - Oxygène : −0,42 %/s, ×1,5 en zone 2 tant que la vapeur fuit. À 0, la bouteille d'O₂ se branche seule ; sans bouteille, tu t'évanouis et reviens au départ de la zone avec 50 %.
-  - Lampe : −0,75 %/s quand elle est allumée. À 0, elle s'éteint, et on ne peut plus lire ni ramasser dans le noir.
-  - Eau : −0,11 %/s. À 0, la vue devient floue et tu avances 45 % moins vite.
+  - Oxygène : −0,21 %/s, ×1,5 en zone 2 tant que le gaz fuit. Une bouteille d'O₂ ajoute 55 % : on ne peut la brancher qu'à 45 % ou moins, et elle se branche seule à 15 %. À 0, la partie est perdue.
+  - Lampe : −0,20 %/s quand elle est allumée. À 0, elle s'éteint, et on ne peut plus lire ni ramasser dans le noir.
+  - Eau : −0,11 %/s. Une poche ajoute 50 % et se boit seule à 15 %. À 0, la partie est perdue.
+  - Vie : le gaz de la conduite cassée (zone 2) enlève 75 % à chaque contact. Une trousse de secours rend 40 % (60 % avec Sam) et se déclenche seule à 15 %. À 0, la partie est perdue.
+  - Couverture de survie : sur Terre, sans elle, tu perds 0,1 % de vie par seconde et tu avances 20 % moins vite.
 - **Score.** `6000 + 3 × (secondes restantes) − 150 × indices − 100 × erreurs + 60 × objets de survie (+300 si les échantillons sont gardés)`.
 - **Classement.** Il garde le meilleur temps de chaque joueur, pénalités comprises.
 - **Sauvegarde.** Elle a lieu toutes les 30 s et à chaque changement de zone, en local et dans le compte. **Continuer** reprend la sauvegarde la plus récente, même depuis un autre ordinateur.
 
-## Scénario
+## Scénario de la station spatiale
 
 1. **Prologue** (passable) : 2041, base lunaire Selene-7. Le labo de Maya vient de trouver de l'eau sous le pôle Sud. Une micro-météorite frappe la station.
 2. **Zone 1 · Quartiers d'équipage.** Visite cinématique de la zone. Briefing holographique de la commandante. Il faut sortir du dortoir et pressuriser le sas.
-3. **Zone 2 · Labo & machinerie.** Il faut couper la fuite de vapeur, réparer le disjoncteur, faire un choix d'énergie, puis décoder le programme de lancement.
+3. **Zone 2 · Labo & machinerie.** Il faut couper la fuite de gaz, réparer le disjoncteur, faire un choix d'énergie, puis décoder le programme de lancement.
 4. **Zone 3 · Fusée Hermès.** Il faut trouver la cellule, planifier le pré-vol, prendre une décision sur les échantillons et lancer la séquence. Suivent le décollage et la rentrée atmosphérique.
 5. **Zone 4 · Terre.** Dans la vallée au coucher du soleil, il faut fouiller la capsule, réparer le pont, émettre un signal radio et tirer la fusée de détresse. L'hélicoptère arrive : fin.
 
@@ -184,59 +188,290 @@ Le classement est séparé par difficulté.
 - **Échantillons (zone 3).** Les garder (−60 s, +300 au score, fin « La découverte ») ou les larguer (fin « Tout le monde est rentré »).
 - **Fins.** Le sauvetage a 4 épilogues selon les choix. L'échec arrive si le temps est écoulé.
 
-## Solution complète
+<a id="solution-station"></a>
+
+## Solution complète de la station spatiale
 
 ### Zone 1 — Quartiers d'équipage
 
-1. Prendre la **lampe frontale** sur l'étagère du dortoir, puis l'allumer (F).
+1. Prendre la **lampe torche** sur l'étagère du dortoir, puis l'allumer (F).
 2. Lire le **tableau du réfectoire** : le code du casier est l'année de mise en service de la station.
 3. Aller dans la **réserve** (sombre, au sud-ouest) et lire la plaque à la lampe : **2041**.
-4. **Énigme 1, observation visuelle.** Taper **2041** sur le casier du dortoir pour récupérer le badge.
+4. **Énigme 1, observation visuelle.** Taper **2041** sur le casier du dortoir pour récupérer le badge. Les touches sont mélangées à chaque ouverture ; le clavier physique du PC saisit les vrais chiffres. Le code ne change pas.
 5. Badger la porte du **sas**, à l'est du couloir.
-6. **Énigme 2, logique (Lights Out 3×3).** Appuyer sur les vannes de la diagonale : haut-gauche, centre, bas-droite.
+6. **Énigme 2, logique (Lights Out 3×3).** Chaque vanne inverse son état et celui de ses voisines directes (haut, bas, gauche, droite). L'ordre ne compte pas, et appuyer deux fois annule. La grille de départ est tirée au sort à chaque partie, toujours soluble, avec une solution minimale de 4 à 7 appuis. Elle est enregistrée dans la sauvegarde. Le bouton Réinitialiser revient à ce départ, sans en tirer un nouveau. L'indice fort donne les cases exactes de la grille en cours, au format « ligne, colonne » (L1 C1 en haut à gauche). Méthode : corriger une ligne après l'autre en partant du haut, comme l'indique le post-it du casier.
 7. Prendre l'**ascenseur** du nœud central, déverrouillé par la pressurisation, pour descendre à l'étage 2. On peut ensuite circuler librement entre les étages 1 et 2.
 
 ### Zone 2 — Labo & machinerie
 
+À l’arrivée, tout l’étage fonctionne sur les alarmes rouges : plafonniers, écrans de décor et éclairage normal sont coupés. La lampe torche reste utilisable. La réparation du disjoncteur rétablit le réseau ; l’éclairage de la machinerie dépend ensuite du choix d’énergie ci-dessous.
+
 1. Prendre le **fusible** dans le labo (nord-ouest) et la **clé à molette** dans la serre (nord).
-2. Fermer la **vanne de vapeur** dans le couloir, à l'est. La vapeur bloque l'accès au disjoncteur.
+2. Fermer la **vanne de gaz** dans le couloir, à l'est. Le gaz bloque l'accès au disjoncteur.
 3. **Disjoncteur** (nord-est) : y poser le fusible.
-4. **Choix stratégique (gestion de projet).** Le réseau fournit 3 unités pour 4 systèmes. Activer **Sas** et **Terminal**, puis **Recyclage O₂** ou **Lumières de la machinerie**.
+4. **Choix stratégique (gestion de projet).** Le réseau fournit 3 unités pour 4 systèmes. Démarrer le **sas** d'abord, puis le **terminal**. Lancer le terminal avant le sas fait sauter le disjoncteur : les quatre systèmes s'éteignent (−20 s). Ensuite, choisir **Recyclage O₂** ou **Lumières de la machinerie**.
 5. **Énigme 3, algorithmique.** Le terminal de la machinerie affiche :
 
    ```
-   couleurs ← [ROUGE, JAUNE, BLEU, VERT]
+   couleurs ← [ROUGE, JAUNE, BLEU, VERT]   (indices 0 à 3)
    pour i allant de 0 à 3 :
        j ← (3 × i + 2) mod 4
        émettre couleurs[j]
    ```
 
-   j vaut 2, 1, 0 puis 3. Il faut donc charger **BLEU · JAUNE · ROUGE · VERT**.
-6. Le **sas d'amarrage** s'ouvre (il faut le courant et le programme chargé). Prendre l'écoutille de l'Hermès.
+   j vaut 2, 1, 0 puis 3, donc couleurs[2], [1], [0], [3] : **BLEU · JAUNE · ROUGE · VERT**. Les boutons sont mélangés à chaque partie ; la séquence correcte ne change pas.
+6. Le **sas d'amarrage** s'ouvre (il faut le courant, le sas alimenté et le programme chargé). Prendre l'écoutille de l'Hermès.
 
 ### Zone 3 — Fusée Hermès
 
 1. Trouver la **cellule d'énergie** dans la soute (sombre, sud-ouest) et l'insérer dans le **moteur** (sud-est).
-2. **Énigme 4, gestion de projet (planning pré-vol).** Respecter les dépendances. Un ordre valide :
+2. **Énigme 4, gestion de projet (planning pré-vol).** Huit opérations, affichées dans un ordre mélangé qui n'est jamais déjà une solution. Une tâche lancée avant ses prérequis coûte 20 s. Plusieurs ordres sont valides. L'un d'eux :
    1. Fermer l'écoutille.
    2. Charger la trajectoire.
-   3. Pressuriser la cabine.
-   4. Désamarrer.
-   5. Contrôler l'O₂ des combinaisons.
-   6. Autoriser l'allumage.
+   3. Purger le carburant.
+   4. Pressuriser la cabine (après l'écoutille).
+   5. Aligner la centrale inertielle (après la trajectoire).
+   6. Contrôler l'O₂ des combinaisons (après la pressurisation).
+   7. Désamarrer (après l'écoutille, la centrale et le carburant).
+   8. Autoriser l'allumage (après le désamarrage et l'O₂).
 3. **Dilemme** : garder ou larguer les échantillons.
-4. **Énigme 5, logique** (réutilise l'énigme 3) : entrer la séquence **BLEU · JAUNE · ROUGE · VERT**. Suivent le décollage et la rentrée atmosphérique.
+4. **Énigme 5, logique** (décompte, à partir de l'énigme 3) : une fois le programme validé au terminal de la **zone 2**, le document « Terminal — séquence de lancement » est archivé dans **Messages**. Il donne BLEU · JAUNE · ROUGE · VERT et précise que le décompte se lit à l'envers. Au poste de la **zone 3**, saisir **VERT · ROUGE · JAUNE · BLEU**. Une couleur fausse remet le décompte à zéro (−30 s). Suivent le décollage et la rentrée atmosphérique.
 
 ### Zone 4 — Terre
 
-1. **Fouiller la capsule** (derrière le joueur) : batterie, corde et manuel. Le manuel indique 121,5 MHz.
+1. **Fouiller la capsule** (derrière le joueur) : batterie, corde et manuel. Le manuel donne la détresse militaire, **243 MHz**, et dit que la balise civile émet sur la moitié exacte.
 2. Ramasser l'**antenne** près des arbres, à l'ouest.
 3. **Réparer le pont** au nord avec la corde. La rivière est infranchissable sans lui.
-4. **Énigme 6, logique.** Régler la **balise** (sur le rocher, de l'autre côté) sur **121,5 MHz** et émettre.
+4. **Énigme 6, logique.** 243 ÷ 2 = **121,5**. Régler la **balise** (sur le rocher, de l'autre côté) sur **121,5 MHz** et émettre. Le bruit ne baisse qu'à moins de 2 MHz de la cible. Une autre fréquence coûte 20 s.
 5. Prendre le **pistolet de détresse** dans la caisse du refuge, au nord-ouest.
 6. **Tirer la fusée à l'hélisurface**, au nord. L'hélicoptère arrive : fin.
 
 Une partie parfaite, sans erreur ni indice et en passant les cinématiques, dure environ 10 à 13 minutes.
+
+<a id="base-lunaire"></a>
+
+## Base lunaire Séléné-7 : carte et exploration
+
+Dans le menu, choisir **Base lunaire**, puis lancer la mission. Cette campagne se déroule sur un seul niveau à la surface de la Lune ; elle ne mène pas aux quatre zones de la station spatiale. Le départ se fait dans la **Chambre de relève**. L’objectif est de rétablir les systèmes, certifier la combinaison, ravitailler **LV-1**, puis rejoindre la fusée et autoriser son décollage.
+
+### Agencement et accès
+
+Vue schématique dans le même sens que le plan de la tablette (haut = nord du plan). Les modules de droite sont reliés au hub par des couloirs diagonaux ; le dessin ne représente pas les distances ni la rotation exacte des pièces.
+
+```text
+                          M-02 · CENTRALE
+                                 |
+                                 |              M-03 · SÉCURITÉ
+                                 |             /
+ M-01 · CHAMBRE ------------- HUB ROND --------
+                                 |             \
+                                 |              M-04 · COMBINAISONS
+                                 |
+                          M-05 · SAS
+                                 |
+ LV-1 · FUSÉE <---- passerelle extérieure
+```
+
+| Lieu | Position sur le plan | Condition d’accès / rôle |
+|---|---|---|
+| M-01 · Chambre de relève | Ouest | Pièce de départ ; résoudre le coffre pour en sortir. |
+| M-00 · Nœud central | Centre | Distribue les cinq modules ; aucun terminal d’énigme. |
+| M-02 · Centrale électrique | Nord | Accessible après le coffre ; liaison solaire, bus et thermique. |
+| M-03 · Terminal de sécurité | Nord-est | Ouvert après les trois bus ; habilitations et radio. |
+| M-04 · Salle des combinaisons | Sud-est | Porte ouverte après les habilitations ; filtration utilisable après la radio. |
+| M-05 · Sas d’évacuation | Sud | Ouvert après la certification EVA ; rover et carburant. |
+| LV-1 · Fusée | Sud-ouest, dehors | Sortie du sas ouverte après les cartouches ; suivre la passerelle vers la fusée. |
+
+**Une porte ouverte ne signifie pas que tous les postes de sa pièce sont déjà utilisables.** Chaque terminal vérifie ses propres prérequis et les objets nécessaires. Les portes déverrouillées s’ouvrent à l’approche.
+
+### Se repérer et conserver les informations
+
+- **E** : ramasser un objet, lire une plaque ou ouvrir un terminal en le visant à proximité.
+- **F** : allumer la lampe après l’avoir ramassée ; utile pour examiner les plaques et pendant les coupures de courant.
+- **Tab → Plan** : voir les vrais modules, la position et l’orientation du joueur. Le plan ne liste pas les épreuves restantes.
+- **H → Messages** : relire les documents déjà consultés. Une aide explicite se demande ici et peut coûter du temps.
+- **Tablette → Messages** : les résultats archivés après validation (coffre, thermique, radio, pression) servent au départ.
+- **I → Inventaire** : consulter les objets possédés. Pour les épreuves lunaires, il suffit d’avoir l’objet requis dans l’inventaire : aucune sélection à la molette ni pose manuelle n’est nécessaire.
+
+### Où trouver les objets
+
+Pour les indications **droite / gauche / fond** ci-dessous et dans le guide, se placer à la porte qui relie le module au hub, puis regarder vers le fond de la pièce. Cette convention reste la même même si le joueur arrive d’un autre côté.
+
+| Objet | Emplacement | Utilité |
+|---|---|---|
+| Lampe torche | Chambre, sur les plans de travail à droite, vers le fond | Éclairer le décor et les documents. |
+| Fusible | Chambre, sur les mêmes plans de travail, près de la lampe | Ouvrir le poste de liaison solaire. |
+| Clé à molette | Chambre, sur les mêmes plans de travail, vers leur milieu | Utiliser le banc de pression. |
+| Eau et piles | Chambre, sur les plans de travail à droite, vers l’entrée | Réserves de survie. |
+| Cellule d’énergie | Centrale, sur le plan de travail à droite, près de l’entrée | Utiliser le calculateur des cartouches dans le sas. |
+| Bouteille d’O₂ | Centrale, au sol à gauche, près de l’entrée | Réserve d’oxygène. |
+| Antenne | Sécurité, sur le plan de travail à gauche, près de l’entrée | Utiliser le poste de triangulation radio. |
+| Eau | Sécurité, sur le plan de travail à droite, près de l’entrée | Réserve de survie. |
+| Piles | Combinaisons, sur le plan de travail à droite, près de l’entrée | Réserve pour la lampe. |
+| Bouteille d’O₂ | Combinaisons, au sol à gauche, près de l’entrée | Réserve d’oxygène. |
+
+Le fusible et la clé sont ramassables directement dans la chambre : ils ne sont pas à l’intérieur du coffre. Prendre les trois outils de départ avant de quitter cette pièce évite un retour inutile.
+
+### Où trouver toutes les consignes
+
+Les indices sont des plaques à lire avec **E**. Une fois lus, ils restent consultables dans les **Messages** de la tablette et la consigne associée apparaît dans le terminal concerné.
+
+| Document | Emplacement dans la base | Épreuve concernée |
+|---|---|---|
+| Relève · manifeste des cratères | Chambre, au centre du mur du fond | Coffre de relève. |
+| Centrale · schéma de secours | Centrale, sur le mur de droite, vers le milieu | Liaison solaire et trois bus. |
+| Maintenance · échangeurs couplés | **Sécurité**, sur le mur de droite, près de l’entrée | Thermique de la **centrale** : il faut y retourner. |
+| Sécurité · registre de relève | Sécurité, sur le mur de droite, plus loin vers le fond | Habilitations croisées. |
+| Radio · relevé des balises | Sécurité, sur le mur de gauche, vers le milieu | Triangulation radio. |
+| EVA · chaîne de filtration | Combinaisons, sur le mur de droite, vers le fond | Filtration. |
+| EVA · banc de transfert | Combinaisons, sur le mur de droite, près de l’entrée | Réservoirs de pression. |
+| EVA · protocole de certification | Combinaisons, sur le mur de gauche, vers le milieu | Certification EVA. |
+| Sas · ravitaillement autonome | Sas, sur le mur de droite, vers le milieu | Trajet du rover. |
+| Sas · calculateur de cartouches | Sas, sur le mur de gauche, vers le milieu | Calcul des cartouches. |
+| Départ · autorisation à quatre chiffres | **Sas**, sur le mur de droite, près de l’entrée | Terminal final à côté de la **fusée**. |
+
+<a id="solution-lunaire"></a>
+
+## Base lunaire : solution complète des douze épreuves
+
+**Cette section révèle les solutions.** Les chiffres du coffre et les valeurs du thermique, de la radio et du carburant changent d’une nouvelle partie à l’autre. Utiliser les relevés de la partie en cours, pas un code universel. La sauvegarde conserve ces valeurs et les réglages déjà effectués.
+
+Ordre conseillé : **chambre → centrale (solaire, bus) → sécurité (lire toutes les plaques, prendre l’antenne, habilitations, radio) → centrale (thermique) → combinaisons → sas → fusée**. Penser à prendre la cellule dans la centrale. Sur chaque poste, cliquer sur **Vérifier le système** après le réglage ; un affichage correct seul ne valide pas l’épreuve. Une erreur entraîne une pénalité de base de 20 secondes, modifiée par la difficulté et le personnage.
+
+### 1. Le coffre de relève — Chambre
+
+**Poste :** au fond à gauche. **Indice :** manifeste au milieu du mur du fond. Aucun objet requis.
+
+Classer les cratères par altitude croissante : **Shackleton (−900 m) → Copernic (+300 m) → Tycho (+1 200 m) → Kepler (+2 100 m)**. Relever le chiffre associé à chacun sur le manifeste et saisir ces quatre chiffres dans cet ordre, sans additionner les altitudes. La validation ouvre la sortie de la chambre et l’accès à la centrale. Conserver le **troisième chiffre du code**, celui de Tycho, pour l’autorisation finale.
+
+### 2. La liaison solaire — Centrale
+
+**Poste :** au fond à droite. **Indice :** schéma de secours sur le mur de droite. **Prérequis :** coffre résolu et **fusible de la chambre** dans l’inventaire.
+
+Cliquer sur un segment le tourne d’un quart de tour. L’entrée se trouve à gauche de la case 1 ; la sortie à droite de la case 16. Numérotation de gauche à droite, puis de haut en bas :
+
+```text
+ 1   2   3   4
+ 5   6   7   8
+ 9  10  11  12
+13  14  15  16
+```
+
+Raccorder ce chemin : **entrée → 1 → 2 → 6 → 5 → 9 → 10 → 11 → 7 → 8 → 12 → 16 → sortie**. Chaque coude doit pointer vers la case précédente et la suivante. La case 1 est horizontale ; la case 16 relie le haut à la droite. Les cases barrées **3, 4, 13, 14 et 15** sont inutilisées. Tous les autres câbles doivent être raccordés. Le trajet alimenté devient vert et le message **« Liaison complète »** confirme le raccordement ; valider ensuite pour débloquer les bus.
+
+### 3. Les trois bus électriques — Centrale
+
+**Poste :** au centre du fond. **Indice :** même schéma de secours. **Prérequis :** liaison solaire validée.
+
+Les six équipements consomment, dans leur ordre d’affichage, **2, 3, 4, 5, 6 et 7** unités. Affecter exactement deux équipements à chacun des bus, sans dépasser ni laisser incomplète sa capacité. Une solution est :
+
+| Bus | Équipements à affecter | Somme |
+|---|---|---|
+| A | n° 1 (2 unités) et n° 6 (7 unités) | 9 |
+| B | n° 3 (4 unités) et n° 5 (6 unités) | 10 |
+| C | n° 2 (3 unités) et n° 4 (5 unités) | 8 |
+
+Dans les six listes, choisir donc **A, C, B, C, B, A**. Valider ouvre la sécurité et rend le poste thermique utilisable. Aller lire les trois plaques de la sécurité et y prendre l’antenne avant de poursuivre.
+
+### 4. Les échangeurs couplés — Centrale, avec un indice dans la sécurité
+
+**Poste :** au fond à gauche de la centrale. **Indice :** « Maintenance · échangeurs couplés », dans la **sécurité**, mur de droite près de l’entrée. **Prérequis :** bus validés.
+
+La fiche donne trois températures cibles, appelées ici **T1, T2, T3** dans leur ordre d’affichage. Les commandes A, B et C vont de 0 à 6 et doivent respecter : `T1 = A + 2B`, `T2 = B + 2C`, `T3 = C + 2A`.
+
+Calculer les commandes ainsi :
+
+```text
+A = (T1 − 2 × T2 + 4 × T3) / 9
+B = (T1 − A) / 2
+C = (T2 − B) / 2
+```
+
+Saisir A, B et C, vérifier que les trois compteurs atteignent leur cible, puis valider. Par exemple, **des cibles 8 / 7 / 6** donnent **A = 2, B = 3, C = 2** ; cet exemple ne vaut que si ce sont les cibles de la partie. Conserver la **commande C**, pas le troisième compteur, pour le départ. Cette épreuve peut être faite après la radio, mais doit être terminée avant la certification EVA.
+
+### 5. Les habilitations croisées — Sécurité
+
+**Poste :** au fond à droite. **Indice :** registre de relève, mur de droite vers le fond. **Prérequis :** bus validés.
+
+Utiliser les flèches pour obtenir **Maya → Kenji → Sam → Inès**. Maya est dans les deux premiers créneaux ; Kenji doit être après elle et avant Inès ; Sam précède immédiatement Inès et ne peut pas être deuxième. Cet ordre satisfait toutes les contraintes. Valider ouvre la porte des combinaisons et débloque la radio. La filtration attend encore la validation radio.
+
+### 6. La triangulation radio — Sécurité
+
+**Poste :** au fond à gauche. **Indice :** relevé des balises, mur de gauche. **Prérequis :** habilitations validées et **antenne** ramassée sur la table de cette pièce.
+
+Le relevé donne trois sommes : **S1 = A + B**, **S2 = B + C**, **S3 = A + C**. Retrouver les canaux :
+
+```text
+A = (S1 + S3 − S2) / 2
+B = S1 − A
+C = S3 − A
+```
+
+Entrer les trois valeurs entières, entre 0 et 9, puis valider. Par exemple, **S1 = 9, S2 = 8, S3 = 7** donnent **A = 4, B = 5, C = 3**. Conserver le **canal B** pour le départ. La filtration devient utilisable.
+
+### 7. La chaîne de filtration — Combinaisons
+
+**Poste :** au fond à droite. **Indice :** chaîne de filtration, mur de droite vers le fond. **Prérequis :** radio validée.
+
+Réordonner les filtres avec les flèches : **Grille → Cyclone → Ioniseur → Tamis → Carbone**. Le carbone termine la chaîne, le tamis suit immédiatement l’ioniseur, et le cyclone se place après la grille mais avant l’ioniseur. Valider débloque le banc de pression et réduit la consommation d’oxygène à l’intérieur des pièces.
+
+### 8. Les réservoirs de pression — Combinaisons
+
+**Poste :** au centre du fond. **Indice :** banc de transfert, mur de droite près de l’entrée. **Prérequis :** filtration validée et **clé à molette de la chambre**.
+
+Les capacités A, B, C sont **8, 5, 3**. Partir de **8 / 0 / 0** et obtenir **4 / 4 / 0**. Cliquer sur les transferts ci-dessous ; chaque transfert remplit la destination ou vide la source, sans perdre de gaz. Si le banc a déjà été modifié, cliquer d’abord sur **Réinitialiser ce poste**.
+
+| Étape | Transfert | A | B | C |
+|---|---|---|---|---|
+| Départ | — | 8 | 0 | 0 |
+| 1 | A → B | 3 | 5 | 0 |
+| 2 | B → C | 3 | 2 | 3 |
+| 3 | C → A | 6 | 2 | 0 |
+| 4 | B → C | 6 | 0 | 2 |
+| 5 | A → B | 1 | 5 | 2 |
+| 6 | B → C | 1 | 4 | 3 |
+| 7 | C → A | 4 | 4 | 0 |
+
+Valider. La quantité finale dans **A = 4** sera le dernier chiffre du code de départ.
+
+### 9. La certification EVA — Combinaisons
+
+**Poste :** au fond à gauche. **Indice :** protocole de certification, mur de gauche. **Prérequis :** pression **et thermique** validés. Si le poste reste bloqué après les réservoirs, retourner régler les échangeurs dans la centrale.
+
+Mettre les opérations dans l’ordre **Balise → Clapet → Pompe → Test → Visière → Purge**, puis valider. La porte du sas d’évacuation se déverrouille.
+
+### 10. Le trajet du rover ravitailleur — Sas
+
+**Poste :** au fond à droite. **Indice :** ravitaillement autonome, mur de droite. **Prérequis :** certification EVA validée.
+
+Sur la grille 5 × 5, partir du coin inférieur gauche, visiter **R1 et R2**, puis atteindre la fusée dans le coin supérieur droit, en évitant les cases hachurées. Réinitialiser le poste si des déplacements ont déjà été programmés, puis saisir : **Est → Nord → Nord → Est → Nord → Nord → Est → Est**, soit **→ ↑ ↑ → ↑ ↑ → →**. Ce trajet utilise huit déplacements sur les douze autorisés et passe par les deux relais. Valider débloque le calculateur des cartouches.
+
+### 11. Le calcul des cartouches — Sas
+
+**Poste :** au fond à gauche. **Indice :** calculateur de cartouches, mur de gauche. **Prérequis :** trajet du rover validé et **cellule d’énergie ramassée dans la centrale**.
+
+Le document donne trois valeurs cibles, appelées ici **F1, F2, F3**. Les quantités A, B et C doivent respecter `F1 = A + 2B + C`, `F2 = B + 3C`, `F3 = 2A + B`.
+
+```text
+C = (F3 + 3 × F2 − 2 × F1) / 7
+B = F2 − 3 × C
+A = (F3 − B) / 2
+```
+
+Entrer les quantités entières, entre 0 et 8, vérifier les trois compteurs puis valider. Par exemple, **des cibles 12 / 12 / 9** donnent **A = 3, B = 3, C = 3**. La sortie extérieure s’ouvre. Avant de partir, lire la plaque **« Départ · autorisation à quatre chiffres »**, sur le mur de droite près de l’entrée du sas.
+
+### 12. L’autorisation de décollage — Fusée LV-1
+
+**Poste :** dehors, à côté de la fusée, au bout de la passerelle. **Indice :** protocole de départ lu dans le **sas**. **Prérequis :** cartouches validées ; les dépendances précédentes imposent d’avoir terminé les onze autres épreuves.
+
+Sortir du sas par son extrémité opposée au hub. Suivre la passerelle vers le sud, puis vers l’ouest jusqu’à LV-1. Composer les quatre chiffres dans cet ordre :
+
+1. Le **troisième chiffre du code du coffre** de relève.
+2. La **commande C du thermique**.
+3. Le **canal B de la radio**.
+4. La quantité finale du **réservoir A**, soit **4**.
+
+Les trois premières valeurs dépendent de la partie. Les retrouver dans **Tablette → Messages**, dans les transmissions « Résultat archivé » des épreuves correspondantes ; les terminaux validés permettent aussi de les consulter. Saisir les chiffres à la suite, sans séparateurs, puis valider : la cinématique de décollage se lance et mène au bilan de la mission lunaire.
 
 ## Technique
 
@@ -294,7 +529,7 @@ npx playwright test
 `tests/playthrough.spec.ts` crée un compte et joue toute la partie en se téléportant devant chaque objectif. Il résout les énigmes par l'interface et vérifie les verrous :
 
 - l'ascenseur reste verrouillé avant la pressurisation ;
-- la vapeur bloque l'accès au disjoncteur ;
+- le gaz bloque l'accès au disjoncteur ;
 - le sas reste fermé tant que le terminal n'est pas décodé ;
 - la rivière est infranchissable avant le pont.
 

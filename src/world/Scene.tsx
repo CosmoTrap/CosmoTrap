@@ -19,9 +19,12 @@ import { TitleScene } from './TitleScene'
 import { Zone4 } from './zone4/Zone4'
 import { Ghost, useLoadGhost } from './Ghost'
 import { SceneGate, SceneReady } from './SceneReady'
+import { LunarWorld } from './LunarWorld'
+import { stationPowerDown } from './roomPower'
 
 /** soleil pour les intérieurs : n'entre que par les hublots (ombres) */
 function InteriorSun({ map }: { map: GridMap }) {
+  const light = useRef<THREE.DirectionalLight>(null)
   const size = QUALITY[G().settings.quality].sunShadow
   const W = Math.max(...map.grid.map((r) => r.length)) * 2
   const H = map.grid.length * 2
@@ -32,25 +35,29 @@ function InteriorSun({ map }: { map: GridMap }) {
     o.position.copy(center)
     return o
   }, [map])
-  const ext = Math.max(W, H) * 0.75 + 4
+  // Le volume d'ombre englobe les rochers qui rasent la coque, pour qu'ils coupent le soleil intérieur.
+  const ext = Math.max(W, H) * 0.95 + 28
+  useFrame(() => { if (light.current) light.current.intensity = size && !stationPowerDown(map.zone) ? 6 : 0 })
   return (
     <>
       <primitive object={target} />
       <directionalLight
+        ref={light}
+        name="interior-sun"
         target={target}
-        position={center.clone().addScaledVector(sun, 60)}
+        position={center.clone().addScaledVector(sun, 200)}
         color="#fff2e0"
-        intensity={size ? 6 : 0}
+        intensity={size && !stationPowerDown(map.zone) ? 6 : 0}
         castShadow={size > 0}
         shadow-mapSize={[size || 512, size || 512]}
         shadow-camera-left={-ext}
         shadow-camera-right={ext}
         shadow-camera-top={ext}
         shadow-camera-bottom={-ext}
-        shadow-camera-near={1}
-        shadow-camera-far={140}
-        shadow-bias={-0.0006}
-        shadow-normalBias={0.05}
+        shadow-camera-near={8}
+        shadow-camera-far={340}
+        shadow-bias={-0.0008}
+        shadow-normalBias={0.08}
       />
     </>
   )
@@ -87,18 +94,18 @@ function ZoneAudio({ zone }: { zone: number }) {
 
 function PhysicsWorld() {
   const zone = useGame((s) => s.zone)
+  const mission = useGame(s => s.map)
   const map = gridMap(zone)
   const quality = useGame((s) => s.settings.quality)
   const shadows = QUALITY[quality].sunShadow > 0
   return (
-    <Physics key={zone} gravity={[0, -9.81, 0]} timeStep="vary">
+    <Physics key={`${mission}:${zone}`} gravity={[0, mission === 'base' ? -1.62 : -9.81, 0]} timeStep="vary">
       {map ? (
         <>
-          <fogExp2 attach="fog" args={['#10151b', 0.018]} />
+          <fogExp2 attach="fog" args={['#10151b', mission === 'base' ? 0 : 0.018]} />
           <InteriorEnv zone={zone} />
           <InteriorSun map={map} />
-          <Level map={map} shadows={shadows} />
-          <Exterior map={map} />
+          {mission === 'base' ? <LunarWorld shadows={shadows} /> : <><Level map={map} shadows={shadows} /><Exterior map={map} /></>}
         </>
       ) : (
         <>
@@ -110,7 +117,7 @@ function PhysicsWorld() {
       )}
       <CineActor />
       <Player key={zone} />
-      <Ghost />
+      {mission !== 'base' && <Ghost />}
       <SceneReady zone={zone} />
     </Physics>
   )

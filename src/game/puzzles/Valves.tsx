@@ -14,12 +14,13 @@ export function Valves() {
       <div className="valves">
         {valves.map((on, i) => (
           <button key={i} data-testid={`valve-${i}`} className={`valve ${on ? 'on' : 'off'}`} onClick={() => pressValve(i)} disabled={done}>
+            <small>{`L${Math.floor(i / 3) + 1} · C${(i % 3) + 1}`}</small>
             <span>{on ? 'OUVERTE' : 'FERMÉE'}</span>
           </button>
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: 18 }}>
-        <button className="btn ghost" onClick={resetValves} disabled={done}>
+        <button className="btn ghost" data-testid="valve-reset" onClick={resetValves} disabled={done}>
           {T.reset}
         </button>
       </div>

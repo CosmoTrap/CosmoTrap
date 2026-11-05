@@ -3,12 +3,15 @@ import { zone1 } from './zone1'
 import { zone2 } from './zone2'
 import { zone3 } from './zone3'
 import { zone4Ents, zone4Props, zone4Spawn } from './zone4'
+import { G } from '../state'
+import { lunarMap, lunarRoomAt } from '../lunar/map'
 
 export const TILE = 2
 export const CEIL = 2.8
 export const GRID_MAPS: Record<1 | 2 | 3, GridMap> = { 1: zone1, 2: zone2, 3: zone3 }
 
 export function gridMap(zone: ZoneId): GridMap | null {
+  if (G().map === 'base') return lunarMap
   return zone === 4 ? null : GRID_MAPS[zone]
 }
 
@@ -63,14 +66,17 @@ export function placeOf(o: { tile?: [number, number]; pos?: [number, number, num
 }
 
 export function entsOf(zone: ZoneId): Ent[] {
+  if (G().map === 'base') return lunarMap.ents
   return zone === 4 ? zone4Ents : GRID_MAPS[zone].ents
 }
 
 export function propsOf(zone: ZoneId) {
+  if (G().map === 'base') return lunarMap.props
   return zone === 4 ? zone4Props : GRID_MAPS[zone].props
 }
 
 export function spawnOf(zone: ZoneId): { pos: [number, number, number]; yaw: number } {
+  if (G().map === 'base') return { pos: [17, 0, 41], yaw: -Math.PI / 2 }
   if (zone === 4) return zone4Spawn
   const m = GRID_MAPS[zone]
   const [x, z] = tileCenter(m.spawn.tile[0], m.spawn.tile[1])
@@ -84,6 +90,7 @@ export function liftCab(zone: 1 | 2): { pos: [number, number, number]; yaw: numb
 }
 
 export function roomAt(map: GridMap, x: number, z: number) {
+  if (map === lunarMap) return lunarRoomAt(x, z)
   const tx = Math.floor(x / TILE)
   const tz = Math.floor(z / TILE)
   return map.rooms.find((r) => tx >= r.rect[0] && tx <= r.rect[2] && tz >= r.rect[1] && tz <= r.rect[3]) ?? null

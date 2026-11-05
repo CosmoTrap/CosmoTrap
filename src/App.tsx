@@ -1,11 +1,10 @@
 import { Canvas } from '@react-three/fiber'
-import { setLanguage } from './i18n'
 import { Component, useEffect, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { audio } from './game/audio/audio'
 import { toast, useGame } from './game/state'
 import { fr } from './i18n/fr'
-import { isTouch } from './player/Player'
+import { isTouch, requestLock } from './player/Player'
 import { detectPadType, startGamepadLoop } from './player/gamepad'
 import { setKeyLayout } from './player/input'
 import { Hud } from './ui/Hud'
@@ -73,9 +72,7 @@ export default function App() {
   }, [vols.spatialAudio, vols.audioOutput, vols.keyLayout, vols.soundCaptions])
   useEffect(() => {
     audio.browserVoice = vols.browserVoice
-    audio.lang = vols.lang
-    setLanguage(vols.lang)
-  }, [vols.browserVoice, vols.lang])
+  }, [vols.browserVoice])
   useEffect(() => {
     const unlock = () => audio.init()
     window.addEventListener('pointerdown', unlock, { once: true })
@@ -110,16 +107,12 @@ export default function App() {
           gl.toneMapping = THREE.NoToneMapping
           gl.outputColorSpace = THREE.SRGBColorSpace
         }}
-        onPointerDown={() => {
-          if (playing && useGame.getState().loading === 1 && !touch && !useGame.getState().locked && !paused && !tablet && !useGame.getState().puzzle && !useGame.getState().cine && !settingsOpen && !useGame.getState().readNote) {
-            ;(document.querySelector('canvas') as any)?.requestPointerLock?.()?.catch?.(() => {})
-          }
-        }}
+        onPointerDown={requestLock}
       >
         <Scene />
       </Canvas>
       </CrashGuard>
-      <div key={vols.lang} style={{ display: 'contents' }}>
+      <div style={{ display: 'contents' }}>
       {screen === 'launch' && <Launch />}
       {screen === 'login' && <Login />}
       {screen === 'title' && <MainMenu />}

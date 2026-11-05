@@ -15,11 +15,10 @@ interface StageProps {
   tint?: 'win' | 'fail' | 'pause'
   overlay?: boolean
   testId?: string
-  onBackdrop?: () => void
   children: ReactNode
 }
 
-export function Stage({ kind = 'inner', tint, overlay, testId, onBackdrop, children }: StageProps) {
+export function Stage({ kind = 'inner', tint, overlay, testId, children }: StageProps) {
   const root = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const fit = () => root.current?.style.setProperty('--k', String(Math.min(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H)))
@@ -32,12 +31,7 @@ export function Stage({ kind = 'inner', tint, overlay, testId, onBackdrop, child
       <div className="st-bg" aria-hidden />
       <div className="st-scrim" aria-hidden />
       {tint && <div className="st-tint" aria-hidden />}
-      <div
-        className="st-canvas"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onBackdrop?.()
-        }}
-      >
+      <div className="st-canvas">
         {children}
       </div>
     </div>
@@ -50,7 +44,7 @@ export function openPage(screen: Screen, extra: Partial<ReturnType<typeof useGam
 }
 
 export function closePage() {
-  useGame.setState({ screen: useGame.getState().menuBack, firstRun: false })
+  useGame.setState({ screen: useGame.getState().menuBack, firstRun: false, missionPick: false })
 }
 
 export function PageHead({ kicker, title, onBack }: { kicker: string; title: string; onBack: () => void }) {

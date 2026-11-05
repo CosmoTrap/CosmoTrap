@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test'
 test.setTimeout(120000)
 async function guest(page: Page) {
   await page.route('**/api/auth.php?action=me', (route) => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
-  await page.addInitScript(() => localStorage.setItem('cosmotrap.settings.v1', JSON.stringify({ quality: 'low', music: 0, voice: 0, sfx: 0 })))
+  await page.addInitScript(() => localStorage.setItem('cosmotrap.settings.v1', JSON.stringify({ quality: 'low', music: 0, voice: 0, sfx: 0, map: 'station' })))
   await page.goto('/?quality=low')
   await expect(page.getByTestId('launch')).toBeVisible()
   await page.keyboard.press('Space')
@@ -28,6 +28,7 @@ test('passer à froid affiche la préparation, attend les ressources et rend imm
   await page.route('**/assets/models/adjustable_wrench.glb', async (route) => { await gate; await route.continue() })
   await guest(page)
   await page.getByTestId('launch-mission').click()
+  await page.getByTestId('confirm-character').click()
   await page.getByTestId('skip-prologue').click()
   await expect(page.getByTestId('scene-loading')).toBeVisible()
   expect(await page.evaluate(() => ({ cine: window.__game.state().cine, time: window.__game.state().playTime }))).toEqual({ cine: null, time: 0 })
@@ -65,12 +66,11 @@ test('tous les objets tenus et la tablette se rendent sans interrompre le monde'
   expect(errors).toEqual([])
 })
 
-test('la coupure allume des faisceaux rouges rotatifs continus puis rétablit les lumières', async ({ page }) => {
+test('une coupure imprévue éteint les plafonniers et allume les gyrophares rouges', async ({ page }) => {
   await guest(page)
-  await page.evaluate(() => { window.__game.start('nova', true, 'astronaut', true); window.__game.set({ flags: { ...window.__game.state().flags, power: true, pw_lights: true } }) })
+  await page.evaluate(() => { window.__game.start('nova', true, 'astronaut', true); window.__game.set({ flags: { ...window.__game.state().flags, power: true, pw_lights: true, pressurized: true } }) })
   await ready(page)
   await scene(page)
-  // Exercise the actual event scheduler, not a manually started blackout.
   await page.evaluate(() => {
     window.__game.teleportXZ(44, 41, -Math.PI / 2)
     const random = Math.random
@@ -81,64 +81,32 @@ test('la coupure allume des faisceaux rouges rotatifs continus puis rétablit le
     } finally { Math.random = random }
   })
   expect(await page.evaluate(() => window.__game.state().event?.kind)).toBe('blackout')
+  await page.waitForFunction(() => (window as any).testScene.getObjectByName('room-light:couloir').intensity === 0)
   await page.waitForFunction(() => (window as any).testScene.getObjectByName('alert-beam:0').intensity > 0)
-  expect(await page.evaluate(() => ['couloir', 'dortoir', 'refectoire', 'infirmerie', 'sas'].every((id) => {
-    const s = (window as any).testScene
-    return s.getObjectByName(`room-light:${id}`).intensity === 0 && s.getObjectByName(`ceiling-light:${id}`).material.emissiveIntensity === 0
-  }))).toBe(true)
-  const before = await page.evaluate(() => {
-    const l = (window as any).testScene.getObjectByName('alert-beam:0')
-    return { intensity: l.intensity, color: l.color.getHexString(), target: l.target.position.toArray() }
-  })
-  expect(before.color).toBe('ff1408')
-  const samples = await page.evaluate(() => new Promise<any[]>((resolve) => {
-    const out: any[] = []
-    const sample = () => {
-      const l = (window as any).testScene.getObjectByName('alert-beam:0')
-      out.push({ intensity: l.intensity, target: l.target.position.toArray() })
-      if (out.length === 30) resolve(out); else requestAnimationFrame(sample)
-    }
-    requestAnimationFrame(sample)
-  }))
-  expect(samples.every((s) => s.intensity === before.intensity)).toBe(true)
-  expect(samples.at(-1).target).not.toEqual(before.target)
-  await page.screenshot({ path: 'test-results/emergency-beacon.png' })
-  await page.evaluate(() => window.__game.drain(23))
-  expect(await page.evaluate(() => window.__game.state().event?.kind)).toBe('blackout')
-  await page.evaluate(() => window.__game.drain(10))
+  await page.evaluate(() => window.__game.drain(33))
   expect(await page.evaluate(() => window.__game.state().event)).toBeNull()
-  await page.waitForFunction(() => (window as any).testScene.getObjectByName('alert-beam:0').intensity === 0)
   await page.waitForFunction(() => (window as any).testScene.getObjectByName('room-light:couloir').intensity > 10)
+  await page.waitForFunction(() => (window as any).testScene.getObjectByName('alert-beam:0').intensity === 0)
 })
 
-test('les coupures régulières du couloir reviennent et les gyrophares prennent le relais', async ({ page }) => {
+test('une fois l’ascenseur déverrouillé, plus aucune coupure régulière ni alarme, aux deux étages', async ({ page }) => {
   await guest(page)
   await page.evaluate(() => window.__game.start())
   await ready(page)
   await scene(page)
-  await page.evaluate(() => window.__game.teleportXZ(44, 41, -Math.PI / 2))
-  await page.waitForFunction(() => window.__game.live.roomId === 'couloir')
+  await page.evaluate(() => { window.__game.set({ flags: { ...window.__game.state().flags, pressurized: true } }); window.__game.teleportXZ(44, 41, -Math.PI / 2) })
   await page.waitForFunction(() => (window as any).testScene.getObjectByName('room-light:couloir').intensity > 10)
   await page.screenshot({ path: 'test-results/power-normal.png' })
-  await page.evaluate(() => window.__game.drain(9))
-  await page.waitForFunction(() => (window as any).testScene.getObjectByName('room-light:couloir').intensity === 0)
-  expect(await page.evaluate(() => {
-    const s = (window as any).testScene
-    return { normal: s.getObjectByName('ceiling-light:couloir').material.emissiveIntensity,
-      red: s.getObjectByName('alert-beam:0').intensity, otherRoom: s.getObjectByName('room-light:dortoir').intensity }
-  })).toEqual({ normal: 0, red: 65, otherRoom: expect.any(Number) })
-  expect(await page.evaluate(() => (window as any).testScene.getObjectByName('room-light:dortoir').intensity)).toBeGreaterThan(10)
-  expect(await page.evaluate(() => window.__game.state().event)).toBeNull()
-  await page.screenshot({ path: 'test-results/power-cut-red.png' })
-  await page.evaluate(() => window.__game.drain(6))
-  expect(await page.evaluate(() => (window as any).testScene.getObjectByName('room-light:couloir').intensity)).toBe(0)
-  await page.evaluate(() => window.__game.drain(10))
-  await page.waitForFunction(() => (window as any).testScene.getObjectByName('room-light:couloir').intensity > 10)
-  expect(await page.evaluate(() => (window as any).testScene.getObjectByName('alert-beam:0').intensity)).toBe(0)
-  // The local outage must recur, independently of random global events.
-  await page.evaluate(() => window.__game.drain(20))
-  await page.waitForFunction(() => (window as any).testScene.getObjectByName('room-light:couloir').intensity === 0)
-  expect(await page.evaluate(() => (window as any).testScene.getObjectByName('alert-beam:0').intensity)).toBe(65)
+  // The beacons are off and stopped, not just dark.
+  const rotor = () => page.evaluate(() => (window as any).testScene.getObjectByName('alert-rotor').rotation.y)
+  const stopped = await rotor()
+  for (const seconds of [9, 16, 20]) {
+    await page.evaluate((s) => window.__game.drain(s), seconds)
+    await page.waitForTimeout(300)
+    expect(await page.evaluate(() => (window as any).testScene.getObjectByName('room-light:couloir').intensity)).toBeGreaterThan(10)
+    expect(await page.evaluate(() => (window as any).testScene.getObjectByName('alert-beam:0').intensity)).toBe(0)
+    expect(await rotor()).toBe(stopped)
+  }
 })
 
 test('passer après impact efface immédiatement le flou et toutes les particules du crash', async ({ page }) => {
@@ -159,4 +127,25 @@ test('passer après impact efface immédiatement le flou et toutes les particule
   const before = await page.evaluate(() => window.__game.state().playTime)
   await page.waitForFunction((t) => window.__game.state().playTime > t + 0.2, before)
   await expect(page.getByTestId('scene-loading')).toBeHidden()
+})
+
+test('le niveau 1 reste en alerte, lumières éteintes, jusqu’à sa dernière énigme, dortoir compris', async ({ page }) => {
+  await guest(page)
+  await page.evaluate(() => window.__game.start())
+  await ready(page)
+  await scene(page)
+  const look = () => page.evaluate(() => {
+    const s = (window as any).testScene
+    return { red: s.getObjectByName('alert-beam:0').intensity, light: s.getObjectByName('room-light:dortoir').intensity,
+      panel: s.getObjectByName('ceiling-light:dortoir').material.emissiveIntensity }
+  })
+  await page.waitForFunction(() => window.__game.live.roomId === 'dortoir')
+  await expect.poll(look).toEqual({ red: 48, light: 0, panel: 0 })
+  await page.evaluate(() => window.__game.drain(40)) // Past any local power cycle: still on alert.
+  await expect.poll(look).toEqual({ red: 48, light: 0, panel: 0 })
+  await page.screenshot({ path: 'test-results/alert-dortoir.png' })
+  await page.evaluate(() => window.__game.set({ flags: { ...window.__game.state().flags, pressurized: true } }))
+  await expect.poll(async () => (await look()).red).toBe(0)
+  await expect.poll(async () => (await look()).light).toBeGreaterThan(10)
+  await page.screenshot({ path: 'test-results/calm-dortoir.png' })
 })

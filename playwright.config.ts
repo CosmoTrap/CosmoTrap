@@ -5,6 +5,8 @@ import process from 'node:process'
 // Test de bout en bout : API PHP (port 8787) + jeu Vite (port 5180).
 export default defineConfig({
   testDir: './tests',
+  // Test accounts and their scores must not end up in the real leaderboard.
+  globalTeardown: './scripts/clean-test-accounts.mjs',
   timeout: 8 * 60 * 1000,
   expect: { timeout: 20000 },
   fullyParallel: false,

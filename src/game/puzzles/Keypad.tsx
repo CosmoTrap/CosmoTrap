@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { fr } from '../../i18n/fr'
 import { audio } from '../audio/audio'
 import { submitKeypad } from '../logic'
+import { shuffle } from '../shuffle'
 
 // Énigme 1 (zone 1) : casier de secours, code à 4 chiffres.
 export function Keypad() {
@@ -9,6 +10,10 @@ export function Keypad() {
   const [code, setCode] = useState('')
   const [state, setState] = useState<'' | 'err' | 'ok'>('')
   const reset = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [layout] = useState(() => {
+    const digits = shuffle([...'0123456789'], (o) => o.join('') === '1234567890')
+    return [...digits.slice(0, 9), 'C', digits[9], 'OK']
+  })
   useEffect(() => () => { if (reset.current) clearTimeout(reset.current) }, [])
   const press = (d: string) => {
     if (state === 'ok') return
@@ -46,7 +51,7 @@ export function Keypad() {
         {code.padEnd(4, '·')}
       </div>
       <div className="keypad">
-        {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', 'OK'].map((d) => (
+        {layout.map((d) => (
           <button key={d} data-testid={`key-${d}`} onClick={() => press(d)}>
             {d}
           </button>

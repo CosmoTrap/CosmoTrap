@@ -1,20 +1,24 @@
 import { useFrame } from '@react-three/fiber'
 import { CuboidCollider, RigidBody } from '@react-three/rapier'
-import { useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { Suspense, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { audio } from '../../game/audio/audio'
 import { fr } from '../../i18n/fr'
-import { GRID_MAPS, placeOf, roomAt } from '../../game/maps'
-import { allEnts, entActive } from '../../game/logic'
+import { gridMap, placeOf, roomAt } from '../../game/maps'
+import { LunarNote, LunarTerminal } from './LunarModels'
+import { allEnts, canSeeInDark, entActive } from '../../game/logic'
 import { ITEM_KIND } from '../../game/items'
 import { live, useGame } from '../../game/state'
 import type { Ent, ZoneId } from '../../game/types'
-import { Astronaut } from '../Astronaut'
 import { RoomCtx, useMats } from '../materials'
 import { textTexture } from '../textures'
-import { Box, Cyl, DockHatch, Screen } from './models'
+import { Box, Cyl, DockHatch, Flashlight, Lathe, Screen } from './models'
+import { useModel } from '../assets'
+import { RealModel } from './RealModel'
 import { ZONE4_ENT_MODELS } from '../zone4/Zone4Ents'
 import { SolidProp } from './SolidProps'
+import { PickupHighlight } from './PickupHighlight'
+import { stationPowerDown } from '../roomPower'
 
 // Objets interactifs + zones de détection invisibles (raycast).
 
@@ -66,10 +70,11 @@ function Glint({ resource }: { resource: boolean }) {
     () => new THREE.SpriteMaterial({ map: sparkTexture(), color: resource ? '#7dffb0' : '#fff1d6', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }),
     [resource],
   )
+  useEffect(() => () => mat.dispose(), [mat])
   useFrame(({ clock }) => {
     const t = clock.elapsedTime
     // les ressources gardent une lueur phosphorescente visible dans le noir
-    mat.opacity = (resource ? 0.35 : 0.05) + Math.pow(Math.max(0, Math.sin(t * 2.2)), 8) * 0.9
+    mat.opacity = (resource ? 0.16 : 0.06) + (0.5 + 0.5 * Math.sin(t * 1.2)) * 0.12
   })
   return <sprite position={[0, 0.14, 0.05]} scale={resource ? 0.14 : 0.1} material={mat} />
 }
@@ -79,8 +84,11 @@ function Bracket() {
   return (
     <group>
       <Box s={[0.42, 0.025, 0.26]} p={[0, -0.012, 0.13]} m={m.painted('#6f747a', 0.4, 0.5)} />
-      <Box s={[0.02, 0.12, 0.2]} p={[-0.18, -0.07, 0.1]} m={m.metal('#55595e')} />
-      <Box s={[0.02, 0.12, 0.2]} p={[0.18, -0.07, 0.1]} m={m.metal('#55595e')} />
+      <Box s={[0.4, 0.012, 0.012]} p={[0, 0.006, 0.255]} m={m.metal('#a9aeb2', 0.3)} />
+      {[-0.17, 0.17].map((x) => <group key={x}>
+        <Cyl a={[0.008, 0.008, 0.26]} p={[x, -0.1, 0.09]} r={[-0.8, 0, 0]} m={m.metal('#55595e')} seg={8} />
+        <Box s={[0.03, 0.1, 0.01]} p={[x, -0.16, 0.006]} m={m.metal('#55595e')} />
+      </group>)}
     </group>
   )
 }
@@ -88,17 +96,21 @@ function Bracket() {
 // ——— objets ramassables ———
 function O2Bottle() {
   const m = useMats()
+  const label = useMemo(() => new THREE.MeshStandardMaterial({ map: textTexture(['O₂', 'MED'], { w: 128, h: 128, fg: '#14361f', bg: '#f1eee6', size: 40 }), roughness: 0.5, side: THREE.DoubleSide }), [])
+  useEffect(() => () => label.dispose(), [label])
   return (
-    <group position={[0, 0, 0.12]} rotation={[0.08, 0, 0.04]}>
-      <Cyl a={[0.085, 0.085, 0.5]} p={[0, 0.27, 0]} m={m.painted('#e8e6e0', 0.3, 0.4)} />
-      <mesh position={[0, 0.52, 0]} material={m.painted('#2f8a4a', 0.3, 0.4)}>
-        <sphereGeometry args={[0.085, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2]} />
-      </mesh>
-      <Cyl a={[0.02, 0.025, 0.08]} p={[0, 0.62, 0]} m={m.metal('#c0c4c8', 0.25)} />
-      <Cyl a={[0.035, 0.035, 0.02]} p={[0, 0.66, 0]} r={[0, 0, Math.PI / 2]} m={m.painted('#2a2c30', 0.5)} />
-      <mesh position={[0, 0.3, 0.083]} material={useMemo(() => new THREE.MeshStandardMaterial({ map: textTexture(['O₂', 'MED'], { w: 128, h: 128, bg: '#e8e6e0', fg: '#1f6b37', size: 34, align: 'center', pad: 20 }), roughness: 0.4 }), [])}>
-        <planeGeometry args={[0.1, 0.1]} />
-      </mesh>
+    <group position={[0, 0, 0.12]}>
+      <Lathe m={m.painted('#e8e6e0', 0.3, 0.4)} profile={[[0, 0.012], [0.07, 0.012], [0.085, 0.035], [0.085, 0.43]]} />
+      <Lathe m={m.painted('#2f8a4a', 0.3, 0.4)} profile={[[0.085, 0.43], [0.08, 0.47], [0.06, 0.505], [0.03, 0.53], [0.022, 0.55], [0, 0.55]]} />
+      <Cyl a={[0.09, 0.09, 0.014]} p={[0, 0.007, 0]} m={m.rubber()} seg={24} />
+      {/* Valve, handwheel, gauge. */}
+      <Cyl a={[0.018, 0.022, 0.05]} p={[0, 0.575, 0]} m={m.metal('#c7a24e', 0.25)} seg={14} />
+      <Box s={[0.05, 0.03, 0.03]} p={[0, 0.6, 0]} m={m.metal('#c0c4c8', 0.25)} />
+      <mesh position={[0, 0.635, 0]} rotation={[Math.PI / 2, 0, 0]} material={m.plastic('#2f8a4a', 0.4)}><torusGeometry args={[0.03, 0.006, 8, 18]} /></mesh>
+      <Cyl a={[0.005, 0.005, 0.06]} p={[0, 0.635, 0]} r={[0, 0, Math.PI / 2]} m={m.plastic('#2f8a4a', 0.4)} seg={6} />
+      <Cyl a={[0.024, 0.024, 0.016]} p={[0, 0.6, 0.032]} r={[Math.PI / 2, 0, 0]} m={m.metal('#8d9196', 0.3)} seg={18} />
+      <mesh position={[0, 0.6, 0.041]} material={m.plastic('#f1eee6', 0.25)}><circleGeometry args={[0.02, 18]} /></mesh>
+      <mesh position={[0, 0.25, 0.0855]} material={label}><planeGeometry args={[0.1, 0.1]} /></mesh>
     </group>
   )
 }
@@ -106,71 +118,56 @@ function O2Bottle() {
 function Batteries() {
   const m = useMats()
   return (
-    <group position={[0, 0.03, 0.12]}>
-      <Box s={[0.22, 0.016, 0.14]} p={[0, -0.02, 0]} m={m.plastic('#1d2a6b', 0.4)} />
-      {[0, 1, 2, 3].map((i) => (
-        <group key={i} position={[-0.075 + i * 0.05, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <Cyl a={[0.022, 0.022, 0.12]} m={m.metal('#cf7a2a', 0.35)} seg={12} />
-          <Cyl a={[0.023, 0.023, 0.04]} p={[0, -0.04, 0]} m={m.metal('#222', 0.35)} seg={12} />
+    <group position={[0, 0, 0.13]}>
+      <Box s={[0.2, 0.02, 0.13]} p={[0, 0.01, 0]} m={m.plastic('#20242b', 0.4)} />
+      {[-0.066, -0.022, 0.022, 0.066].map((x) => (
+        <group key={x} position={[x, 0.04, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <Cyl a={[0.02, 0.02, 0.1]} m={m.metal('#cf7a2a', 0.3)} seg={16} />
+          <Cyl a={[0.0205, 0.0205, 0.04]} p={[0, 0.032, 0]} m={m.metal('#1c1e22', 0.3)} seg={16} />
+          <Cyl a={[0.007, 0.007, 0.006]} p={[0, -0.053, 0]} m={m.metal('#d5d8dc', 0.2)} seg={10} />
         </group>
       ))}
+      <Box s={[0.21, 0.012, 0.02]} p={[0, 0.062, 0]} m={m.plastic('#20242b', 0.4)} />
     </group>
   )
 }
 
+/** Sealed water flask: clear body with visible water, ribbed cap, carrying loop. */
 function WaterPouch() {
   const m = useMats()
   return (
-    <group position={[0, 0.1, 0.1]}>
-      <mesh scale={[1, 1.4, 0.38]} material={m.glass('#7fc4ff', 0.55)} castShadow>
-        <sphereGeometry args={[0.08, 18, 14]} />
-      </mesh>
-      <mesh scale={[0.9, 1.1, 0.3]} position={[0, -0.02, 0]} material={m.plastic('#2a7fd0', 0.2)}>
-        <sphereGeometry args={[0.075, 14, 10]} />
-      </mesh>
-      <Cyl a={[0.018, 0.018, 0.04]} p={[0, 0.125, 0]} m={m.plastic('#ff6b35')} seg={10} />
+    <group position={[0, 0, 0.13]}>
+      <Lathe m={m.glass('#cfe9f7', 0.34)} profile={[[0, 0.002], [0.043, 0.002], [0.05, 0.012], [0.05, 0.145], [0.044, 0.168], [0.026, 0.19], [0.02, 0.2], [0.02, 0.215]]} />
+      <Lathe m={m.plastic('#2f8fd8', 0.15)} profile={[[0, 0.008], [0.04, 0.008], [0.045, 0.016], [0.045, 0.13], [0, 0.13]]} />
+      <Cyl a={[0.024, 0.024, 0.03]} p={[0, 0.226, 0]} m={m.plastic('#e7edf0', 0.35)} seg={20} />
+      <mesh position={[0, 0.25, 0]} rotation={[0, 0, 0]} material={m.plastic('#e7edf0', 0.35)}><torusGeometry args={[0.016, 0.004, 6, 16]} /></mesh>
+      {[0.05, 0.1].map((y) => <mesh key={y} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]} material={m.plastic('#e7edf0', 0.4)}><torusGeometry args={[0.0505, 0.0015, 4, 28]} /></mesh>)}
     </group>
   )
 }
 
-function Headlamp() {
-  const m = useMats()
-  return (
-    <group position={[0, 0.05, 0.14]} rotation={[-0.3, 0, 0]}>
-      <mesh rotation={[Math.PI / 2, 0, 0]} material={m.fabric('#2a2c30')}>
-        <torusGeometry args={[0.085, 0.012, 6, 24]} />
-      </mesh>
-      <Box s={[0.07, 0.045, 0.045]} p={[0, 0.0, 0.09]} m={m.plastic('#d9673a', 0.4)} />
-      <mesh position={[0, 0, 0.114]} material={m.glow('#fff4d0', 0.6)}>
-        <circleGeometry args={[0.016, 14]} />
-      </mesh>
-    </group>
-  )
+/** The flashlight resting in its cradle on the shelf. */
+function ShelfFlashlight() {
+  return <group position={[-0.089, -0.01, 0.14]} rotation={[0, 0, -Math.PI / 2]}><Flashlight /></group>
 }
 
 function Fuse() {
   const m = useMats()
+  const brass = m.metal('#c9a14a', 0.28)
   return (
-    <group position={[0, 0.03, 0.14]} rotation={[0, 0, Math.PI / 2]}>
-      <Cyl a={[0.025, 0.025, 0.12]} m={m.plastic('#e8e2d0', 0.5)} seg={14} />
-      <Cyl a={[0.028, 0.028, 0.025]} p={[0, 0.07, 0]} m={m.metal('#c9a14a', 0.3)} seg={14} />
-      <Cyl a={[0.028, 0.028, 0.025]} p={[0, -0.07, 0]} m={m.metal('#c9a14a', 0.3)} seg={14} />
+    <group position={[0, 0.032, 0.14]} rotation={[0, 0, Math.PI / 2]}>
+      <Lathe m={m.plastic('#e8e2d0', 0.45)} profile={[[0.02, -0.052], [0.024, -0.045], [0.024, 0.045], [0.02, 0.052]]} seg={18} />
+      {[-1, 1].map((k) => <group key={k}>
+        <Cyl a={[0.028, 0.028, 0.024]} p={[0, k * 0.06, 0]} m={brass} seg={18} />
+        <Cyl a={[0.012, 0.012, 0.016]} p={[0, k * 0.08, 0]} m={brass} seg={12} />
+      </group>)}
+      <mesh position={[0, 0, 0.0245]} material={m.glass('#d94a2a', 0.8)}><circleGeometry args={[0.008, 12]} /></mesh>
     </group>
   )
 }
 
 function Wrench() {
-  const m = useMats()
-  const steel = m.metal('#a9adb2', 0.3)
-  return (
-    <group position={[0, 0.015, 0.14]} rotation={[-Math.PI / 2, 0, 0.4]}>
-      <Box s={[0.035, 0.28, 0.012]} m={steel} />
-      <Box s={[0.075, 0.05, 0.016]} p={[0, 0.16, 0]} m={steel} />
-      <Box s={[0.02, 0.04, 0.016]} p={[-0.03, 0.2, 0]} m={steel} />
-      <Box s={[0.02, 0.03, 0.016]} p={[0.03, 0.195, 0]} m={steel} />
-      <Box s={[0.04, 0.12, 0.018]} p={[0, -0.09, 0]} m={m.plastic('#c5302a', 0.5)} />
-    </group>
-  )
+  return <RealModel id="adjustable_wrench" fit="raw" scale={1} p={[0, 0.012, 0.14]} shadows={false} />
 }
 
 function Cell() {
@@ -195,59 +192,38 @@ function Cell() {
 }
 
 function MultiTool() {
-  const m = useMats()
-  return (
-    <group position={[0, 0.045, 0.16]} rotation={[0, 0.4, 0.2]}>
-      <Box s={[0.16, 0.045, 0.028]} m={m.plastic('#c5302a', 0.45)} />
-      <Box s={[0.07, 0.012, 0.012]} p={[0.1, 0.01, 0]} m={m.metal('#d5d8dc', 0.25)} />
-      <Box s={[0.035, 0.012, 0.02]} p={[0.14, 0.01, 0]} m={m.metal('#d5d8dc', 0.25)} />
-      <Cyl a={[0.012, 0.012, 0.05]} p={[-0.05, 0.02, 0]} r={[0, 0, Math.PI / 2]} m={m.metal('#8d9196')} seg={8} />
-    </group>
-  )
+  return <RealModel id="pliers" height={0.022} p={[0, 0.002, 0.14]} r={0.4} shadows={false} />
 }
 
 function Purifier() {
   const m = useMats()
   return (
-    <group position={[0, 0.02, 0.16]}>
-      <Cyl a={[0.055, 0.06, 0.16]} p={[0, 0.08, 0]} m={m.plastic('#1d4e89', 0.35)} seg={16} />
-      <Cyl a={[0.04, 0.04, 0.03]} p={[0, 0.175, 0]} m={m.plastic('#d8dce2', 0.3)} seg={12} />
-      <Cyl a={[0.012, 0.012, 0.04]} p={[0.04, 0.12, 0]} r={[0, 0, Math.PI / 2]} m={m.plastic('#7ec8ff', 0.2)} seg={8} />
+    <group position={[0, 0, 0.14]}>
+      <Lathe m={m.plastic('#1d4e89', 0.35)} profile={[[0, 0.002], [0.05, 0.002], [0.056, 0.012], [0.056, 0.14], [0.042, 0.165], [0.03, 0.17]]} />
+      {[0.04, 0.07, 0.1].map((y) => <mesh key={y} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]} material={m.plastic('#2c6bb3', 0.4)}><torusGeometry args={[0.0565, 0.003, 6, 28]} /></mesh>)}
+      <Lathe m={m.plastic('#d8dce2', 0.3)} profile={[[0.034, 0.17], [0.036, 0.2], [0.03, 0.208], [0, 0.208]]} seg={20} />
+      <Cyl a={[0.009, 0.009, 0.04]} p={[0.054, 0.15, 0]} r={[0, 0, Math.PI / 2]} m={m.plastic('#7ec8ff', 0.2)} seg={10} />
     </group>
   )
 }
 
 function TapeRoll() {
-  const m = useMats()
-  return (
-    <group position={[0, 0.06, 0.16]} rotation={[0.4, 0, 0.6]}>
-      <mesh rotation={[Math.PI / 2, 0, 0]} material={m.plastic('#c8ccd0', 0.45)} castShadow>
-        <torusGeometry args={[0.055, 0.022, 10, 22]} />
-      </mesh>
-      <mesh rotation={[Math.PI / 2, 0, 0]} material={m.plastic('#8a9096', 0.6)}>
-        <cylinderGeometry args={[0.028, 0.028, 0.03, 12]} />
-      </mesh>
-    </group>
-  )
+  return <RealModel id="medical_tape" height={0.09} p={[0, 0, 0.14]} shadows={false} />
 }
 
 function CompassItem() {
-  const m = useMats()
-  return (
-    <group position={[0, 0.02, 0.15]}>
-      <Cyl a={[0.055, 0.055, 0.02]} m={m.metal('#b08d3e', 0.35)} seg={20} />
-      <Cyl a={[0.04, 0.04, 0.008]} p={[0, 0.012, 0]} m={m.plastic('#f4f1e8', 0.3)} seg={16} />
-      <Box s={[0.004, 0.03, 0.028]} p={[0, 0.02, 0]} m={m.plastic('#c5302a', 0.4)} />
-    </group>
-  )
+  return <RealModel id="seadogs_compass" height={0.05} p={[0, 0, 0.14]} shadows={false} />
 }
 
 function WhistleItem() {
   const m = useMats()
+  const body = m.plastic('#ff6b35', 0.35)
   return (
-    <group position={[0, 0.03, 0.15]} rotation={[0, 0.5, 0]}>
-      <Cyl a={[0.018, 0.022, 0.09]} r={[0, 0, Math.PI / 2]} m={m.plastic('#ff6b35', 0.4)} seg={12} />
-      <Cyl a={[0.02, 0.012, 0.04]} p={[0.04, 0, 0.02]} r={[0.8, 0, 0]} m={m.plastic('#ff6b35', 0.4)} seg={10} />
+    <group position={[0, 0.024, 0.14]} rotation={[0, 0.5, 0]}>
+      <mesh rotation={[Math.PI / 2, 0, 0]} material={body} castShadow><cylinderGeometry args={[0.024, 0.024, 0.026, 22]} /></mesh>
+      <Box s={[0.07, 0.03, 0.026]} p={[0.042, 0.009, 0]} m={body} />
+      <Box s={[0.016, 0.006, 0.02]} p={[0.022, 0.026, 0]} m={m.rubber()} />
+      <mesh position={[-0.026, 0.02, 0]} material={m.metal('#c0c4c8', 0.25)}><torusGeometry args={[0.009, 0.0022, 6, 14]} /></mesh>
     </group>
   )
 }
@@ -255,60 +231,79 @@ function WhistleItem() {
 function MirrorItem() {
   const m = useMats()
   return (
-    <group position={[0, 0.09, 0.14]}>
-      <Box s={[0.14, 0.18, 0.012]} m={m.plastic('#2a2c30', 0.4)} />
-      <Box s={[0.11, 0.15, 0.006]} p={[0, 0, 0.008]} m={m.metal('#e8eef2', 0.05)} />
+    <group position={[0, 0.002, 0.14]} rotation={[-1.2, 0, 0]}>
+      <group position={[0, 0.09, 0]}>
+        <mesh material={m.plastic('#2a2c30', 0.4)} castShadow><torusGeometry args={[0.062, 0.006, 8, 32]} /></mesh>
+        <mesh material={m.metal('#e8eef2', 0.05)}><circleGeometry args={[0.062, 32]} /></mesh>
+        <Cyl a={[0.008, 0.009, 0.1]} p={[0, -0.11, 0]} m={m.plastic('#2a2c30', 0.4)} seg={10} />
+      </group>
     </group>
   )
 }
 
 function RationPack() {
-  const m = useMats()
-  return (
-    <group position={[0, 0.025, 0.15]} rotation={[0, 0.2, 0]}>
-      <Box s={[0.2, 0.045, 0.14]} m={m.metal('#d5d0c4', 0.3)} />
-      <Box s={[0.12, 0.008, 0.04]} p={[0, 0.026, 0.02]} m={m.plastic('#c45a28', 0.4)} />
-    </group>
-  )
+  return <RealModel id="long_life_food" height={0.12} p={[0, 0, 0.02]} r={0.2} shadows={false} />
 }
 
+/** Survival blanket, neatly folded and strapped. */
 function BlanketPack() {
   const m = useMats()
+  const cloth = m.fabric('#c9843a')
   return (
     <group>
-      <Box s={[0.46, 0.03, 0.3]} p={[0, 0.018, 0]} m={m.fabric('#c9843a')} />
-      <Box s={[0.2, 0.012, 0.16]} p={[0.08, 0.036, 0.02]} r={[0.04, 0.35, 0.08]} m={m.metal('#f3e7b2', 0.18)} />
-      <Box s={[0.24, 0.01, 0.14]} p={[-0.06, 0.034, -0.03]} r={[-0.05, -0.5, -0.06]} m={m.metal('#efe6c2', 0.15)} />
-      <Box s={[0.44, 0.008, 0.025]} p={[0, 0.034, 0.04]} m={m.fabric('#6b3a22')} />
+      {[0.025, 0.07, 0.115].map((y, i) => <Box key={y} s={[0.46 - i * 0.008, 0.052, 0.3 - i * 0.006]} p={[0, y, 0]} m={cloth} />)}
+      <Box s={[0.44, 0.012, 0.28]} p={[0, 0.146, 0]} m={m.metal('#e9d98f', 0.18)} />
+      {[-0.13, 0.13].map((x) => <Box key={x} s={[0.032, 0.16, 0.31]} p={[x, 0.078, 0]} m={m.fabric('#3b2c1f')} />)}
     </group>
   )
 }
 
+/** Real first-aid case, hung on the wall with its lid facing the room. */
 function Medkit() {
-  const m = useMats()
-  return (
-    <group position={[0, 0, 0.1]}>
-      <Box s={[0.3, 0.2, 0.12]} p={[0, 0, 0]} m={m.plastic('#e9ece8', 0.4)} />
-      <Box s={[0.12, 0.035, 0.005]} p={[0, 0, 0.062]} m={m.plastic('#1f9a4a', 0.4)} />
-      <Box s={[0.035, 0.12, 0.005]} p={[0, 0, 0.062]} m={m.plastic('#1f9a4a', 0.4)} />
-      <Box s={[0.08, 0.02, 0.02]} p={[0, 0.11, 0]} m={m.plastic('#2a2c30')} />
-    </group>
-  )
+  return <group position={[0, -0.14, 0.015]} rotation={[Math.PI / 2, 0, 0]}><RealModel id="medical_box" height={0.1} shadows={false} /></group>
 }
 
 // ——— éléments d'énigme ———
+/** Opening angle of the emergency locker's door, in radians. */
+const DOOR_OPEN = 1.5
+
 function Locker() {
   const m = useMats()
   const open = useGame((s) => s.flags.lockerOpen)
   const door = useRef<THREE.Group>(null)
   useFrame((_, dt) => {
-    if (door.current) door.current.rotation.y = THREE.MathUtils.damp(door.current.rotation.y, open ? -1.9 : 0, 3, dt)
+    // The door swings out into the room; about a right angle keeps it clear of the corner wall.
+    if (door.current) door.current.rotation.y = THREE.MathUtils.damp(door.current.rotation.y, open ? DOOR_OPEN : 0, 3, dt)
   })
   const label = useMemo(() => new THREE.MeshStandardMaterial({ map: textTexture(['SECOURS', 'Équipage Selene-7'], { w: 256, h: 96, bg: '#b8231c', fg: '#ffffff', size: 26, align: 'center', pad: 14 }) }), [])
+  const shell = m.painted('#5e6a74', 0.45, 0.6)
+  const inside = m.painted('#343a40', 0.55, 0.4)
+  const steel = m.metal('#8d9196', 0.35)
   return (
-    <group position={[0, 0, 0]}>
-      <Box s={[0.8, 2.0, 0.55]} p={[0, 1.0, 0.28]} m={m.painted('#5e6a74', 0.45, 0.6)} />
-      <Box s={[0.7, 0.6, 0.02]} p={[0, 1.0, 0.03]} m={m.painted('#3a3d42', 0.6, 0.3)} />
+    <group>
+      {/* A real hollow cabinet: back, sides, top and floor. */}
+      <Box s={[0.8, 2, 0.02]} p={[0, 1, 0.012]} m={inside} />
+      {[-0.39, 0.39].map((x) => <Box key={x} s={[0.022, 2, 0.55]} p={[x, 1, 0.28]} m={shell} />)}
+      {[0.02, 1.99].map((y) => <Box key={y} s={[0.8, 0.03, 0.55]} p={[0, y, 0.28]} m={shell} />)}
+      <mesh position={[0, 1.955, 0.42]} material={m.glow('#e8f6ff', open ? 1.6 : 0.05)}><boxGeometry args={[0.56, 0.012, 0.03]} /></mesh>
+
+      {/* Contents: the badge was taken from the top shelf, the rest of the kit remains. */}
+      {[1.5, 0.62].map((y) => <Box key={y} s={[0.75, 0.02, 0.5]} p={[0, y, 0.28]} m={steel} />)}
+      <Box s={[0.14, 0.012, 0.09]} p={[0, 1.517, 0.34]} m={m.plastic('#1b1d20', 0.4)} />
+      <RealModel id="signal_flashlight" height={0.14} shadows={false} p={[-0.2, 1.51, 0.26]} />
+      <RealModel id="medical_tape" height={0.07} shadows={false} p={[0.22, 1.51, 0.3]} />
+      <Cyl a={[0.008, 0.008, 0.74]} p={[0, 1.4, 0.28]} r={[0, 0, Math.PI / 2]} m={steel} seg={10} />
+      {/* Flight jacket on its hanger. */}
+      <mesh position={[0, 1.35, 0.28]} rotation={[0, 0, 0]} material={steel}><torusGeometry args={[0.16, 0.005, 6, 20, Math.PI]} /></mesh>
+      <group position={[0, 1.02, 0.28]}>
+        <Box s={[0.44, 0.62, 0.1]} m={m.fabric('#3e5566')} />
+        {[-1, 1].map((k) => <Box key={k} s={[0.1, 0.52, 0.09]} p={[k * 0.26, 0.02, 0]} m={m.fabric('#34495a')} />)}
+        <Box s={[0.012, 0.56, 0.006]} p={[0, -0.01, 0.054]} m={steel} />
+        <Box s={[0.08, 0.04, 0.006]} p={[-0.11, 0.17, 0.054]} m={m.fabric('#d9673a')} />
+      </group>
+      <RealModel id="medical_box" height={0.1} shadows={false} p={[-0.14, 0.04, 0.28]} />
+      <RealModel id="plastic_thermos" height={0.27} shadows={false} p={[0.2, 0.04, 0.3]} />
+
       <group ref={door} position={[0.39, 0, 0.56]}>
         <Box s={[0.78, 1.95, 0.03]} p={[-0.39, 1.0, 0]} m={m.painted('#6a7884', 0.45, 0.6)} />
         <mesh position={[-0.39, 1.65, 0.017]} material={label}>
@@ -323,19 +318,25 @@ function Locker() {
         {[0.3, 0.5, 0.7].map((y) => (
           <Box key={y} s={[0.5, 0.012, 0.005]} p={[-0.39, y, 0.017]} m={m.metal('#3b3e42')} />
         ))}
+        {[0.35, 1.0, 1.65].map((y) => <Cyl key={y} a={[0.012, 0.012, 0.07]} p={[0, y, 0]} m={steel} seg={10} />)}
       </group>
-      {/* contenu : un badge sur l'étagère */}
-      <Box s={[0.7, 0.02, 0.5]} p={[0, 1.1, 0.28]} m={m.metal('#55595e')} />
-      <Box s={[0.08, 0.05, 0.005]} p={[0, 1.14, 0.3]} r={[-1.2, 0, 0]} m={m.plastic('#3d7bff', 0.3)} />
+      {open && <RigidBody type="fixed" colliders={false}>
+        <CuboidCollider position={[0.34, 1, 0.95]} args={[0.05, 1, 0.4]} />
+      </RigidBody>}
     </group>
   )
 }
 
-function Postit() {
+const POSTITS: Record<string, string[]> = {
+  postit: ['Jamais au', 'hasard. Une', 'ligne après', 'l’autre. — N.'],
+  postitO2: ['Bouteille O₂', '= +55 %', 'Sous 15 % :', 'flou, visions'],
+}
+
+function Postit({ lines }: { lines: string[] }) {
   const mat = useMemo(() => {
-    const t = textTexture(['La diagonale,', 'toujours la', 'diagonale. — N.'], { w: 128, h: 128, bg: '#f6e27a', fg: '#1d2a6b', size: 15, font: 'italic 600 15px Inter, sans-serif', pad: 10 })
+    const t = textTexture(lines, { w: 128, h: 128, bg: '#f6e27a', fg: '#1d2a6b', size: 14, font: 'italic 600 14px Inter, sans-serif', pad: 8 })
     return new THREE.MeshStandardMaterial({ map: t, roughness: 0.8 })
-  }, [])
+  }, [lines])
   return (
     <mesh position={[0, 0, 0.02]} rotation={[0, 0, 0.1]} material={mat}>
       <planeGeometry args={[0.12, 0.12]} />
@@ -371,13 +372,39 @@ function Board() {
 
 function Plate() {
   const m = useMats()
-  const mat = useMemo(() => {
-    const t = textTexture(['STATION SELENE-7', 'Agence spatiale européenne', '', 'MISE EN SERVICE', '2041'], { w: 512, h: 300, bg: '#9a7a3a', fg: '#3b2a10', size: 34, align: 'center', font: '700 34px "Rajdhani", sans-serif', pad: 30 })
-    return new THREE.MeshStandardMaterial({ map: t, metalness: 0.85, roughness: 0.35, color: '#e8c98a' })
+  const ref = useRef<THREE.Mesh>(null)
+  const { mat, hidden, revealed } = useMemo(() => {
+    const make = (date: string) => textTexture(['STATION SELENE-7', 'Agence spatiale européenne', '', 'MISE EN SERVICE', date], { w: 512, h: 300, bg: '#9a7a3a', fg: '#3b2a10', size: 34, align: 'center', font: '700 34px "Rajdhani", sans-serif', pad: 30 })
+    const hidden = make('2041'), revealed = make('2041')
+    hidden.name = 'plate-date-unreadable'; revealed.name = 'plate-date-readable'
+    const mat = new THREE.MeshStandardMaterial({ map: hidden, metalness: 0.65, roughness: 0.55, color: '#e8c98a', envMapIntensity: 0 })
+    // Absorb ambient and neighbouring lights without changing the printed text.
+    mat.onBeforeCompile = shader => {
+      shader.uniforms.uPlateLight = { value: 0 }
+      mat.userData.plateLight = shader.uniforms.uPlateLight
+      shader.fragmentShader = 'uniform float uPlateLight;\n' + shader.fragmentShader
+      shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', 'outgoingLight *= mix(0.00015, 1.0, uPlateLight);\n#include <opaque_fragment>')
+    }
+    mat.customProgramCacheKey = () => 'torch-readable-plate-v1'
+    return { mat, hidden, revealed }
   }, [])
+  const vectors = useMemo(() => ({ target: new THREE.Vector3(), direction: new THREE.Vector3() }), [])
+  useEffect(() => () => { mat.dispose(); hidden.dispose(); revealed.dispose() }, [mat, hidden, revealed])
+  useFrame(({ camera }) => {
+    if (!ref.current) return
+    ref.current.getWorldPosition(vectors.target).sub(camera.position)
+    const distance = vectors.target.length()
+    camera.getWorldDirection(vectors.direction)
+    // Ambient light and alarm beacons never reveal the date. It must be in the
+    // lit torch cone; keeping both textures ready avoids shader recompilation.
+    const readable = canSeeInDark() && distance < 6 && vectors.target.normalize().dot(vectors.direction) > Math.cos(0.45)
+    mat.map = readable ? revealed : hidden
+    if (mat.userData.plateLight) mat.userData.plateLight.value = readable ? 1 : 0
+    ref.current.userData.dateReadable = readable
+  })
   return (
     <group>
-      <mesh position={[0, 0, 0.012]} material={mat}>
+      <mesh ref={ref} name="station-date-plate" position={[0, 0, 0.012]} material={mat}>
         <boxGeometry args={[0.5, 0.3, 0.012]} />
       </mesh>
       {[-1, 1].map((sx) =>
@@ -477,9 +504,10 @@ function SteamValve() {
   )
 }
 
-/** fuite de vapeur : particules + collision + son spatial */
+/** fuite de gaz : particules + collision + son spatial */
 function Steam({ e }: { e: Ent }) {
   const fixed = useGame((s) => s.flags.steamFixed)
+  const light = useRef<THREE.PointLight>(null)
   const pts = useRef<THREE.Points>(null)
   const N = 220
   const { geo, mat, seeds } = useMemo(() => {
@@ -499,13 +527,15 @@ function Steam({ e }: { e: Ent }) {
   const fade = useRef(1)
   useFrame(({ clock }, dt) => {
     fade.current = THREE.MathUtils.damp(fade.current, fixed ? 0 : 1, 1.2, dt)
+    if (light.current) light.current.intensity = fixed || stationPowerDown() ? 0 : 1.5
     mat.opacity = 0.55 * fade.current
     const p = geo.attributes.position as THREE.BufferAttribute
     const t = clock.elapsedTime
     for (let i = 0; i < N; i++) {
       const life = (t * 0.6 + seeds[i]) % 1
       const a = seeds[i] * 40
-      p.setXYZ(i, Math.cos(a) * life * 0.9 + Math.sin(t + i) * 0.05, 2.4 - life * 2.2 + Math.sin(a * 3) * 0.2, -0.7 + life * 1.6 + Math.sin(a) * life * 0.6)
+      // A jet out of the tear in the pipe, spreading into the corridor and rising.
+      p.setXYZ(i, 0.1 + Math.cos(a) * life * 0.75 + Math.sin(t + i) * 0.05, 1.25 + life * life * 1.25 + Math.sin(a * 3) * 0.12 * life, -0.72 + life * 1.55 + Math.sin(a) * life * 0.25)
     }
     p.needsUpdate = true
   })
@@ -526,7 +556,7 @@ function Steam({ e }: { e: Ent }) {
           <CuboidCollider args={[1, 1.4, 1]} position={[0, 1.4, 0]} />
         </RigidBody>
       )}
-      {!fixed && <pointLight color="#ffd2a8" intensity={1.5} distance={4} position={[0, 1.6, 0]} />}
+      <pointLight ref={light} name="steam-service-light" color="#ffd2a8" intensity={0} distance={4} position={[0, 1.6, 0]} />
     </group>
   )
 }
@@ -625,10 +655,35 @@ function EngineSlot() {
   )
 }
 
+/** The real suit through one material; drawing depth first leaves only its front surfaces visible. */
+function HoloLayer({ material, order }: { material: THREE.Material; order: number }) {
+  const suit = useModel('z2_spacesuit', { shadows: false })
+  const fit = useMemo(() => {
+    const box = new THREE.Box3().setFromObject(suit)
+    const center = box.getCenter(new THREE.Vector3())
+    const k = 1.78 / box.getSize(new THREE.Vector3()).y
+    return { k, offset: [-center.x, -box.min.y, -center.z] as [number, number, number] }
+  }, [suit])
+  useEffect(() => {
+    suit.traverse((o) => {
+      o.renderOrder = order
+      if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).material = material
+    })
+  }, [suit, material, order])
+  return <group scale={fit.k}><primitive object={suit} position={fit.offset} /></group>
+}
+
 /** hologramme de la commandante */
 function Hologram() {
   const cine = useGame((s) => s.cine)
-  const character = useGame((s) => s.character)
+  const depthOnly = useMemo(() => new THREE.MeshBasicMaterial({ colorWrite: false, transparent: true }), [])
+  const cone = useMemo(() => new THREE.ShaderMaterial({
+    // Strongest at the projector, gone before the top: a beam of light, without a visible rim.
+    vertexShader: 'varying float vH; void main(){ vH = uv.y; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+    fragmentShader: 'varying float vH; void main(){ float a = pow(1.-vH, 2.2)*.16; gl_FragColor = vec4(vec3(.35,.8,1.)*a, 1.); }',
+    transparent: true, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false,
+  }), [])
+  useEffect(() => () => { depthOnly.dispose(); cone.dispose() }, [depthOnly, cone])
   const mat = useMemo(
     () =>
       new THREE.ShaderMaterial({
@@ -636,10 +691,10 @@ function Hologram() {
         vertexShader: `varying vec3 vN; varying vec3 vV; varying vec3 vW;
           void main(){ vec4 mv = modelViewMatrix*vec4(position,1.); vN=normalize(normalMatrix*normal); vV=normalize(-mv.xyz); vW=(modelMatrix*vec4(position,1.)).xyz; gl_Position=projectionMatrix*mv; }`,
         fragmentShader: `uniform float uTime; uniform float uA; varying vec3 vN; varying vec3 vV; varying vec3 vW;
-          void main(){ float f = pow(1.-abs(dot(vN,vV)),2.); float scan = .7+.3*sin(vW.y*70.-uTime*6.);
+          void main(){ float f = pow(1.-abs(dot(vN,vV)),2.); float scan = .62+.38*sin(vW.y*120.-uTime*6.);
             float flick = .85+.15*sin(uTime*37.)*sin(uTime*13.);
             float band = smoothstep(.0,.02,fract(vW.y*.8-uTime*.35))*.4+.6;
-            vec3 c = vec3(.35,.8,1.)*(f*2.2+.06)*scan*flick*band;
+            vec3 c = vec3(.35,.8,1.)*(f*1.6+.3)*scan*flick*band;
             gl_FragColor = vec4(c*uA*1.6, 1.); }`,
         transparent: true,
         blending: THREE.AdditiveBlending,
@@ -651,12 +706,15 @@ function Hologram() {
   useFrame(({ clock }) => {
     mat.uniforms.uTime.value = clock.elapsedTime
     mat.uniforms.uA.value = THREE.MathUtils.lerp(mat.uniforms.uA.value, cine === 'briefing' ? 1 : 0.22, 0.05)
-    if (g.current) g.current.rotation.y = Math.sin(clock.elapsedTime * 0.3) * 0.2
+    if (g.current) g.current.rotation.y = -Math.PI / 2 + Math.sin(clock.elapsedTime * 0.3) * 0.2
   })
-  const briefer = character === 'ines' ? 'kenji' : 'ines'
   return (
     <group ref={g} position={[0, 0.1, 0]} scale={0.95}>
-      <Astronaut override={mat} castShadow={false} skin={briefer} accent={fr.characters[briefer].color} />
+      <Suspense fallback={null}>
+        <HoloLayer material={depthOnly} order={1} />
+        <HoloLayer material={mat} order={2} />
+      </Suspense>
+      <mesh position={[0, 0.9, 0]} material={cone}><cylinderGeometry args={[0.6, 0.22, 1.95, 40, 1, true]} /></mesh>
       <pointLight color="#59c8ff" intensity={cine === 'briefing' ? 3 : 0.8} distance={4} position={[0, 1.2, 0.3]} />
     </group>
   )
@@ -667,15 +725,17 @@ function DoorLock() {
 }
 
 const DATAPADS: Record<string, string[]> = {
-  labNote: ['JOURNAL LABO', 'Disjoncteur sauté.', 'Fusible : tiroir', 'Réseau : 3 unités'],
+  labNote: ['JOURNAL LABO', '3 unités. Sas', 'avant le terminal', 'sinon disjoncteur'],
   cargoNote: ['SOUTE · INVENTAIRE', 'Cellule énergie', 'caisse 3, au fond'],
 }
 
 export const ENT_MODELS: Record<string, (e: Ent) => ReactNode> = {
+  lunarTerminal: e => <LunarTerminal id={e.id} />,
+  lunarNote: e => <LunarNote id={e.id} />,
   o2: () => <O2Bottle />,
   battery: () => <Batteries />,
   water: () => <WaterPouch />,
-  lamp: () => <Headlamp />,
+  lamp: () => <ShelfFlashlight />,
   fuse: () => <Fuse />,
   wrench: () => <Wrench />,
   cell: () => <Cell />,
@@ -690,7 +750,7 @@ export const ENT_MODELS: Record<string, (e: Ent) => ReactNode> = {
   mirror: () => <MirrorItem />,
   holo: () => <Hologram />,
   locker: () => <Locker />,
-  postit: () => <Postit />,
+  postit: (e) => <Postit lines={POSTITS[e.id] ?? POSTITS.postit} />,
   board: () => <Board />,
   plate: () => <Plate />,
   dispenser: () => <Dispenser />,
@@ -708,13 +768,13 @@ export const ENT_MODELS: Record<string, (e: Ent) => ReactNode> = {
   ...ZONE4_ENT_MODELS,
 }
 
-const WALL_BRACKET = new Set(['battery', 'water', 'fuse', 'wrench', 'multitool', 'purifier', 'tape', 'compass', 'whistle', 'mirror', 'lamp'])
+const WALL_BRACKET = new Set(['battery', 'water', 'fuse', 'wrench', 'multitool', 'purifier', 'tape', 'compass', 'whistle', 'mirror'])
 
 function EntNode({ e, zone }: { e: Ent; zone: ZoneId }) {
   useGame((s) => s.taken.length + Object.values(s.flags).filter(Boolean).length)
   const active = entActive(e)
   const { p, r } = placeOf(e, 0)
-  const map = zone === 4 ? null : GRID_MAPS[zone]
+  const map = gridMap(zone)
   const room = map ? roomAt(map, p[0] + (e.wall ? Math.sin(r) * 0.3 : 0), p[2] + (e.wall ? Math.cos(r) * 0.3 : 0)) : null
   const model = ENT_MODELS[e.model]
   const keepWhenDone = !e.item
@@ -723,8 +783,8 @@ function EntNode({ e, zone }: { e: Ent; zone: ZoneId }) {
   if (!active && !keepWhenDone && !shelf) return null
   return (
     <RoomCtx.Provider value={{ id: room?.id ?? '', dark: !!room?.dark }}>
-      <group position={p} rotation={[0, r, 0]}>
-        {active && model ? model(e) : null}
+      <group name={`ent:${e.id}`} position={p} rotation={[0, r, 0]}>
+        {active && model ? (e.item ? <PickupHighlight>{model(e)}</PickupHighlight> : model(e)) : null}
         {!e.item && <SolidProp model={e.model} />}
         {shelf && <Bracket />}
         {active && e.item && <Glint resource={ITEM_KIND[e.item] === 'resource'} />}

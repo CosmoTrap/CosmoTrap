@@ -55,7 +55,7 @@ export type Wall = 'N' | 'S' | 'E' | 'W'
 
 export type DotKind = 'key' | 'res' | 'surv' | 'exam' | 'exit'
 
-export type PuzzleId = 'keypad' | 'valves' | 'power' | 'sequence' | 'radio' | 'algo' | 'plan' | 'dilemma'
+export type PuzzleId = 'keypad' | 'valves' | 'power' | 'sequence' | 'radio' | 'algo' | 'plan' | 'dilemma' | 'lunar'
 
 /** Objet interactif placé dans une map. */
 export interface Ent {
@@ -72,6 +72,8 @@ export interface Ent {
   y?: number
   /** rotation Y (rad) quand pas de mur */
   rot?: number
+  /** décalage local (x,z) en m dans le repère de la tuile */
+  off?: [number, number]
   /** objet ramassé */
   item?: ItemId
   /** point sur la mini-carte */
@@ -101,6 +103,7 @@ export interface DoorDef {
 }
 
 export interface RoomDef {
+  exits?: { angle: number; label: string }[]
   id: string
   name: string
   shape?: 'round'
@@ -114,8 +117,8 @@ export interface RoomDef {
   intensity?: number
   /** pas de lumière dynamique dans cette pièce (néons émissifs seulement) */
   noDynLight?: boolean
-  /** néons défaillants qui grésillent */
-  flicker?: boolean
+  /** gyrophares d'alarme malgré l'absence d'éclairage de plafond */
+  beacons?: boolean
   /** palette de murs */
   theme?: 'station' | 'lab' | 'machine' | 'rocket' | 'green'
 }

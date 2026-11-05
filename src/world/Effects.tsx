@@ -80,7 +80,6 @@ const Grade = forwardRef<GradeEffect>(function Grade(_, ref) {
     u.get('uTime')!.value = clock.elapsedTime % 100
     u.get('uBright')!.value = s.settings.brightness ?? 1
     const lowO2 = s.zone < 4 && s.screen === 'playing' ? THREE.MathUtils.clamp(1 - s.res.o2 / 25, 0, 1) : 0
-    const thirst = s.screen === 'playing' && s.res.water <= 0 ? 1 : 0
     const r = u.get('uRed')!
     r.value = THREE.MathUtils.lerp(r.value, lowO2 * 0.9, 0.05)
     const b = u.get('uBlur')!
@@ -88,7 +87,7 @@ const Grade = forwardRef<GradeEffect>(function Grade(_, ref) {
     // Cinematic blur must disappear on the very first gameplay frame. Smoothing
     // the previous film value left the image blurred for seconds on slower GPUs.
     const filmic = s.cine === 'tour' || s.cine === 'heli' || s.cine === 'launch' || s.screen === 'prologue'
-    b.value = Math.max(filmic ? film.blur : 0, thirst * 0.85, breath * 0.8)
+    b.value = Math.max(filmic ? film.blur : 0, breath * 0.8)
     // Preserve the subtle K12 grading alongside main's cinematic lens effects.
     u.get('uGrain')!.value = filmic ? 0.003 : 0.0015
     const l = u.get('uLens')!
@@ -99,6 +98,16 @@ const Grade = forwardRef<GradeEffect>(function Grade(_, ref) {
 
 export function Effects() {
   const composer = useRef<Composer>(null)
+  const gl = useThree(s => s.gl)
+  // AO renders transparency in extra passes. They must reuse the complete
+  // scene's shadows, rather than recomputing them with opaque casters hidden.
+  // Refresh every game frame, so doors, actors and the torch remain dynamic.
+  useEffect(() => {
+    const previous = gl.shadowMap.autoUpdate
+    gl.shadowMap.autoUpdate = false
+    return () => { gl.shadowMap.autoUpdate = previous; gl.shadowMap.needsUpdate = true }
+  }, [gl])
+  useFrame(() => { gl.shadowMap.needsUpdate = true }, 0.9)
   const dpr = useThree((s) => s.viewport.dpr)
   const size = useThree((s) => s.size)
   const quality = useGame((s) => s.settings.quality)

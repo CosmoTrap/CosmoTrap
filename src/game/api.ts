@@ -1,4 +1,4 @@
-import { G, normalizeSave, setCloudSave, useGame, type SaveFile } from './state'
+import { G, normalizeSave, saveBlocked, setCloudDelete, setCloudSave, useGame, type SaveFile } from './state'
 
 // Client de l'API PHP (public/api) : comptes, sauvegarde dans le cloud, classement.
 
@@ -104,10 +104,12 @@ export async function logout() {
 // ——— sauvegarde dans le compte ———
 let inflight = false
 export async function pushSave(d: unknown) {
-  if (inflight || !G().user) return
+  const stamp = (d as { savedAt?: number }).savedAt
+  if (inflight || !G().user || saveBlocked(stamp)) return
   inflight = true
   try {
     await req('save.php', { method: 'POST', body: JSON.stringify({ save: d }) })
+    if (saveBlocked(stamp)) await deleteCloudSave()
   } catch (e) {
     if (e instanceof ApiError && e.status === 401) useGame.setState({ user: null })
   } finally {
@@ -136,6 +138,7 @@ export async function deleteCloudSave() {
     /* rien */
   }
 }
+setCloudDelete(() => void deleteCloudSave())
 
 // ——— classement ———
 export interface Row {

@@ -3,12 +3,18 @@ import { FLAGS, type Flags, type ItemId, type PuzzleId, type ZoneId } from './ty
 import { DEFAULT_KEYS, DEFAULT_PAD, detectKeyLayout, type KeyLayout, type KeyMap, type PadMap, type PadType } from '../player/input'
 import { DIFFICULTY, type Difficulty } from './difficulty'
 import { LAYOUT_VERSION, migrateStationSave } from './maps/layoutMigration'
+import { shuffle } from './shuffle'
+import { initialValves } from './valves'
+import { newLunarProgress, type LunarProgress } from './lunar/puzzles'
+
+export { pressValveGrid } from './valves'
 
 export type Screen = 'launch' | 'login' | 'title' | 'prologue' | 'playing' | 'end' | 'settings' | 'achievements' | 'credits'
 /** carte choisie sur l'écran de lancement */
 export type MissionMap = 'base' | 'station'
 export type Quality = 'low' | 'medium' | 'high' | 'ultra'
-export type CineKind = 'briefing' | 'faint' | 'zoneCard' | 'lift' | 'tour' | 'launch' | 'heli' | 'fail' | null
+export type FailCause = 'time' | 'o2' | 'hp' | 'water'
+export type CineKind = 'briefing' | 'zoneCard' | 'lift' | 'tour' | 'launch' | 'heli' | 'fail' | 'lunarLaunch' | null
 
 /** limite de temps de la partie (s) selon la difficulté : au-delà, échec */
 export const timeLimit = () => DIFFICULTY[useGame.getState().difficulty ?? 'astronaut'].time + (useGame.getState().character === 'ines' ? 180 : 0)
@@ -21,10 +27,12 @@ export const ability = () => {
     lamp: c === 'nova' ? 0.65 : 1,
     errorPenalty: c === 'kenji' ? 0.5 : 1,
     water: c === 'sam' ? 0.6 : 1,
-    faintO2: c === 'sam' ? 75 : 50,
     o2: c === 'maya' ? 0.75 : 1,
+    medkitHeal: c === 'sam' ? 60 : 40,
   }
 }
+/** vitesse sur Terre sans couverture de survie (0,8 = 20 % plus lent) */
+export const NO_BLANKET_SPEED = 0.8
 export const diff = () => DIFFICULTY[useGame.getState().difficulty ?? 'astronaut']
 export const AUTOSAVE_EVERY = 30
 
@@ -68,7 +76,6 @@ export interface Settings {
   subtitles: boolean
   /** sauvegarde à chaque énigme résolue (en plus des 30 s) */
   autosave: boolean
-  lang: 'fr' | 'en'
   /** luminosité de l'image (0,6 à 1,6) */
   brightness: number
   /** voix de synthèse du navigateur quand aucun fichier de voix n'est fourni */
@@ -119,30 +126,6 @@ export const live = {
   ghost: null as null | { pseudo: string; timeMs: number; track: number[] },
 }
 
-function initialValves() {
-  // départ : tout vert, puis appuis (0,0), (1,1), (2,2)
-  const v = Array(9).fill(true)
-  for (const [r, c] of [
-    [0, 0],
-    [1, 1],
-    [2, 2],
-  ])
-    pressValveGrid(v, r, c)
-  return v
-}
-
-export function pressValveGrid(v: boolean[], r: number, c: number) {
-  const flip = (rr: number, cc: number) => {
-    if (rr < 0 || rr > 2 || cc < 0 || cc > 2) return
-    v[rr * 3 + cc] = !v[rr * 3 + cc]
-  }
-  flip(r, c)
-  flip(r - 1, c)
-  flip(r + 1, c)
-  flip(r, c - 1)
-  flip(r, c + 1)
-}
-
 const emptyFlags = () => Object.fromEntries(FLAGS.map((f) => [f, false])) as Flags
 
 export type TabletTab = 0 | 1 | 2 | 3 // Plan, journal, messages, inventaire.
@@ -156,13 +139,15 @@ export interface MissionMessage {
 }
 
 export interface GameData {
+  campaignVersion: number
+  lunar: LunarProgress
   layoutVersion: number
   zone: ZoneId
   character: string
   map: MissionMap
   flags: Flags
   inv: Partial<Record<ItemId, number>>
-  res: { o2: number; lamp: number; water: number }
+  res: { o2: number; lamp: number; water: number; hp: number }
   lampOn: boolean
   notes: string[]
   messages: MissionMessage[]
@@ -170,9 +155,14 @@ export interface GameData {
   discovered: string[]
   hintsUsed: number
   hintsShown: string[]
-  faints: number
+  /** l'O₂ est passé sous 15 % au moins une fois (succès « Souffle long ») */
+  o2Critical: boolean
   playTime: number
   valves: boolean[]
+  /** grille de départ de cette partie, pour le bouton Réinitialiser */
+  valveStart: boolean[]
+  /** ordre des boutons couleur du terminal, tiré une fois par partie */
+  algoOrder: string[]
   seq: string[]
   briefed: boolean
   ended: boolean
@@ -190,6 +180,8 @@ export interface GameData {
   /** zones dont la présentation cinématique a été vue */
   toured: number[]
   ending: 'rescue' | 'fail' | null
+  /** ce qui a mis fin à la partie, pour adapter l'écran de défaite */
+  failCause: FailCause | null
   /** copie sérialisée de live.explored */
   explored: string[]
   difficulty: Difficulty
@@ -198,20 +190,29 @@ export interface GameData {
   /** imprévu en cours */
   event: { kind: 'blackout' | 'leak'; until: number } | null
   nextEventAt: number
+  nextEventKind: 'blackout' | 'leak'
   /** positions monde du mobilier déplacé par le joueur */
   propPositions: Record<string, [number, number, number]>
   /** temps de jeu (pénalités comprises) à la résolution de chaque énigme, par id */
   splits: Record<string, number>
 }
 
-export const newGameData = (character = 'nova', difficulty: Difficulty = 'astronaut', map: MissionMap = 'base'): GameData => ({
+const ALGO_COLORS = ['blue', 'yellow', 'red', 'green']
+/** ordre des boutons du terminal : jamais l'ordre de la réponse, stable pour la partie */
+const terminalColors = () => shuffle([...ALGO_COLORS], (order) => order.every((c, i) => c === ALGO_COLORS[i]))
+
+export const newGameData = (character = 'nova', difficulty: Difficulty = 'astronaut', map: MissionMap = 'station'): GameData => {
+  const valves = initialValves()
+  return {
+  campaignVersion: 1,
+  lunar: newLunarProgress(),
   layoutVersion: LAYOUT_VERSION,
   zone: 1,
   character,
   map,
   flags: emptyFlags(),
   inv: {},
-  res: { o2: 100, lamp: 100, water: 100 },
+  res: { o2: 100, lamp: 100, water: 100, hp: 100 },
   lampOn: false,
   notes: [],
   messages: [],
@@ -219,9 +220,11 @@ export const newGameData = (character = 'nova', difficulty: Difficulty = 'astron
   discovered: [],
   hintsUsed: 0,
   hintsShown: [],
-  faints: 0,
+  o2Critical: false,
   playTime: 0,
-  valves: initialValves(),
+  valves,
+  valveStart: [...valves],
+  algoOrder: terminalColors(),
   seq: [],
   briefed: false,
   ended: false,
@@ -234,14 +237,17 @@ export const newGameData = (character = 'nova', difficulty: Difficulty = 'astron
   choice: null,
   toured: [],
   ending: null,
+  failCause: null,
   explored: [],
   difficulty,
   track: [],
   event: null,
-  nextEventAt: DIFFICULTY[difficulty].events * 0.7,
+  nextEventAt: Math.min(45, DIFFICULTY[difficulty].events * 0.3),
+  nextEventKind: 'blackout',
   propPositions: {},
   splits: {},
-})
+  }
+}
 
 export interface GameState extends GameData {
   screen: Screen
@@ -263,6 +269,8 @@ export interface GameState extends GameData {
   settingsTab: number
   /** première connexion : on guide vers le choix du personnage */
   firstRun: boolean
+  /** une nouvelle partie attend le personnage choisi sur la page Profil */
+  missionPick: boolean
   creditsOpen: boolean
   tp: { pos: [number, number, number]; yaw: number; n: number } | null
   loading: number // 0..1, 1 = prêt
@@ -339,7 +347,6 @@ function loadSettings(): Settings {
     showChrono: true,
     subtitles: true,
     autosave: true,
-    lang: 'fr',
     brightness: 1,
     browserVoice: false,
     trackpadLook: true,
@@ -387,6 +394,7 @@ export const useGame = create<GameState>((set) => ({
   settingsOpen: false,
   settingsTab: 0,
   firstRun: false,
+  missionPick: false,
   creditsOpen: false,
   tp: null,
   loading: 1,
@@ -510,19 +518,69 @@ export function saveGame(cloud = true) {
 
 /** branché par api.ts pour éviter une dépendance circulaire */
 export let cloudSave: ((d: unknown) => void) | null = null
+export let cloudDelete: (() => void) | null = null
 export function setCloudSave(fn: (d: unknown) => void) {
   cloudSave = fn
+}
+export function setCloudDelete(fn: () => void) {
+  cloudDelete = fn
+}
+
+/** une partie finie ou échouée ne doit plus être proposée au menu */
+const closedKey = () => `cosmotrap.closed.v2.${G().user?.id ?? 'guest'}`
+
+export function saveBlocked(savedAt?: number) {
+  try {
+    const at = Number(localStorage.getItem(closedKey()) || 0)
+    return !!at && (savedAt ?? 0) <= at
+  } catch {
+    return false
+  }
+}
+
+export function isResumable(s: SaveFile | null | undefined): s is SaveFile {
+  if (!s || s.ended || s.ending === 'fail' || s.ending === 'rescue') return false
+  return !saveBlocked(s.savedAt)
+}
+
+/** retire la partie locale et distante, et bloque les sauvegardes plus anciennes */
+export function closeFinishedRun() {
+  try {
+    localStorage.setItem(closedKey(), String(Date.now()))
+  } catch {
+    /* stockage indisponible */
+  }
+  clearSave()
+  cloudDelete?.()
 }
 
 export type SaveFile = GameData & { pos?: [number, number, number]; yaw?: number; savedAt?: number }
 
 export function normalizeSave(d: any): SaveFile | null {
   if (!d || !d.zone) return null
-  const saved = { ...newGameData(d.character), ...d, flags: { ...emptyFlags(), ...d.flags }, messages: Array.isArray(d.messages) ? d.messages : [] }
+  const fresh = newGameData(d.character)
+  // Les sauvegardes d'avant la jauge de vie n'ont pas de res.hp.
+  const saved = { ...fresh, ...d, res: { ...fresh.res, ...d.res }, flags: { ...emptyFlags(), ...d.flags }, messages: Array.isArray(d.messages) ? d.messages : [] }
+  // Before lunar missions existed, both menu cards launched the orbital game.
+  // Keep those saves in that original world instead of relocating the player.
+  if (!d.campaignVersion) saved.map = 'station'
+  saved.campaignVersion = 1
+  if (saved.map === 'base') {
+    saved.zone = 1
+    const l = d.lunar
+    saved.lunar = { ...newLunarProgress(Number.isFinite(l?.seed) ? l.seed : 1),
+      solved: Array.isArray(l?.solved) ? l.solved.filter((x: unknown) => typeof x === 'string') : [],
+      drafts: l?.drafts && typeof l.drafts === 'object' ? l.drafts : {}, current: null }
+  }
+  if (!Array.isArray(d.valveStart) || d.valveStart.length !== 9)
+    saved.valveStart = Array.isArray(saved.valves) && saved.valves.length === 9 ? [...saved.valves] : [...saved.valveStart]
+  const colors = ['blue', 'yellow', 'red', 'green']
+  if (!Array.isArray(d.algoOrder) || d.algoOrder.length !== 4 || colors.some((c) => !d.algoOrder.includes(c)))
+    saved.algoOrder = fresh.algoOrder
   const items = (Object.keys(saved.inv) as ItemId[]).filter((it) => saved.inv[it] > 0)
   if (!items.includes(saved.selectedItem)) saved.selectedItem = items[0] ?? null
   if (!items.includes(saved.held)) saved.held = null
-  return migrateStationSave(saved, d.layoutVersion ?? 1)
+  return saved.map === 'base' ? saved : migrateStationSave(saved, d.layoutVersion ?? 1)
 }
 
 export function loadSave(): SaveFile | null {

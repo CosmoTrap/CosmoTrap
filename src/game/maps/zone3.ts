@@ -21,7 +21,7 @@ export const zone3: GridMap = {
   ],
   rooms: [
     { id: 'cockpit', name: 'cockpit', rect: [1, 1, 7, 3], light: '#9ec4ff', intensity: 4, theme: 'rocket' },
-    { id: 'pont', name: 'pont', rect: [1, 5, 7, 8], light: '#ffe6c8', intensity: 8, theme: 'rocket', flicker: true },
+    { id: 'pont', name: 'pont', rect: [1, 5, 7, 8], light: '#ffe6c8', intensity: 8, theme: 'rocket' },
     { id: 'soute', name: 'soute', rect: [1, 10, 3, 12], dark: true, noDynLight: true, theme: 'rocket' },
     { id: 'moteurs', name: 'moteurs', rect: [5, 10, 7, 12], light: '#ff8a50', intensity: 6, theme: 'machine' },
   ],
@@ -38,6 +38,8 @@ export const zone3: GridMap = {
     { id: 'battery_a', model: 'battery', tile: [7, 3], wall: 'E', y: 1.0, item: 'battery', dot: 'res' },
     { id: 'compass', model: 'compass', tile: [1, 3], wall: 'W', y: 1.0, item: 'compass', dot: 'surv' },
     { id: 'o2_a', model: 'o2', tile: [1, 5], wall: 'W', item: 'o2', dot: 'res' },
+    { id: 'medkit', model: 'medkit', tile: [7, 5], wall: 'E', y: 1.2, item: 'medkit', dot: 'res' },
+    { id: 'o2_b', model: 'o2', tile: [2, 3], wall: 'S', item: 'o2', dot: 'res' },
     { id: 'water_a', model: 'water', tile: [7, 8], wall: 'E', y: 1.0, item: 'water', dot: 'res' },
     { id: 'cargoNote', model: 'datapad', tile: [3, 10], wall: 'E', y: 1.1, dot: 'exam' },
     { id: 'cell', model: 'cell', tile: [1, 12], wall: 'W', y: 0.62, item: 'cell', dot: 'key' },

@@ -6,7 +6,7 @@ async function call(page: Page, fn: string, ...args: unknown[]) {
 }
 async function guest(page: Page, legacyKeys = false) {
   await page.route('**/api/auth.php?action=me', (route) => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
-  await page.addInitScript((legacy) => localStorage.setItem('cosmotrap.settings.v1', JSON.stringify({ quality: 'low', music: 0, voice: 0, sfx: 0,
+  await page.addInitScript((legacy) => localStorage.setItem('cosmotrap.settings.v1', JSON.stringify({ quality: 'low', music: 0, voice: 0, sfx: 0, map: 'station',
     ...(legacy ? { keys: { act: ['KeyE', 'Space'] } } : {}) })), legacyKeys)
   await page.goto('/?quality=low')
   await enterAsGuest(page)
@@ -20,7 +20,7 @@ async function enterAsGuest(page: Page) {
 }
 async function playable(page: Page) {
   await expect.poll(async () => (await state(page)).cine).toBeNull()
-  await expect.poll(async () => (await state(page)).loading).toBe(1)
+  await expect.poll(async () => (await state(page)).loading, { timeout: 60000 }).toBe(1)
   expect(await page.evaluate(() => ({ camera: window.__game.live.camOverride, fade: window.__game.live.fade,
     flash: window.__game.live.flash, card: window.__game.live.card, countdown: window.__game.live.countdown })))
     .toEqual({ camera: null, fade: 0, flash: 0, card: null, countdown: null })
@@ -41,6 +41,7 @@ test('passer le prologue rend directement les commandes', async ({ page }) => {
   page.on('pageerror', (e) => errors.push(e.message))
   await guest(page)
   await page.getByTestId('launch-mission').click()
+  await page.getByTestId('confirm-character').click()
   await page.getByTestId('skip-prologue').click()
   await playable(page)
   expect(errors).toEqual([])
@@ -136,7 +137,7 @@ test('tables, lits, meubles et caisses bloquent la marche sans bloquer les passa
   await page.waitForFunction(() => window.__game.state().playerZone === 1 && window.__game.state().playTime > 0.4)
   const cases = [
     { label: 'table et banc', zone: 1, x: 35, z: 22.2, yaw: 0, axis: 2, min: 20.2, max: 20.6 },
-    { label: 'lit medical', zone: 1, x: 45, z: 66, yaw: 0, axis: 2, min: 64.24, max: 64.65 },
+    { label: 'lit medical', zone: 1, x: 45, z: 65.5, yaw: 0, axis: 2, min: 62.2, max: 62.6 },
     { label: 'lit mural tourne', zone: 1, x: 13, z: 39, yaw: Math.PI / 2, axis: 0, min: 11.22, max: 11.65 },
     { label: 'meuble laboratoire', zone: 2, x: 23, z: 13.2, yaw: 0, axis: 2, min: 11.04, max: 11.4 },
     // Approach perpendicular to the rotated face, inside the room; walking

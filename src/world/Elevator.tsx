@@ -8,6 +8,7 @@ import { CEIL } from '../game/maps'
 import { G, live, useGame } from '../game/state'
 import { useMats } from './materials'
 import { Box, Cyl, Screen } from './props/models'
+import { stationPowerDown } from './roomPower'
 
 /** Fixed glass wall of the shaft, and the cab's own glass wall inside it. */
 const SHAFT_R = 1.7
@@ -68,23 +69,40 @@ export function Elevator({ zone, cx, cz }: { zone: number; cx: number; cz: numbe
   const frame = m.painted('#343e46', 0.42, 0.7)
   const steel = m.metal('#a3adb3', 0.26)
   const glassBase = m.glass('#aac9da', 0.14)
+  const alarm = useMemo(() => new THREE.MeshStandardMaterial({ color: '#080202', emissive: '#ff1a0a', emissiveIntensity: 1 }), [])
+  const cabLight = useRef<THREE.PointLight>(null)
   const inner = useMemo(() => {
     const c = shell.clone()
     c.side = THREE.BackSide
     // The cab's own circuit: it stays readable during the hub's power cuts.
-    c.emissive.set('#56646e')
-    c.emissiveIntensity = 0.35
+    c.emissive.set('#ff2a1a')
+    c.emissiveIntensity = 0.2
     return c
   }, [shell])
+  lamp.userData.backupCircuit = alarm.userData.backupCircuit = inner.userData.backupCircuit = true
   // Seen from both the hub and the cab.
   const glass = useMemo(() => {
     const c = glassBase.clone()
     c.side = THREE.DoubleSide
+    // Barely any specular: the sun coming through the hub's windows must not glare on the lift.
+    c.specularIntensity = 0.06
     return c
   }, [glassBase])
-  useEffect(() => () => { lamp.dispose(); inner.dispose(); glass.dispose() }, [lamp, inner, glass])
+  useEffect(() => () => { lamp.dispose(); alarm.dispose(); inner.dispose(); glass.dispose() }, [lamp, alarm, inner, glass])
 
-  useFrame((_, dt) => {
+  useFrame(({ clock }, dt) => {
+    // A slow swell, about three seconds per cycle, on its own circuit: it never stops.
+    const locked = !liftUnlocked(G().zone, G().flags.pressurized)
+    const emergency = locked || stationPowerDown()
+    const pulse = 0.5 + 0.5 * Math.sin(clock.elapsedTime * 2.2)
+    alarm.emissive.set(emergency ? '#ff1a0a' : '#eef4ff')
+    alarm.emissiveIntensity = emergency ? 0.2 + 2.6 * pulse : 1.3
+    inner.emissive.set(emergency ? '#ff2a1a' : '#eef4ff')
+    inner.emissiveIntensity = emergency ? 0.06 + 0.34 * pulse : 0.12
+    if (cabLight.current) {
+      cabLight.current.color.set(emergency ? '#ff1a0a' : '#f2f6ff')
+      cabLight.current.intensity = emergency ? 0.5 + 6 * pulse : 4
+    }
     const open = liftUnlocked(G().zone, G().flags.pressurized) && G().cine !== 'lift'
       && Math.hypot(live.pos[0] - (cx + SHAFT_R), live.pos[2] - cz) < OPEN_DISTANCE
     const t = open ? 1 : 0
@@ -99,7 +117,7 @@ export function Elevator({ zone, cx, cz }: { zone: number; cx: number; cz: numbe
     if (right.current) right.current.rotation.y = -k
     const isClosed = anim.current < 0.55
     if (isClosed !== closed) setClosed(isClosed)
-    lamp.emissive.set(liftUnlocked(G().zone, G().flags.pressurized) ? '#62d6b1' : '#ff4128')
+    lamp.emissive.set(stationPowerDown() ? '#ff1a0a' : liftUnlocked(G().zone, G().flags.pressurized) ? '#62d6b1' : '#ff4128')
   })
 
   const segments = useMemo(() => {
@@ -119,7 +137,7 @@ export function Elevator({ zone, cx, cz }: { zone: number; cx: number; cz: numbe
       <mesh position={[0, 0.006, 0]} rotation={[-Math.PI / 2, 0, 0]} material={frame} receiveShadow>
         <circleGeometry args={[SHAFT_R, 64]} />
       </mesh>
-      <mesh position={[0, 2.72, 0]} rotation={[Math.PI / 2, 0, 0]} material={m.glow('#9fd0ff', 1.6)}>
+      <mesh position={[0, 2.72, 0]} rotation={[Math.PI / 2, 0, 0]} material={alarm}>
         <torusGeometry args={[SHAFT_R + 0.025, 0.02, 8, 96]} />
       </mesh>
       {/* Outside: state lamp and floor display. */}
@@ -140,9 +158,20 @@ export function Elevator({ zone, cx, cz }: { zone: number; cx: number; cz: numbe
       <mesh position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]} material={steel} receiveShadow>
         <circleGeometry args={[CAB_R, 48]} />
       </mesh>
-      <mesh position={[0, CEIL - 0.03, 0]} rotation={[Math.PI / 2, 0, 0]} material={m.glow('#dfe9ff', 1.3)}>
-        <circleGeometry args={[1.05, 48]} />
+      {/* The cab's own ceiling, lower than the room's, with the lamp set flush into it. */}
+      <mesh name="elevator-ceiling" position={[0, DOOR_H - 0.01, 0]} rotation={[Math.PI / 2, 0, 0]} material={m.painted('#c8ccce', 0.34, 0.45)} receiveShadow>
+        <circleGeometry args={[CAB_R + 0.01, 64]} />
       </mesh>
+      {[0.82, 1.14].map((r) => <mesh key={r} position={[0, DOOR_H - 0.014, 0]} rotation={[Math.PI / 2, 0, 0]} material={frame}><torusGeometry args={[r, 0.008, 6, 64]} /></mesh>)}
+      {Array.from({ length: 12 }, (_, i) => {
+        const a = i / 12 * Math.PI * 2
+        return <Box key={i} s={[0.14, 0.006, 0.025]} p={[Math.sin(a) * 0.98, DOOR_H - 0.014, Math.cos(a) * 0.98]} r={[0, a, 0]} m={frame} />
+      })}
+      <mesh position={[0, DOOR_H - 0.022, 0]} rotation={[Math.PI / 2, 0, 0]} material={steel}><torusGeometry args={[0.62, 0.022, 10, 64]} /></mesh>
+      <mesh name="elevator-lamp" position={[0, DOOR_H - 0.018, 0]} rotation={[Math.PI / 2, 0, 0]} material={alarm}>
+        <circleGeometry args={[0.6, 48]} />
+      </mesh>
+      <pointLight ref={cabLight} name="elevator-alarm-light" position={[0, DOOR_H - 0.3, 0]} color="#ff1a0a" intensity={1} distance={5} decay={1.6} />
       {/* Control tablet on a pillar anchored in the floor, facing the door. */}
       <group name="elevator-control" position={[PILLAR_X, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
         <Cyl a={[0.2, 0.24, 0.04]} p={[0, 0.032, 0]} m={frame} seg={32} />
@@ -169,6 +198,7 @@ export function Elevator({ zone, cx, cz }: { zone: number; cx: number; cz: numbe
     <RigidBody name="elevator" type="fixed" colliders={false}>
       {segments.map((s, i) => <CuboidCollider key={i} position={[s.x, CEIL / 2, s.z]} rotation={[0, s.a, 0]} args={[s.half, CEIL / 2, SOLID_HALF]} />)}
       <CuboidCollider position={[SOLID_R, (CEIL + DOOR_H) / 2, 0]} args={[SOLID_HALF, (CEIL - DOOR_H) / 2, DOOR_HALF + 0.05]} />
+      <CuboidCollider name="elevator-roof" position={[0, DOOR_H + 0.05, 0]} args={[CAB_R, 0.05, CAB_R]} />
       <CuboidCollider name="elevator-control" position={[PILLAR_X, (PILLAR_H + 0.2) / 2, 0]} args={[0.12, (PILLAR_H + 0.2) / 2, 0.22]} />
       {closed && <CuboidCollider name="elevator-door" position={[SOLID_R, DOOR_H / 2, 0]} args={[SOLID_HALF, DOOR_H / 2, DOOR_HALF]} />}
     </RigidBody>

@@ -24,6 +24,12 @@ export function Exterior({ map }: { map: GridMap }) {
     return { cx: hx, cy: CEIL / 2, cz: hz, hx, hy: CEIL / 2, hz }
   }, [W, H])
   const sun = useMemo(() => new THREE.Vector3(...map.sun).normalize(), [map])
+  // Le flux est perpendiculaire au soleil : les rochers traversent son disque.
+  const flow = useMemo(() => {
+    const f = new THREE.Vector3(-sun.z, 0, sun.x)
+    if (f.lengthSq() < 1e-6) f.set(1, 0, 0)
+    return f.normalize()
+  }, [sun])
   const group = useRef<THREE.Group>(null)
   useFrame(() => {
     if (group.current) group.current.position.y = live.ext.y
@@ -39,13 +45,14 @@ export function Exterior({ map }: { map: GridMap }) {
             <Moon radius={1500} position={[c.x - 200, -1525, c.z + 150]} sun={sun} detail={q.moonDetail} />
             <Earth radius={75} position={c.clone().add(new THREE.Vector3(-0.55, 0.14, -0.82).normalize().multiplyScalar(3200)).toArray()} sun={sun} />
             <ShootingStars />
+            <Asteroids center={c} keepOut={keepOut} minY={-2} flow={flow} count={q.particles > 400 ? 260 : 160} />
           </>
         )}
         {map.exterior === 'asteroids' && (
           <>
             <Moon radius={320} position={c.clone().add(new THREE.Vector3(0.45, -0.3, -0.84).normalize().multiplyScalar(2600)).toArray()} sun={sun} detail={2} />
             <Earth radius={60} position={c.clone().add(new THREE.Vector3(-0.7, 0.1, 0.7).normalize().multiplyScalar(3600)).toArray()} sun={sun} />
-            <Asteroids center={c} keepOut={keepOut} count={q.particles > 400 ? 260 : 160} />
+            <Asteroids center={c} keepOut={keepOut} flow={flow} count={q.particles > 400 ? 260 : 160} />
           </>
         )}
         {map.exterior === 'earthrise' && (

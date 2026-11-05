@@ -14,7 +14,7 @@ test('nouveaux skins et touches configurables avec les mains détaillées et le 
   page.on('pageerror', (e) => errors.push(e.message))
   await page.route('**/api/auth.php?action=me', (r) => r.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
   await page.addInitScript(() => {
-    localStorage.setItem('cosmotrap.settings.v1', JSON.stringify({ quality: 'low', music: 0, voice: 0, sfx: 0 }))
+    localStorage.setItem('cosmotrap.settings.v1', JSON.stringify({ quality: 'low', music: 0, voice: 0, sfx: 0, map: 'station' }))
     const pad = { id: 'Xbox test', index: 0, connected: true, mapping: 'standard', timestamp: 0, axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 })) }
     ;(window as any).__pad = pad
     navigator.getGamepads = () => [pad as any]
@@ -42,6 +42,7 @@ test('nouveaux skins et touches configurables avec les mains détaillées et le 
   await pressPad(page, 12) // Swap inventory with use-selected: no accidental consumption.
   await page.getByTestId('page-back').click()
   await page.getByTestId('launch-mission').click()
+  await page.getByTestId('confirm-character').click()
   await page.getByTestId('skip-prologue').click()
   await page.waitForFunction(() => window.__game.state().loading === 1)
   expect(await page.evaluate(() => window.__game.state().character)).toBe('leo')
@@ -53,13 +54,22 @@ test('nouveaux skins et touches configurables avec les mains détaillées et le 
   })
   await expect.poll(() => page.evaluate(async () => {
     const { _roots } = await import('/node_modules/.vite/deps/@react-three_fiber.js' as string)
-    const glove = _roots.get(document.querySelector('canvas')).store.getState().scene.getObjectByName('eva-glove')
+    const { armOf, stripMaterial } = await import('/src/player/avatarArms.ts' as string)
+    const { skinOf } = await import('/src/world/skins.ts' as string)
+    const scene = _roots.get(document.querySelector('canvas')).store.getState().scene
+    const held = scene.getObjectByName('held-item')
+    if (!held?.visible) return false
+    const spec = armOf('leo'), expected = stripMaterial('leo', spec.forearm.strip, skinOf('leo').suit, spec)
     let detailedSkin = false
-    glove?.traverse((obj: any) => {
+    held.traverse((obj: any) => {
       const m = obj.material
-      if (!m?.userData.fabric || !m.normalMap || !m.map?.image?.getContext) return
-      const [r, g, b] = m.map.image.getContext('2d').getImageData(256, 256, 1, 1).data
-      if (r < 80 && g < 90 && b > 65 && b > g * 1.3) detailedSkin = true
+      // The new arms use the avatar picture and a bump map, rather than the
+      // former fabric normal map. Verify Leo's actual arm and loaded details.
+      if (m !== expected || m.bumpMap !== m.map || !m.map?.image?.getContext || obj.geometry.attributes.position.count < 100) return
+      const pixels = m.map.image.getContext('2d').getImageData(64, 128, 128, 256).data
+      const colors = new Set()
+      for (let i = 0; i < pixels.length; i += 64) colors.add(`${pixels[i]},${pixels[i + 1]},${pixels[i + 2]}`)
+      if (colors.size > 16) detailedSkin = true
     })
     return detailedSkin
   })).toBe(true)

@@ -1,6 +1,7 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { NOISE } from './glsl'
+import { tex } from '../assets'
 
 // Lune procédurale : cratères multi-échelles (relief analytique), mers sombres,
 // photométrie lunaire (Lommel-Seeliger) → terminateur jour/nuit marqué.
@@ -8,7 +9,9 @@ import { NOISE } from './glsl'
 const vert = /* glsl */ `
 varying vec3 vObjN;
 varying vec3 vWorldPos;
+varying vec2 vMoonUv;
 void main(){
+  vMoonUv = uv;
   vObjN = normalize(position);
   vec4 wp = modelMatrix * vec4(position, 1.0);
   vWorldPos = wp.xyz;
@@ -20,6 +23,9 @@ uniform vec3 uSun;
 uniform float uDetail;
 uniform float uIntensity;
 uniform mat3 uRot;
+uniform sampler2D uAlbedo;
+uniform sampler2D uRegolith;
+varying vec2 vMoonUv;
 varying vec3 vObjN;
 varying vec3 vWorldPos;
 ${NOISE}
@@ -50,12 +56,12 @@ vec4 craters(vec3 p, float density){
 }
 void main(){
   vec3 n = normalize(vObjN);
-  vec4 c1 = craters(n * 3.0, 0.22);
-  vec4 c2 = craters(n * 9.0 + 7.3, 0.38);
+  vec4 c1 = craters(n * 18.0, 0.35);
+  vec4 c2 = craters(n * 54.0 + 7.3, 0.48);
   vec3 G = c1.yzw * 0.9 + c2.yzw * 0.7;
   float h = c1.x / 3.0 + c2.x / 9.0;
-  if (uDetail > 1.5) { vec4 c3 = craters(n * 27.0 + 3.1, 0.5); G += c3.yzw * 0.55; h += c3.x / 27.0; }
-  if (uDetail > 2.5) { vec4 c4 = craters(n * 81.0 + 1.7, 0.6); G += c4.yzw * 0.4; }
+  if (uDetail > 1.5) { vec4 c3 = craters(n * 162.0 + 3.1, 0.5); G += c3.yzw * 0.55; }
+  if (uDetail > 2.5) { vec4 c4 = craters(n * 486.0 + 1.7, 0.6); G += c4.yzw * 0.3; }
   // régolithe fin
   float e = 0.02;
   float r0 = fbm3(n * 160.0);
@@ -66,10 +72,14 @@ void main(){
   vec3 L = normalize(uSun);
   vec3 V = normalize(cameraPosition - vWorldPos);
   // albédo : hautes terres claires, mers sombres, éjectas frais
-  float maria = smoothstep(0.52, 0.62, fbm(n * 1.3 + 4.0));
-  float alb = mix(0.12, 0.055, maria);
-  alb *= 0.85 + 0.3 * fbm(n * 22.0);
-  alb += max(0.0, -h) * 0.0 + max(0.0, c2.x) * 0.25;
+  float lunar = texture2D(uAlbedo, vMoonUv).r;
+  vec3 weights = pow(abs(n), vec3(4.0));
+  weights /= max(dot(weights, vec3(1.0)), 0.001);
+  float dust = dot(vec3(texture2D(uRegolith, n.yz * 110.0).r,
+    texture2D(uRegolith, n.xz * 110.0).r, texture2D(uRegolith, n.xy * 110.0).r), weights);
+  float alb = mix(0.035, 0.15, clamp(lunar * 2.2, 0.0, 1.0));
+  alb *= 0.65 + dust * 1.25;
+  alb *= 0.9 + 0.2 * fbm3(n * 240.0);
   float mu0 = max(dot(N, L), 0.0);
   float mu = max(dot(N, V), 0.02);
   float ls = mu0 / (mu0 + mu);
@@ -84,13 +94,15 @@ void main(){
   #include <colorspace_fragment>
 }`
 
-export function Moon({ radius, position, sun, detail = 3, intensity = 4.2 }: { radius: number; position: [number, number, number]; sun: THREE.Vector3; detail?: number; intensity?: number }) {
+export function Moon({ radius, position, sun, detail = 3, intensity = 2.8 }: { radius: number; position: [number, number, number]; sun: THREE.Vector3; detail?: number; intensity?: number }) {
   const mat = useMemo(
     () =>
       new THREE.ShaderMaterial({
         vertexShader: vert,
         fragmentShader: frag,
         uniforms: {
+          uAlbedo: { value: tex('/assets/planets/moon.jpg') },
+          uRegolith: { value: tex('/assets/tex/moon_01/diff.jpg') },
           uSun: { value: sun.clone() },
           uDetail: { value: detail },
           uIntensity: { value: intensity },
@@ -99,8 +111,11 @@ export function Moon({ radius, position, sun, detail = 3, intensity = 4.2 }: { r
       }),
     [sun, detail, intensity],
   )
+  useEffect(() => () => mat.dispose(), [mat])
   return (
-    <mesh position={position} material={mat} rotation={[0.3, 0.8, 0]}>
+    // Draw behind the already-written station depth. The costly crater shader
+    // then runs only through the windows, with exactly the same surface detail.
+    <mesh name="moon-surface" renderOrder={100} position={position} material={mat} rotation={[0.3, 0.8, 0]}>
       <sphereGeometry args={[radius, 256, 160]} />
     </mesh>
   )

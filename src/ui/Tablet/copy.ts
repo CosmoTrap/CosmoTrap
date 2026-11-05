@@ -2,7 +2,7 @@ import { G } from '../../game/state'
 import type { ZoneId } from '../../game/types'
 
 const fr = {
-  tabs: ['Plan', 'Journal', 'Messages', 'Inventaire'], terminal: 'TERMINAL DE POIGNET · ÉQUIPAGE',
+  tabs: ['Plan', 'Journal', 'Messages', 'Inventaire'], terminal: 'TERMINAL PORTABLE · ÉQUIPAGE',
   level: 'Niveau', capsule: 'Hermès', earth: 'Terre', close: 'Ranger la tablette', raising: 'Connexion au terminal de poignet…',
   clock: 'CHRONO', map: 'VUE DE DESSUS', locate: 'Me localiser', zoomIn: 'Agrandir', zoomOut: 'Réduire',
   you: 'Ta position', visited: 'Exploré', unknown: 'Non exploré', locked: 'Accès verrouillé', unlocked: 'Accès ouvert',
@@ -18,27 +18,17 @@ const fr = {
   selectRoom: 'Choisir une pièce', scroll: 'Molette : zoom', navigate: 'Clic : sélectionner',
   mapHelp: 'Plan de la station · objets visibles dans les zones explorées',
   survival: 'Équipement de survie', briefing: 'Dossier de mission',
+  alarm: 'ALARME · NIVEAU 1', blackout: 'ÉNERGIE COUPÉE', leak: 'FUITE D’AIR', noPower: 'ÉNERGIE COUPÉE',
+  mapModes: 'Mode d’affichage', modes: ['Plan', 'Énergie', 'Oxygène'], pressure: 'Pression',
+  legendSolved: 'Énigme résolue', legendCurrent: 'Énigme en cours', legendLocked: 'Module verrouillé', legendEvac: 'Évacuation', progressLabel: 'PROGRESSION',
+  statusLocked: 'Module verrouillé', statusSolved: 'Énigme résolue', statusCurrent: 'Énigme en cours', moduleLocked: 'Module verrouillé',
+  roomDone: 'Toutes les tâches de ce module sont terminées.', noRoomTask: 'Aucune tâche de mission dans ce module.',
+  notebook: 'Carnet', puzzles: 'Énigmes', noNotes: 'Aucune note pour l’instant. Lis les panneaux, plaques et terminaux.', puzzleLocked: 'Verrouillée',
+  baseMessages: 'Messages de la base', askHelp: 'Demander de l’aide', clickKey: 'Clic', wheelKey: 'Molette', selectModule: 'Sélectionner un module', zoomWord: 'Zoomer', pauseWord: 'Pause',
+  tasks: 'Tâches du module', mistakes: 'Erreurs', hintsUsedLabel: 'Indices utilisés',
 }
-const en: typeof fr = {
-  tabs: ['Map', 'Journal', 'Messages', 'Inventory'], terminal: 'WRIST TERMINAL · CREW',
-  level: 'Level', capsule: 'Hermes', earth: 'Earth', close: 'Lower tablet', raising: 'Connecting wrist terminal…',
-  clock: 'TIME', map: 'TOP VIEW', locate: 'Locate me', zoomIn: 'Zoom in', zoomOut: 'Zoom out',
-  you: 'Your position', visited: 'Explored', unknown: 'Unexplored', locked: 'Access locked', unlocked: 'Access open',
-  select: 'Select a room', module: 'MODULE', power: 'Lighting', on: 'Online', off: 'Backup / offline',
-  objects: 'Located points', location: 'Location', coordinates: 'Coordinates', otherLevel: 'You are on another level.',
-  current: 'Current objective', missions: 'Mission journal', allMissions: 'Every stage of your journey',
-  remaining: 'remaining', complete: 'Completed', pending: 'To do', progress: 'Progress', journal: 'Open journal',
-  hint: 'Assistance', hints: 'Hints and penalties', noMission: 'Every objective in this zone is complete.',
-  communications: 'Archived communications', all: 'All', radio: 'Radio', system: 'System', document: 'Documents',
-  empty: 'No messages received', emptyDetail: 'Received transmissions, notifications and documents will appear here.',
-  messageHelp: 'Received messages stay available after disappearing from the screen.',
-  received: 'Received', archive: 'Archive', saved: 'History kept in your saved game',
-  selectRoom: 'Choose a room', scroll: 'Wheel: zoom', navigate: 'Click: select',
-  mapHelp: 'Station plan · items shown in explored areas',
-  survival: 'Survival equipment', briefing: 'Mission dossier',
-}
-export const tabletText = () => G().settings.lang === 'en' ? en : fr
-export const levelName = (z: ZoneId) => z < 3 ? `${tabletText().level} ${z}` : z === 3 ? tabletText().capsule : tabletText().earth
+export const tabletText = () => fr
+export const levelName = (z: ZoneId) => G().map === 'base' ? `${tabletText().level} 0` : z < 3 ? `${tabletText().level} ${z}` : z === 3 ? tabletText().capsule : tabletText().earth
 export const elapsed = (seconds: number) => {
   const s = Math.max(0, Math.floor(seconds))
   return `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`

@@ -27,9 +27,9 @@ const PATHS: Record<string, JSX.Element> = {
   ),
   lamp: (
     <g {...S}>
-      <path d="M4 12a8 4 0 0 0 16 0" />
-      <rect x="9" y="8" width="6" height="5" rx="1" />
-      <path d="M12 5V3M8 6 6.5 4.5M16 6l1.5-1.5" />
+      <path d="M9 10h6v10a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z" />
+      <path d="M9 10 7.5 7h9L15 10M12 13v2" />
+      <path d="M12 4V2M7.5 4.5 6 3M16.5 4.5 18 3" />
     </g>
   ),
   badge: (
@@ -114,10 +114,10 @@ export function ItemIcon({ item }: { item: ItemId | 'survival' }) {
   )
 }
 
-export function GaugeIcon({ kind }: { kind: 'o2' | 'lamp' | 'water' }) {
+export function GaugeIcon({ kind }: { kind: 'hp' | 'o2' | 'lamp' | 'water' }) {
   return (
     <svg className="ico" viewBox="0 0 24 24" aria-hidden>
-      {PATHS[kind === 'lamp' ? 'lamp' : kind]}
+      {PATHS[kind === 'hp' ? 'medkit' : kind]}
     </svg>
   )
 }
