@@ -793,7 +793,7 @@ export function celebrate(id: string) {
   const p = fr.puzzleList.find((x) => x.id === id)
   if (!p) return
   useGame.setState((s) => (s.splits?.[id] ? {} : { splits: { ...s.splits, [id]: s.playTime + s.penalty } }))
-  live.banner = { title: G().settings.lang === 'en' ? 'Puzzle solved' : 'Énigme résolue', sub: `${p.name} · ${p.domain}`, t: performance.now() }
+  live.banner = { title: 'Énigme résolue', sub: `${p.name} · ${p.domain}`, t: performance.now() }
   audio.sting('solved')
   if (G().settings.autosave) setTimeout(() => saveGame(), 400)
 }
@@ -903,7 +903,7 @@ export function transitionTo(z: ZoneId) {
 export function rideLift(z: 1 | 2) {
   pendingZone = z
   audio.sfx('airlock')
-  useGame.setState({ cine: 'lift', cineT0: performance.now(), tabletOpen: false, inventoryOpen: false, puzzle: null })
+  useGame.setState({ cine: 'lift', cineT0: performance.now(), tabletOpen: false, puzzle: null })
 }
 
 export function enterZone(z: ZoneId) {

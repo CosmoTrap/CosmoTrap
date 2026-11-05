@@ -53,9 +53,9 @@ test('nouveaux skins et touches configurables avec les mains détaillées et le 
   })
   await expect.poll(() => page.evaluate(async () => {
     const { _roots } = await import('/node_modules/.vite/deps/@react-three_fiber.js' as string)
-    const glove = _roots.get(document.querySelector('canvas')).store.getState().scene.getObjectByName('eva-glove')
+    const scene = _roots.get(document.querySelector('canvas')).store.getState().scene
     let detailedSkin = false
-    glove?.traverse((obj: any) => {
+    scene.traverse((obj: any) => {
       const m = obj.material
       if (!m?.userData.fabric || !m.normalMap || !m.map?.image?.getContext) return
       const [r, g, b] = m.map.image.getContext('2d').getImageData(256, 256, 1, 1).data

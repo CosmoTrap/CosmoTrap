@@ -363,11 +363,10 @@ class AudioManager {
   private voiceHowl: Howl | null = null
   /** voix de synthèse du navigateur autorisée (sinon sous-titres seuls tant qu'il n'y a pas de fichiers) */
   browserVoice = false
-  lang: 'fr' | 'en' = 'fr'
 
   /** meilleure voix française disponible (voix « naturelles » en priorité) */
   private pickVoice() {
-    const vs = speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith(this.lang))
+    const vs = speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith('fr'))
     const score = (v: SpeechSynthesisVoice) =>
       (/natural|neural|online/i.test(v.name) ? 10 : 0) + (/google/i.test(v.name) ? 6 : 0) + (/premium|enhanced|amélie|amelie|thomas|audrey|aurélie/i.test(v.name) ? 5 : 0) + (v.lang === 'fr-FR' ? 2 : 0) + (v.localService ? 0 : 1)
     return vs.sort((a, b) => score(b) - score(a))[0]
@@ -380,7 +379,7 @@ class AudioManager {
   speak(text: string, opts: { radio?: boolean; rate?: number; id?: string } = {}) {
     if (this.vols.voice <= 0.01) return
     this.stopSpeech()
-    const pre = `voice_${this.lang === 'en' ? 'en_' : ''}`
+    const pre = 'voice_'
     // voix intérieure féminine si le personnage est une femme
     const fem = opts.id && this.female && opts.id.startsWith('tour_') ? `${pre}f_${opts.id}` : null
     const file = fem && this.files.has(fem) ? fem : opts.id ? pre + opts.id : null
@@ -394,7 +393,7 @@ class AudioManager {
     if (!('speechSynthesis' in window) || !this.browserVoice) return
     try {
       const u = new SpeechSynthesisUtterance(text)
-      u.lang = this.lang === 'en' ? 'en-GB' : 'fr-FR'
+      u.lang = 'fr-FR'
       u.rate = opts.rate ?? (opts.radio ? 1.05 : 0.98)
       u.pitch = opts.radio ? 0.9 : 1
       u.volume = this.vols.voice

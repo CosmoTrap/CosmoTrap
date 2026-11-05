@@ -20,7 +20,7 @@ export function Props({ map }: { map: GridMap }) {
           <RoomCtx.Provider key={i} value={{ id: room?.id ?? '', dark: !!room?.dark }}>
             {pr.pushable ? <PushableProp id={pr.pushable} model={pr.model} position={p} rotation={r}>
               {M({ color: pr.color, scale: pr.scale, movable: true })}
-            </PushableProp> : <group position={p} rotation={[0, r, 0]}>
+            </PushableProp> : <group name={`prop:${pr.model}`} position={p} rotation={[0, r, 0]}>
               {M({ color: pr.color, scale: pr.scale })}
               <SolidProp model={pr.model} />
             </group>}

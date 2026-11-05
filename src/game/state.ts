@@ -68,7 +68,6 @@ export interface Settings {
   subtitles: boolean
   /** sauvegarde à chaque énigme résolue (en plus des 30 s) */
   autosave: boolean
-  lang: 'fr' | 'en'
   /** luminosité de l'image (0,6 à 1,6) */
   brightness: number
   /** voix de synthèse du navigateur quand aucun fichier de voix n'est fourni */
@@ -339,7 +338,6 @@ function loadSettings(): Settings {
     showChrono: true,
     subtitles: true,
     autosave: true,
-    lang: 'fr',
     brightness: 1,
     browserVoice: false,
     trackpadLook: true,

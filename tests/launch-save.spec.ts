@@ -61,3 +61,17 @@ test('lancer une nouvelle partie ne demande plus de confirmation', async ({ page
   await expect.poll(() => page.evaluate(() => window.__game.state().screen)).toBe('prologue')
   expect(await hasSave(page)).toBe(false)
 })
+
+test('cliquer sur le fond de l’écran d’accueil ne quitte pas la page', async ({ page }) => {
+  await openWithSave(page)
+  for (const [x, y] of [[100, 300], [640, 80], [1200, 500], [640, 700]]) {
+    await page.mouse.click(x, y)
+    await page.waitForTimeout(150)
+    await expect(page.getByTestId('launch')).toBeVisible()
+  }
+  await expect(page.getByTestId('leaderboard')).toHaveCount(0)
+  // The explicit button still leaves the page: without a session, through the login screen.
+  await page.getByTestId('open-board').click()
+  await expect(page.getByTestId('guest')).toBeVisible()
+})
+
