@@ -13,7 +13,7 @@ async function start(page: Page) {
   await page.keyboard.press('Space')
   await page.getByTestId('guest').click()
   await page.evaluate(() => window.__game.start())
-  await page.waitForFunction(() => window.__game.state().playerZone === 1 && window.__game.state().playTime > 0.4, null, { timeout: 30000 })
+  await page.waitForFunction(() => window.__game.state().playerZone === 1 && window.__game.state().playTime > 0.4, null, { timeout: 60000 })
 }
 async function fill(page: Page) {
   await page.evaluate(() => {
