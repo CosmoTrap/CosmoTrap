@@ -6,7 +6,7 @@ import { ceilingSet, floorSet, paintedMetal, wallSet, type PBRSet, type WallThem
 import { photoSurface } from './photomaterials'
 
 // Matériaux partagés, mis en cache. Les pièces sombres ont leurs propres instances
-// (réflexions d'environnement quasi nulles) pour que la lampe frontale compte vraiment.
+// (réflexions d'environnement quasi nulles) pour que la lampe torche compte vraiment.
 
 export const ENV_LIT = 0.65
 export const ENV_DARK = 0.025

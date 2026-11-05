@@ -45,7 +45,7 @@ export function installDevApi() {
         propPositions: { ...s.propPositions },
         character: s.character,
         map: s.map,
-        settings: { character: s.settings.character, lang: s.settings.lang, help: s.settings.help },
+        settings: { character: s.settings.character, help: s.settings.help },
       }
     },
     ents: () => allEnts(G().zone).map((e) => e.id),

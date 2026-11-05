@@ -45,10 +45,11 @@ test('le bras gauche se lève avant la tablette ; plan réel, position, niveaux 
   await expect(page.getByTestId('map-player')).toHaveAttribute('data-z', '41.000')
   await expect(page.getByTestId('map-room-couloir').locator('circle').first()).toHaveAttribute('r', '7')
   await page.getByTestId('map-room-couloir').click()
+  await page.waitForTimeout(400)
   await page.screenshot({ path: 'test-results/tablet-plan.png' })
-  await page.evaluate(() => window.__game.set({ playTime: 8 }))
+  // Level 1 is on alert until its last puzzle, then back in service for good.
   await expect(page.getByTestId('module-power')).toContainText('Secours')
-  await page.evaluate(() => window.__game.set({ playTime: 24 }))
+  await page.evaluate(() => window.__game.set({ flags: { ...window.__game.state().flags, pressurized: true } }))
   await expect(page.getByTestId('module-power')).toHaveText('En service')
   await page.getByTestId('minimap').hover()
   await page.mouse.wheel(0, -120)

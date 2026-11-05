@@ -4,7 +4,7 @@ import type { ItemId } from '../game/types'
 import { useModel } from '../world/assets'
 import { useMats } from '../world/materials'
 import { photoSurface } from '../world/photomaterials'
-import { Box, Cyl } from '../world/props/models'
+import { BoxExact as Box, Cyl } from '../world/props/models'
 import { textTexture } from '../world/textures'
 import { ropeBraid } from './handMaterials'
 

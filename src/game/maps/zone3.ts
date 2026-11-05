@@ -21,7 +21,7 @@ export const zone3: GridMap = {
   ],
   rooms: [
     { id: 'cockpit', name: 'cockpit', rect: [1, 1, 7, 3], light: '#9ec4ff', intensity: 4, theme: 'rocket' },
-    { id: 'pont', name: 'pont', rect: [1, 5, 7, 8], light: '#ffe6c8', intensity: 8, theme: 'rocket', flicker: true },
+    { id: 'pont', name: 'pont', rect: [1, 5, 7, 8], light: '#ffe6c8', intensity: 8, theme: 'rocket' },
     { id: 'soute', name: 'soute', rect: [1, 10, 3, 12], dark: true, noDynLight: true, theme: 'rocket' },
     { id: 'moteurs', name: 'moteurs', rect: [5, 10, 7, 12], light: '#ff8a50', intensity: 6, theme: 'machine' },
   ],

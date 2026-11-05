@@ -188,7 +188,7 @@ Le classement est séparé par difficulté.
 
 ### Zone 1 — Quartiers d'équipage
 
-1. Prendre la **lampe frontale** sur l'étagère du dortoir, puis l'allumer (F).
+1. Prendre la **lampe torche** sur l'étagère du dortoir, puis l'allumer (F).
 2. Lire le **tableau du réfectoire** : le code du casier est l'année de mise en service de la station.
 3. Aller dans la **réserve** (sombre, au sud-ouest) et lire la plaque à la lampe : **2041**.
 4. **Énigme 1, observation visuelle.** Taper **2041** sur le casier du dortoir pour récupérer le badge.

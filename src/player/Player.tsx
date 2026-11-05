@@ -215,7 +215,7 @@ export function Player() {
   const tp = useGame((s) => s.tp)
   const quality = useGame((s) => s.settings.quality)
   const q = QUALITY[quality]
-  const st = useRef({ vy: 0, grounded: false, phase: 0, lastStep: 0, roll: 0, lampYaw: 0, lampPitch: 0, flick: 1, breath: 0, prevAim: '', cinematic: false, crouch: 0 })
+  const st = useRef({ vy: 0, grounded: false, phase: 0, lastStep: 0, roll: 0, lampYaw: 0, lampPitch: 0, flick: 1, breath: 0, prevAim: '', cinematic: false, crouch: 0, lampPower: 40 })
   const controller = useMemo(() => {
     const c = world.createCharacterController(0.02)
     c.enableAutostep(0.35, 0.25, false)
@@ -230,16 +230,19 @@ export function Player() {
   useEffect(() => () => world.removeCharacterController(controller), [world, controller])
   useEffect(() => () => { live.playerZone = null; input.jumpRequested = false }, [])
 
-  // lampe frontale
+  // lampe torche : le faisceau part de la main gauche et converge vers le centre de la vue
   const lamp = useMemo(() => {
-    const l = new THREE.SpotLight('#fff1dc', 0, 24, 0.44, 0.55, 1.5)
+    const l = new THREE.SpotLight('#fff1dc', 0, 32, 0.5, 0.75, 1.4)
     l.map = lampCookie()
-    l.castShadow = q.lampShadow
-    l.shadow.mapSize.set(1024, 1024)
-    l.shadow.bias = -0.0005
-    l.shadow.normalBias = 0.03
-    l.shadow.camera.near = 0.1
-    l.shadow.camera.far = 24
+    // Always cast shadows, so the beam stops at corners and door frames instead of crossing them.
+    l.castShadow = true
+    const size = q.lampShadow ? 1024 : 512
+    l.shadow.mapSize.set(size, size)
+    l.shadow.bias = -0.0006
+    l.shadow.normalBias = 0.025
+    l.shadow.radius = 3
+    l.shadow.camera.near = 0.08
+    l.shadow.camera.far = 30
     return l
   }, [q.lampShadow])
   const lampTarget = useMemo(() => new THREE.Object3D(), [])
@@ -386,16 +389,28 @@ export function Player() {
     // lampe : suit la tête avec un léger retard
     S.lampYaw = THREE.MathUtils.damp(S.lampYaw, live.yaw, 14, dt)
     S.lampPitch = THREE.MathUtils.damp(S.lampPitch, live.pitch, 14, dt)
-    lamp.position.set(camera.position.x + right.x * 0.12, camera.position.y + 0.08, camera.position.z + right.z * 0.12)
     const ldir = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(S.lampPitch, S.lampYaw, 0, 'YXZ'))
-    lampTarget.position.copy(lamp.position).add(ldir)
+    // From the lens, or just short of a wall when the player stands right against one.
+    const eye = camera.position
+    const lensRay = new rapier.Ray({ x: eye.x, y: eye.y, z: eye.z }, { x: ldir.x, y: ldir.y, z: ldir.z })
+    // Solid surfaces only: interaction zones are invisible volumes, and the player often stands inside one.
+    const hit = world.castRay(lensRay, 14, true, rapier.QueryFilterFlags.EXCLUDE_SENSORS, undefined, b.collider(0), b)
+    const surface = hit ? hit.timeOfImpact : 14
+    // The source backs off near a wall, so the beam stays a wide pool instead of shrinking to a white dot.
+    const reach = Math.min(0.62, surface * 0.4)
+    lamp.position.set(eye.x - right.x * 0.2 + ldir.x * reach, eye.y - 0.16 + ldir.y * reach, eye.z - right.z * 0.2 + ldir.z * reach)
+    lampTarget.position.copy(camera.position).addScaledVector(ldir, 7)
     lampTarget.updateMatrixWorld()
-    let li = s.lampOn && s.res.lamp > 0 ? 42 : 0
+    // Like a camera's exposure: power follows the distance of what the beam lands on, so a nearby
+    // wall stays readable instead of burning white, while the far end of a room still lights up.
+    S.lampPower = THREE.MathUtils.damp(S.lampPower, THREE.MathUtils.clamp(6.5 * Math.pow(surface - reach, 1.4), 2, 110), 9, dt)
+    let li = s.lampOn && s.res.lamp > 0 ? S.lampPower : 0
     if (li && s.res.lamp < 15) {
       S.flick = Math.random() < 0.08 ? Math.random() * 0.4 : THREE.MathUtils.damp(S.flick, 1, 10, dt)
       li *= S.flick * (0.5 + s.res.lamp / 30)
     }
     lamp.intensity = li
+    lamp.shadow.autoUpdate = li > 0
 
     // son : écouteur
     audio.setListener([camera.position.x, camera.position.y, camera.position.z], [fwd.x, 0, fwd.z])

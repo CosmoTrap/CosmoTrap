@@ -57,7 +57,7 @@ export function Launch() {
 
   const m = L.maps[map]
   return (
-    <Stage kind="launch" testId="launch" onBackdrop={enter}>
+    <Stage kind="launch" testId="launch">
       <header className="x-brand">
         <img src="/logo/badge-dark.png" alt="" />
         <div>
