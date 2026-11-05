@@ -13,5 +13,7 @@ $defaults = [
   'google_client_id' => '',
   'session_days' => 30,
 ];
-$local = file_exists(__DIR__ . '/config.local.php') ? require __DIR__ . '/config.local.php' : [];
+// COSMOTRAP_CONFIG : autre fichier de configuration (tests sur MySQL en local)
+$file = getenv('COSMOTRAP_CONFIG') ?: __DIR__ . '/config.local.php';
+$local = file_exists($file) ? require $file : [];
 return array_merge($defaults, is_array($local) ? $local : []);

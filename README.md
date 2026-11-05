@@ -508,23 +508,55 @@ Les trois premières valeurs dépendent de la partie. Les retrouver dans **Table
 
   Les mots de passe sont hachés avec `password_hash`, la session passe par un jeton porteur.
 
-### Déploiement sur Hostinger
+### Mise en ligne sur Hostinger
 
-1. Lancer `npm run build`, puis envoyer **le contenu de `dist/`** dans `public_html/`. Il contient `api/` et ses `.htaccess`.
-2. Créer une base MySQL dans hPanel, puis `public_html/api/config.local.php` :
+Le site est en ligne sur `https://royalblue-wolverine-280146.hostingersite.com`.
 
-   ```php
-   <?php return ['driver' => 'mysql', 'host' => 'localhost', 'name' => 'u123_cosmo', 'user' => 'u123_cosmo', 'pass' => 'mot-de-passe'];
-   ```
+**Mise à jour automatique à chaque push sur main.** Il n'y a rien à faire.
 
-   Les tables sont créées au premier appel.
-3. **Optionnel, connexion Google.** Créer un identifiant OAuth « Application Web » dans Google Cloud. Le mettre dans `config.local.php` (`'google_client_id' => '…'`) et dans `.env` (`VITE_GOOGLE_CLIENT_ID=…`) avant le build. Sans cette configuration, le bouton Google affiche un message et la connexion par e-mail reste disponible.
+1. Le workflow GitHub `.github/workflows/deploy.yml` vérifie les types et compile le jeu.
+2. Il envoie `dist/` sur la branche `hostinger` du dépôt (le site compilé, rien d'autre).
+3. Sur Hostinger, une tâche Cron lance `api/deploy.php` toutes les 5 minutes. Elle est configurée dans hPanel → Avancé → Tâches Cron.
+4. `deploy.php` compare la dernière version de la branche `hostinger` avec celle en ligne. Si elle est nouvelle, il la télécharge depuis GitHub et remplace les fichiers de `public_html`. Sinon, il ne fait rien.
+
+Le site est donc à jour au plus 5 minutes après la fin du workflow (onglet Actions de GitHub, 2 à 3 minutes). Il n'y a ni FTP ni mot de passe, et aucun secret GitHub n'est nécessaire.
+
+**Mise à jour immédiate depuis un poste :**
+
+```bash
+npm run deploy
+```
+
+La commande fait la même chose, puis demande au serveur d'installer la version tout de suite, sans attendre le Cron. Elle a besoin du fichier `.deploy-token` à la racine du projet. Ce fichier n'est pas versionné : demander son contenu à Simon. Le même jeton est rangé sur le serveur hors du dossier web, dans `cosmotrap-data/deploy-token.txt`. Sans ce fichier, la commande envoie la branche et le Cron fait le reste.
+
+**Base de données.** Il n'y a rien à configurer. Sans `config.local.php`, l'API crée une base SQLite dans `cosmotrap-data/`, à côté de `public_html` et donc jamais servie par le web. Les tables sont créées et migrées automatiquement, une seule fois par version du schéma. `https://…/api/health.php` indique si la base répond.
+
+Pour passer sur MySQL, créer une base dans hPanel (Bases de données), puis le fichier `public_html/api/config.local.php`. Il n'est jamais écrasé par une mise à jour.
+
+```php
+<?php return ['driver' => 'mysql', 'host' => 'localhost', 'name' => 'u123_cosmo', 'user' => 'u123_cosmo', 'pass' => 'mot-de-passe'];
+```
+
+Les comptes existants restent alors dans l'ancienne base SQLite : il faut changer de base avant d'ouvrir le jeu au public.
+
+**Ce que règlent les `.htaccess` :**
+
+- `index.html` passe avant la page « Bientôt disponible » de Hostinger (`default.php`) ;
+- types des fichiers `.glb` et `.hdr`, compression, cache d'un an sur les fichiers à empreinte ;
+- l'en-tête `Authorization` (jeton de session) est transmis à PHP ;
+- `config.php`, `config.local.php` et `db.php` ne sont jamais servis.
+
+**Connexion Google (optionnelle).** Créer un identifiant OAuth « Application Web » dans Google Cloud. Le mettre dans `config.local.php` (`'google_client_id' => '…'`) et dans `.env` (`VITE_GOOGLE_CLIENT_ID=…`) avant le build. Sans cette configuration, le bouton Google affiche un message et la connexion par e-mail reste disponible.
+
+**Mot de passe oublié.** L'e-mail part avec la fonction PHP `mail()`. Sur le domaine temporaire `hostingersite.com`, il peut arriver en spam ou ne pas partir. Avec un vrai nom de domaine, créer une adresse e-mail dans hPanel.
 
 ### Tests
 
 ```bash
-npx playwright test
+PLAYWRIGHT_SOFTWARE=1 npx playwright test
 ```
+
+`PLAYWRIGHT_SOFTWARE=1` active le rendu WebGL logiciel. Sans lui, le navigateur de test sans carte graphique affiche « Problème d’affichage 3D » et la plupart des tests échouent.
 
 `tests/playthrough.spec.ts` crée un compte et joue toute la partie en se téléportant devant chaque objectif. Il résout les énigmes par l'interface et vérifie les verrous :
 
