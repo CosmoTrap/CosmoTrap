@@ -47,7 +47,7 @@ function sample(track: number[], t: number): [number, number, number, number] | 
 }
 
 export function Ghost() {
-  const show = useGame((s) => s.settings.ghost)
+  const show = useGame((s) => s.settings.ghostReplay)
   const g = useRef<THREE.Group>(null)
   const mat = useMemo(
     () =>

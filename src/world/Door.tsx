@@ -7,7 +7,7 @@ import { CEIL } from '../game/maps'
 import { doorUnlocked } from '../game/logic'
 import { live } from '../game/state'
 import { useMats } from './materials'
-import { alarmOn } from './roomPower'
+import { beaconAngle, liftAlert } from './roomPower'
 import { Box, Cyl } from './props/models'
 import { drawTexture } from './textures'
 
@@ -58,11 +58,11 @@ function roundedRect(path: THREE.Shape | THREE.Path, x: number, y: number, w: nu
 }
 
 /** A door leaf, or the frame of its window: a plate with a real opening cut through it. */
-function plateWithWindow(sign: number, width: number, height: number, cx: number, cy: number, depth: number) {
+function plateWithWindow(sign: number, width: number, height: number, cx: number, cy: number, depth: number, inset = 0) {
   const shape = new THREE.Shape()
   roundedRect(shape, cx, cy, width, height, Math.min(0.1, Math.min(width, height) / 4))
   const hole = new THREE.Path()
-  roundedRect(hole, sign * WINDOW.x, WINDOW.y, WINDOW.w, WINDOW.h, WINDOW.r)
+  roundedRect(hole, sign * WINDOW.x, WINDOW.y, WINDOW.w - inset * 2, WINDOW.h - inset * 2, WINDOW.r - inset * 0.6)
   shape.holes.push(hole)
   const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 8 })
   g.translate(0, 0, -depth / 2)
@@ -81,14 +81,19 @@ function Leaf({ sign, lamp }: { sign: 1 | -1; lamp: THREE.Material }) {
     leaf.holes.push(hole)
     const plate = new THREE.ExtrudeGeometry(leaf, { depth: 0.07, bevelEnabled: false, curveSegments: 8 })
     plate.translate(0, 0, -0.035)
-    return { plate, frame: plateWithWindow(sign, WINDOW.w + 0.06, WINDOW.h + 0.06, sign * WINDOW.x, WINDOW.y, 0.09) }
+    // The rubber seal lines the opening: it hides the plate's bare edge all the way to the glass.
+    const pane = new THREE.Shape()
+    roundedRect(pane, sign * WINDOW.x, WINDOW.y, WINDOW.w - 0.01, WINDOW.h - 0.01, WINDOW.r)
+    return { plate, frame: plateWithWindow(sign, WINDOW.w + 0.06, WINDOW.h + 0.06, sign * WINDOW.x, WINDOW.y, 0.09), seal: plateWithWindow(sign, WINDOW.w + 0.004, WINDOW.h + 0.004, sign * WINDOW.x, WINDOW.y, 0.1, 0.018), pane: new THREE.ShapeGeometry(pane, 8) }
   }, [sign])
-  useEffect(() => () => { hazardMaterial.dispose(); geometry.plate.dispose(); geometry.frame.dispose() }, [hazardMaterial, geometry])
+  useEffect(() => () => { hazardMaterial.dispose(); geometry.plate.dispose(); geometry.frame.dispose(); geometry.seal.dispose(); geometry.pane.dispose() }, [hazardMaterial, geometry])
   const armour = m.painted('#8b979b', 0.4, 0.65), recess = m.painted('#343e46', 0.45, 0.65), steel = m.metal('#a3adb3', 0.26)
   return <group>
     <mesh geometry={geometry.plate} material={armour} castShadow receiveShadow />
-    <mesh geometry={geometry.frame} material={steel} />
-    <mesh position={[sign * WINDOW.x, WINDOW.y, 0]} material={m.glass('#cfe6f2', 0.16)}><planeGeometry args={[WINDOW.w, WINDOW.h]} /></mesh>
+    {/* Matt: polished metal around the glass caught the chamber's light and flared. */}
+    <mesh geometry={geometry.frame} material={m.painted('#59636a', 0.62, 0.25)} />
+    <mesh geometry={geometry.seal} material={m.rubber('#14181b')} />
+    <mesh geometry={geometry.pane} material={m.glass('#cfe6f2', 0.16)} />
     <Box s={[0.62, 0.72, 0.085]} p={[-sign * 0.01, 0.62, 0]} m={recess} />
     <Box s={[0.74, 0.1, 0.082]} p={[0, 0.16, 0]} m={hazardMaterial} cast={false} />
     <Box s={[0.022, DOOR_HEIGHT, 0.09]} p={[-sign * 0.365, DOOR_HEIGHT / 2, 0]} m={m.rubber('#111b20')} cast={false} />
@@ -140,8 +145,8 @@ export function Door({ id, x, z, alongZ }: { id: string; x: number; z: number; a
       }
     })
     // In the same red breath as the lift while the alarm lasts; otherwise white, and green or red for the lock.
-    if (alarmOn()) {
-      const pulse = 0.5 + 0.5 * Math.sin(clock.elapsedTime * 2.2)
+    if (liftAlert()) {
+      const pulse = 0.5 + 0.5 * Math.sin(beaconAngle())
       lamp.emissive.set('#ff1a0a')
       chamberLight.emissive.set('#ff1a0a')
       lamp.emissiveIntensity = chamberLight.emissiveIntensity = 0.25 + 2.5 * pulse

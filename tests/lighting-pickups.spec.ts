@@ -59,7 +59,8 @@ test('les trois zones retrouvent la lumière après une coupure de 20 à 30 seco
     const room = zone === 3 ? 'pont' : 'couloir'
     await page.evaluate(z => { window.__game.teleportXZ(z === 1 ? 44 : z === 2 ? 46 : 9, z === 1 ? 41 : z === 2 ? 37 : 15, 0) }, zone)
     await page.waitForFunction(room => (window as any).lightingScene.getObjectByName(`room-light:${room}`)?.intensity > 10, room)
-    expect(await page.evaluate(() => window.__game.state().flags.pressurized)).toBe(false)
+    // Hors alarme : lumières allumées, gyrophares éteints.
+    await page.evaluate(() => window.__game.set({ playTime: 0, flags: { ...window.__game.state().flags, pressurized: true, steamFixed: true, power: true } }))
     await page.waitForFunction(() => (window as any).lightingScene.getObjectByName('alert-beam:0').intensity === 0)
     const duration = await page.evaluate(() => {
       const t = window.__game.state().playTime
@@ -68,6 +69,7 @@ test('les trois zones retrouvent la lumière après une coupure de 20 à 30 seco
     })
     expect(duration).toBeGreaterThanOrEqual(20)
     expect(duration).toBeLessThanOrEqual(30)
+    // Coupure : les lampes s'éteignent, seuls les gyrophares restent.
     await page.waitForFunction(room => (window as any).lightingScene.getObjectByName(`room-light:${room}`).intensity === 0, room)
     await page.waitForFunction(() => (window as any).lightingScene.getObjectByName('alert-beam:0').intensity > 10)
     expect(await page.evaluate(room => (window as any).lightingScene.getObjectByName(`ceiling-light:${room}`).material.emissiveIntensity, room)).toBe(0)

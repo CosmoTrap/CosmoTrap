@@ -172,6 +172,8 @@ function pickup(e: Ent) {
   const item = e.item as ItemId
   markTaken(e.id)
   addItem(item)
+  // Selected at once: the bar scrolls to it, so a new object can never seem to have been refused.
+  useGame.setState({ selectedItem: item })
   const kind = ITEM_KIND[item]
   if (item === 'o2') audio.sfx('pickup_o2')
   else if (item === 'battery') audio.sfx('pickup_battery')
@@ -277,7 +279,7 @@ export function act(id: string) {
       return true
     case 'steam':
       discover('p_steam')
-      toast(M.steamBlocks, 'bad')
+      toast(M.gasWarning, 'bad')
       return true
     case 'steamValve':
       discover('p_steam')
@@ -293,6 +295,11 @@ export function act(id: string) {
       toast(M.steamFixed, 'good')
       return true
     case 'breaker':
+      if (!f.steamFixed) {
+        audio.sfx('error')
+        toast(M.breakerNeedsValve, 'bad')
+        return false
+      }
       discover('p_power')
       if (!f.power) {
         if (!has('fuse')) {
@@ -611,12 +618,12 @@ const O2_AUTO_AT = 15
 const MEDKIT_AUTO_AT = 15
 /** niveau d'eau (%) auquel une poche se boit seule */
 const WATER_AUTO_AT = 15
-/** vie perdue à chaque contact avec le gaz (%) */
-const GAS_DAMAGE = 75
+/** vie perdue à chaque passage dans le gaz (%) */
+const GAS_DAMAGE = 40
 /** délai avant un nouveau dégât si on reste dans le gaz (s) */
 const GAS_REPEAT = 4
-/** portée du gaz autour de la conduite (m), juste assez pour toucher le nuage */
-const GAS_REACH = 2
+/** portée du gaz autour de la conduite (m), la taille du nuage visible */
+const GAS_REACH = 1.5
 /** vie perdue sur Terre sans couverture de survie (%/s) */
 const NO_BLANKET_DAMAGE = 0.1
 
@@ -764,9 +771,11 @@ export function useItem(item: ItemId) {
 let alarmT = 0
 let lowO2On = false
 let noBlanketWarned = false
+let powerCutWarned = false
 let gasHitT = 0
 let lastTick = -1
 let urgentWarned = false
+let meteorWarned = false
 
 // ——— imprévus : coupure de courant, micro-fuite ———
 function updateEvents(dt: number): 'blackout' | 'leak' | null {
@@ -855,6 +864,11 @@ export function tick(dt: number) {
   const D = diff()
   const ev = updateEvents(dt)
   recordTrack()
+  // Le niveau 2 est sans courant à l'arrivée, jusqu'à la réparation du disjoncteur.
+  if (s.zone === 2 && !f.power && !powerCutWarned) {
+    powerCutWarned = true
+    toast(fr.events.blackout, 'bad', 5000)
+  }
   // Une seule fois à l'arrivée sur Terre, une fois la cinématique finie.
   if (s.zone !== 4) noBlanketWarned = false
   else if (!noBlanketWarned) {
@@ -897,7 +911,9 @@ export function tick(dt: number) {
     if (gasHitT <= 0) {
       gasHitT = GAS_REPEAT
       res.hp = Math.max(0, res.hp - GAS_DAMAGE)
+      live.hurt = 1
       audio.sfx('impact')
+      audio.sfx('gasp')
       toast(M.gasBurn, 'bad')
     }
   } else gasHitT = 0
@@ -948,6 +964,11 @@ export function tick(dt: number) {
     lastTick = Math.floor(left)
     audio.sfx('tick', { vol: 0.6 })
   }
+  if (s.zone < 4 && left < 300 && !meteorWarned) {
+    meteorWarned = true
+    audio.sting('danger')
+    toast(M.meteorAlert, 'bad', 6000)
+  }
   if (left < 180 && !urgentWarned) {
     urgentWarned = true
     audio.sting('danger')
@@ -985,6 +1006,7 @@ export function enterZone(z: ZoneId) {
   pendingZone = null
   // The lift can be taken many times: the warning stays once per approach to the deadline.
   if (!viaLift) urgentWarned = false
+  if (z === 1 && !viaLift) meteorWarned = false
   const sp = viaLift ? liftCab(z as 1 | 2) : spawnOf(z)
   audio.stopAllLoops()
   // stopAllLoops also ended these sounds; the conditions that started them may still hold.

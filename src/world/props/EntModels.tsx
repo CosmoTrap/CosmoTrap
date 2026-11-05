@@ -11,7 +11,7 @@ import { live, useGame } from '../../game/state'
 import type { Ent, ZoneId } from '../../game/types'
 import { RoomCtx, useMats } from '../materials'
 import { textTexture } from '../textures'
-import { Box, Cyl, DockHatch, Flashlight, Lathe, Screen } from './models'
+import { Box, BoxExact, Cyl, DockHatch, Flashlight, Lathe, Screen } from './models'
 import { useModel } from '../assets'
 import { RealModel } from './RealModel'
 import { ZONE4_ENT_MODELS } from '../zone4/Zone4Ents'
@@ -64,17 +64,19 @@ function sparkTexture() {
 }
 
 function Glint({ resource }: { resource: boolean }) {
+  // Plain blending: added to a bright room, the light would vanish. Green for resources, gold for the rest.
   const mat = useMemo(
-    () => new THREE.SpriteMaterial({ map: sparkTexture(), color: resource ? '#7dffb0' : '#fff1d6', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }),
+    () => new THREE.SpriteMaterial({ map: sparkTexture(), color: resource ? '#46e88a' : '#ffbf2e', transparent: true, depthWrite: false, toneMapped: false, opacity: 0.6 }),
     [resource],
   )
   useEffect(() => () => mat.dispose(), [mat])
+  const sprite = useRef<THREE.Sprite>(null)
   useFrame(({ clock }) => {
-    const t = clock.elapsedTime
-    // les ressources gardent une lueur phosphorescente visible dans le noir
-    mat.opacity = (resource ? 0.16 : 0.06) + (0.5 + 0.5 * Math.sin(t * 1.2)) * 0.12
+    const k = 0.5 + 0.5 * Math.sin(clock.elapsedTime * 2.4)
+    mat.opacity = 0.55 + k * 0.4
+    sprite.current?.scale.setScalar(0.26 + k * 0.08)
   })
-  return <sprite position={[0, 0.14, 0.05]} scale={resource ? 0.14 : 0.1} material={mat} />
+  return <sprite ref={sprite} position={[0, 0.14, 0.18]} scale={0.3} material={mat} renderOrder={5} />
 }
 
 function Bracket() {
@@ -258,7 +260,8 @@ function BlanketPack() {
 
 /** Real first-aid case, hung on the wall with its lid facing the room. */
 function Medkit() {
-  return <group position={[0, -0.14, 0.015]} rotation={[Math.PI / 2, 0, 0]}><RealModel id="medical_box" height={0.1} shadows={false} /></group>
+  // Lid facing the room, handle on top: it hangs from the wall the right way up.
+  return <group position={[0, 0.14, 0.015]} rotation={[Math.PI / 2, Math.PI, 0]}><RealModel id="medical_box" height={0.1} shadows={false} /></group>
 }
 
 // ——— éléments d'énigme ———
@@ -488,7 +491,8 @@ function SteamValve() {
   })
   return (
     <group>
-      <Cyl a={[0.09, 0.09, 1.9]} p={[0, 0, 0.18]} r={[0, 0, Math.PI / 2]} m={m.painted('#9b5a2a', 0.5, 0.6)} />
+      {/* Overlaps the main on both sides, so that the pipe reads as one piece through the valve. */}
+      <Cyl a={[0.09, 0.09, 2.14]} p={[0, 0, 0.18]} r={[0, 0, Math.PI / 2]} m={m.painted('#9b5a2a', 0.5, 0.6)} />
       <Box s={[0.22, 0.22, 0.22]} p={[0, 0, 0.18]} m={m.painted('#5a5f66', 0.4, 0.8)} />
       <group ref={wheel} position={[0, 0, 0.36]}>
         <mesh material={m.painted('#c5302a', 0.4, 0.4)} castShadow>
@@ -502,7 +506,7 @@ function SteamValve() {
   )
 }
 
-/** fuite de gaz : particules + collision + son spatial */
+/** fuite de gaz : particules + son spatial ; on peut la traverser, au prix d'une brûlure (voir tick) */
 function Steam({ e }: { e: Ent }) {
   const fixed = useGame((s) => s.flags.steamFixed)
   const pts = useRef<THREE.Points>(null)
@@ -531,7 +535,7 @@ function Steam({ e }: { e: Ent }) {
       const life = (t * 0.6 + seeds[i]) % 1
       const a = seeds[i] * 40
       // A jet out of the tear in the pipe, spreading into the corridor and rising.
-      p.setXYZ(i, 0.1 + Math.cos(a) * life * 0.75 + Math.sin(t + i) * 0.05, 1.25 + life * life * 1.25 + Math.sin(a * 3) * 0.12 * life, -0.72 + life * 1.55 + Math.sin(a) * life * 0.25)
+      p.setXYZ(i, -0.1 + Math.cos(a) * life * 0.75 + Math.sin(t + i) * 0.05, 1.25 + life * life * 1.25 + Math.sin(a * 3) * 0.12 * life, -0.72 + life * 1.55 + Math.sin(a) * life * 0.25)
     }
     p.needsUpdate = true
   })
@@ -547,11 +551,6 @@ function Steam({ e }: { e: Ent }) {
   return (
     <group>
       <points ref={pts} geometry={geo} material={mat} frustumCulled={false} />
-      {!fixed && (
-        <RigidBody type="fixed" colliders={false}>
-          <CuboidCollider args={[1, 1.4, 1]} position={[0, 1.4, 0]} />
-        </RigidBody>
-      )}
       {!fixed && <pointLight color="#ffd2a8" intensity={1.5} distance={4} position={[0, 1.6, 0]} />}
     </group>
   )
@@ -566,7 +565,8 @@ function Breaker() {
   })
   return (
     <group>
-      <Box s={[1.3, 1.5, 0.3]} p={[0, 0, 0.15]} m={m.painted('#5c646c', 0.5, 0.5)} />
+      {/* Square-edged: rounded, its back would leave a gap along the wall. */}
+      <BoxExact s={[1.3, 1.5, 0.3]} p={[0, 0, 0.15]} m={m.painted('#5c646c', 0.5, 0.5)} />
       <Box s={[1.2, 1.4, 0.02]} p={[0, 0, 0.31]} m={m.painted('#2e3237', 0.5, 0.5)} />
       <group ref={lever} position={[0.4, 0, 0.34]}>
         <Box s={[0.05, 0.4, 0.05]} p={[0, 0.2, 0]} m={m.metal('#8d9196')} />
@@ -774,11 +774,13 @@ function EntNode({ e, zone }: { e: Ent; zone: ZoneId }) {
   const keepWhenDone = !e.item
   // L'étagère fait partie du nœud ramassable : elle doit rester quand l'objet part.
   const shelf = !!(e.item && e.wall && (e.y ?? 0) > 0.3 && WALL_BRACKET.has(e.model))
+  // Une fois fermée, la vanne reste en place : seule son interaction disparaît.
+  const staysVisible = e.model === 'steamValve'
   if (!active && !keepWhenDone && !shelf) return null
   return (
     <RoomCtx.Provider value={{ id: room?.id ?? '', dark: !!room?.dark }}>
       <group name={`ent:${e.id}`} position={p} rotation={[0, r, 0]}>
-        {active && model ? (e.item ? <PickupHighlight>{model(e)}</PickupHighlight> : model(e)) : null}
+        {(active || staysVisible) && model ? (e.item ? <PickupHighlight>{model(e)}</PickupHighlight> : model(e)) : null}
         {!e.item && <SolidProp model={e.model} />}
         {shelf && <Bracket />}
         {active && e.item && <Glint resource={ITEM_KIND[e.item] === 'resource'} />}

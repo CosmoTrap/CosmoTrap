@@ -9,6 +9,7 @@ const box = (size: V3, at: V3, rotation?: V3): Bounds => ({ size, at, rotation }
 // box would block the passages between them. Tiny decoration remains non-solid.
 const BOUNDS: Record<string, Bounds[]> = {
   bunk: [box([1.95, 2.12, 0.94], [0, 1.06, 0.48])],
+  bunkMirrored: [box([1.95, 2.12, 0.94], [0, 1.06, 0.48])],
   table: [box([1.72, 0.79, 0.87], [0, 0.395, 0])],
   personalLocker: [box([0.6, 2, 0.56], [0, 1, 0.28])],
   workstation: [box([1.72, 0.2, 0.46], [0, 1.0, 0.25])],

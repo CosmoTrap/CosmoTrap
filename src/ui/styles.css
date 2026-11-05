@@ -1383,6 +1383,12 @@ button {
   color: var(--bad);
   border-color: rgba(255, 90, 74, 0.5);
 }
+.hurt-flash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(255, 130, 40, 0.14) 0%, rgba(255, 70, 20, 0.5) 60%, rgba(215, 25, 10, 0.9) 100%);
+}
 .penalty-flash {
   position: fixed;
   inset: 0;

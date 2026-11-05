@@ -16,8 +16,10 @@ import { lampPositions, roomPowerCut } from './roomPower'
 import { RoundHub } from './RoundHub'
 
 export const WIN_R = 0.42
+/** Thickness of the station's outer wall behind a room (m). */
+export const HULL_THICKNESS = 0.35
 export const WIN_Y = 1.5
-const WIN_DEPTH = 0.55
+const WIN_DEPTH = 0.42
 
 export interface WindowDef {
   x: number
@@ -141,9 +143,11 @@ function buildLevel(map: GridMap): Built {
         // Real depth at panel seams and skirting: catch grazing light without
         // adding a draw call per rib. Do not bridge doors or cover the windows.
         for (const [width, height, depth, px, py] of [
-          [TILE, 0.12, 0.06, 0, 0.06],
+          // The skirting stays thin too: anything standing against the wall must hide it, not be crossed by it.
+          [TILE, 0.12, 0.018, 0, 0.06],
           [TILE, 0.1, 0.1, 0, CEIL - 0.05],
-          [0.045, CEIL, 0.065, -0.97, CEIL / 2],
+          // Stands just proud enough to read as solid, while staying behind the cables (2.2 cm off the wall).
+          [0.045, CEIL, 0.02, -0.97, CEIL / 2],
         ]) {
           const rib = new THREE.BoxGeometry(width, height, depth)
           rib.translate(px, py, depth / 2)
@@ -152,6 +156,21 @@ function buildLevel(map: GridMap): Built {
         }
       }
     }
+
+  // A corner post wherever two walls meet, inside corners and door jambs alike: the panels stop exactly
+  // on the corner, and from close up the seam between them would show open space. The hub has its own.
+  const round = map.rooms.filter((room) => room.shape === 'round').map((room) => room.rect)
+  for (let tz = 0; tz <= H; tz++) for (let tx = 0; tx <= W; tx++) {
+    const around: [number, number][] = [[tx - 1, tz - 1], [tx, tz - 1], [tx - 1, tz], [tx, tz]]
+    const floors = around.filter(([x, z]) => isFloor(cellAt(map, x, z)))
+    if (!floors.length || floors.length === 4) continue
+    // Two floor tiles side by side: that is a straight wall, not a corner.
+    if (floors.length === 2 && (floors[0][0] === floors[1][0] || floors[0][1] === floors[1][1])) continue
+    if (floors.some(([x, z]) => round.some(([x0, z0, x1, z1]) => x >= x0 && x <= x1 && z >= z0 && z <= z1))) continue
+    const post = new THREE.BoxGeometry(0.1, CEIL, 0.1)
+    post.translate(tx * TILE, CEIL / 2, tz * TILE)
+    R(roomOf(floors[0][0], floors[0][1])).trim.push(post)
+  }
 
   // collisions : murs pleins voisins d'un sol, fusionnés par rangée
   const colliders: Built['colliders'] = []
@@ -187,17 +206,39 @@ function buildLevel(map: GridMap): Built {
     if (inHub(tx, tz, 3) && !liningTunnel(tx, tz) && (!isFloor(c) || inHub(tx, tz))) continue
     if (isFloor(c)) {
       for (const y of [-0.025, CEIL + 0.025]) {
-        const plane = new THREE.PlaneGeometry(TILE + 0.04, TILE + 0.04)
+        // Reaches over the thin shell of the walls around it.
+        const plane = new THREE.PlaneGeometry(TILE + 2 * HULL_THICKNESS, TILE + 2 * HULL_THICKNESS)
         plane.rotateX(-Math.PI / 2); plane.translate(cx, y, cz)
         hullRoofs.push(plane)
       }
     } else if (solidBehind(c) && near(tx, tz)) {
-      // Stops just short of any wall facing a room, overlaps its neighbours everywhere else.
-      const gap = (dx: number, dz: number) => (isFloor(cellAt(map, tx + dx, tz + dz)) ? -0.015 : 0.02)
-      const west = gap(-1, 0), east = gap(1, 0), north = gap(0, -1), south = gap(0, 1)
-      const box = new THREE.BoxGeometry(TILE + west + east, CEIL + 0.1, TILE + north + south)
-      box.translate(cx + (east - west) / 2, CEIL / 2, cz + (south - north) / 2)
-      hull.push(box)
+      // A thin shell right behind the wall facing a room, not the whole 2 m tile: the station's outer
+      // walls are this thin. It stops just short of the room and overlaps its neighbours along the wall.
+      const shell = (x: number, z: number, wide: number, deep: number) => {
+        const box = new THREE.BoxGeometry(wide, CEIL + 0.1, deep)
+        box.translate(x, CEIL / 2, z)
+        hull.push(box)
+      }
+      const inner = TILE / 2 - 0.015 - HULL_THICKNESS / 2
+      // Along the wall, each end overlaps a solid neighbour but stops short of a room or a door:
+      // its edge would otherwise stand inside that room, as a pale strip beside the door.
+      const end = (dx: number, dz: number) => (isFloor(cellAt(map, tx + dx, tz + dz)) ? -0.015 : 0.02)
+      let facing = false
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        if (!isFloor(cellAt(map, tx + dx, tz + dz))) continue
+        facing = true
+        if (dx) {
+          const a = end(0, -1), b = end(0, 1)
+          shell(cx + dx * inner, cz + (b - a) / 2, HULL_THICKNESS, TILE + a + b)
+        } else {
+          const a = end(-1, 0), b = end(1, 0)
+          shell(cx + (b - a) / 2, cz + dz * inner, TILE + a + b, HULL_THICKNESS)
+        }
+      }
+      // Round a room's corner, where this tile only touches it diagonally.
+      if (!facing) for (const [dx, dz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+        if (isFloor(cellAt(map, tx + dx, tz + dz))) shell(cx + dx * inner, cz + dz * inner, HULL_THICKNESS, HULL_THICKNESS)
+      }
     }
   }
   const walls = hull.length ? mergeGeometries(hull.map((g) => g.toNonIndexed())) : null
@@ -241,6 +282,9 @@ function RoomMeshes({ room, geo, shadows }: { room: RoomDef; geo: Built['rooms']
 /** hublot : tunnel, cadre boulonné, vitre */
 function Porthole({ w }: { w: WindowDef }) {
   const m = useMats()
+  // Clear glass: reflections of the bright room must not wash out the black of space.
+  const glass = m.glass('#9fc3d9', 0.05) as THREE.MeshStandardMaterial
+  glass.envMapIntensity = 0.04
   return (
     <group position={[w.x, 0, w.z]} rotation={[0, w.rot, 0]}>
       <mesh position={[0, WIN_Y, -WIN_DEPTH / 2]} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow material={m.metal('#5d6166', 0.45)}>
@@ -257,7 +301,7 @@ function Porthole({ w }: { w: WindowDef }) {
           </mesh>
         )
       })}
-      <mesh position={[0, WIN_Y, -WIN_DEPTH + 0.05]} material={m.glass('#9fc3d9', 0.1)}>
+      <mesh position={[0, WIN_Y, -WIN_DEPTH + 0.05]} material={glass}>
         <circleGeometry args={[WIN_R, 32]} />
       </mesh>
     </group>
@@ -360,7 +404,7 @@ const HUB_LIGHTS = [0, 1, 2].map((i): [number, number] => {
  * Its appearance must not change when the player moves between rooms.
  */
 function Hull({ geometry, map }: { geometry: THREE.BufferGeometry; map: GridMap }) {
-  const materials = useMemo(() => [hullMaterial('wall', map.zone === 3 ? 'rocket' : 'station'), hullMaterial('roof')], [map.zone])
+  const materials = useMemo(() => [hullMaterial('wall', map.zone === 3 ? 'rocket' : 'station'), hullMaterial('roof', map.zone === 3 ? 'rocket' : 'station')], [map.zone])
   return <mesh name="hull" geometry={geometry} material={materials} castShadow receiveShadow />
 }
 

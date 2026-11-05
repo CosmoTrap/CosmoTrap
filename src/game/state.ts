@@ -26,7 +26,7 @@ export const ability = () => {
     errorPenalty: c === 'kenji' ? 0.5 : 1,
     water: c === 'sam' ? 0.6 : 1,
     o2: c === 'maya' ? 0.75 : 1,
-    medkitHeal: c === 'sam' ? 60 : 40,
+    medkitHeal: c === 'sam' ? 30 : 20,
   }
 }
 /** vitesse sur Terre sans couverture de survie (0,8 = 20 % plus lent) */
@@ -60,7 +60,8 @@ export interface Settings {
   padType: PadType
   showFps: boolean
   /** afficher la réplique fantôme du record */
-  ghost: boolean
+  /** Named anew so that the old setting, saved as on, no longer applies: the replay is now opt-in. */
+  ghostReplay: boolean
   /** hauteur de rendu en pixels, ou automatique */
   resolution: 'auto' | number
   /** personnage choisi dans le profil (invités : local) */
@@ -109,6 +110,8 @@ export const live = {
   fade: 0,
   flash: 0,
   penaltyFlash: 0,
+  /** brûlure en cours (1 au coup, retombe à 0) : flash, flou et secousse */
+  hurt: 0,
   card: null as null | { title: string; sub: string; a: number },
   countdown: null as null | string,
   /** cases explorées (brouillard de la mini-carte) : « zone:x,z » */
@@ -323,7 +326,7 @@ function loadSettings(): Settings {
     pad: DEFAULT_PAD,
     padType: 'xbox',
     showFps: false,
-    ghost: true,
+    ghostReplay: false,
     resolution: 'auto',
     character: 'nova',
     map: 'base',

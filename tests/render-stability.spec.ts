@@ -24,8 +24,8 @@ for (const quality of ['low', 'high'] as const) test(`pas de flash noir selon l'
   await expect(page.getByTestId('launch')).toBeVisible()
   await page.keyboard.press('Space')
   await page.getByTestId('guest').click()
-  // Lights on: this looks for black frames, whereas level 1's alarm is meant to be very dark.
-  await page.evaluate(() => { window.__game.start(); window.__game.set({ toured: [1, 2, 3, 4], flags: { ...window.__game.state().flags, pressurized: true } }) })
+  // Lights on: this looks for black frames, whereas a power cut is meant to be very dark.
+  await page.evaluate(() => { window.__game.start(); window.__game.set({ toured: [1, 2, 3, 4], flags: { ...window.__game.state().flags, power: true, steamFixed: true, pressurized: true } }) })
   await page.waitForFunction(() => window.__game.state().loading === 1)
 
   // Read the actual final framebuffer after the composer. A NaN in a single
