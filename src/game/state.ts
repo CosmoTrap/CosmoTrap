@@ -282,6 +282,8 @@ export interface GameState extends GameData {
   creditsOpen: boolean
   tp: { pos: [number, number, number]; yaw: number; n: number } | null
   loading: number // 0..1, 1 = prêt
+  /** pourcentage affiché pendant le chargement d'une zone ou d'une carte */
+  loadProgress: number
   settings: Settings
   subtitle: string | null
   shake: number
@@ -299,38 +301,9 @@ export interface GameState extends GameData {
 
 const SETTINGS_KEY = 'cosmotrap.settings.v1'
 
-export function isMobile() {
-  return typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches
-}
-
-/** estimation de la puissance graphique pour choisir la qualité par défaut */
-export function detectQuality(): Quality {
-  if (isMobile()) return 'low'
-  try {
-    const c = document.createElement('canvas')
-    const gl = c.getContext('webgl2') as WebGL2RenderingContext | null
-    if (!gl) return 'low'
-    const ext = gl.getExtension('WEBGL_debug_renderer_info')
-    const r = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)).toLowerCase()
-    const cores = navigator.hardwareConcurrency || 4
-    if (/swiftshader|llvmpipe|software|basic render/.test(r)) return 'low'
-    if (/rtx|radeon rx [67]|rx 7|apple m[2-9] (pro|max|ultra)|apple m[3-9]/.test(r)) return 'ultra'
-    if (/apple m|apple gpu|geforce gtx 1[0-9]|rx 5|arc a/.test(r)) return 'high'
-    // CPU thread count is not a measure of integrated graphics performance.
-    if (/uhd|intel.*hd graphics|mali|adreno/.test(r)) return 'low'
-    if (/intel|iris/.test(r)) return 'medium'
-    // A hidden or generic renderer string ("WebKit WebGL", "ANGLE (Unknown)…") says nothing about the GPU:
-    // the CPU's thread count does not either, so start in the middle and let the adaptive quality decide.
-    if (!ext || /webkit webgl|unknown|generic|angle \(\)/.test(r)) return 'medium'
-    return cores >= 8 ? 'high' : 'medium'
-  } catch {
-    return 'medium'
-  }
-}
-
 function loadSettings(): Settings {
   const def: Settings = {
-    quality: detectQuality(),
+    quality: 'medium',
     sensitivity: 1,
     invertY: false,
     master: 0.8,
@@ -350,7 +323,7 @@ function loadSettings(): Settings {
     padType: 'xbox',
     showFps: false,
     ghostReplay: false,
-    resolution: 'auto',
+    resolution: 1080,
     character: 'nova',
     map: 'base',
     difficulty: 'astronaut',
@@ -409,6 +382,7 @@ export const useGame = create<GameState>((set) => ({
   creditsOpen: false,
   tp: null,
   loading: 1,
+  loadProgress: 0,
   settings: loadSettings(),
   subtitle: null,
   shake: 0,
@@ -583,6 +557,7 @@ export function normalizeSave(d: any): SaveFile | null {
       solved: Array.isArray(l?.solved) ? l.solved.filter((x: unknown) => typeof x === 'string') : [],
       drafts: l?.drafts && typeof l.drafts === 'object' ? l.drafts : {}, current: null }
   }
+  saved.hintsShown = Array.isArray(d.hintsShown) ? d.hintsShown.filter((x: unknown) => typeof x === 'string') : []
   if (!Array.isArray(d.valveStart) || d.valveStart.length !== 9)
     saved.valveStart = Array.isArray(saved.valves) && saved.valves.length === 9 ? [...saved.valves] : [...saved.valveStart]
   const colors = ['blue', 'yellow', 'red', 'green']

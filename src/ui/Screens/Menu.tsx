@@ -45,7 +45,7 @@ export async function startNewGame(character: string, d: Difficulty, map: Missio
   deleteCloudSave()
   loadExplored([])
   live.noEvents = false
-  useGame.setState({ ...newGameData(character, d, map), screen: map === 'base' ? 'playing' : 'prologue', loading: 0, cine: null, toured: map === 'base' ? [1] : [], briefed: map === 'base', paused: false, tp: null, resume: null, tabletOpen: false, puzzle: null, readNote: null, lastResult: null })
+  useGame.setState({ ...newGameData(character, d, map), screen: map === 'base' ? 'playing' : 'prologue', loading: 0, loadProgress: 0, cine: null, toured: map === 'base' ? [1] : [], briefed: map === 'base', paused: false, tp: null, resume: null, tabletOpen: false, puzzle: null, readNote: null, lastResult: null })
   if (map === 'base') recordMessage('SELENE-7 — Une micrométéorite a sectionné la liaison solaire. Rétablis les systèmes, certifie ta combinaison et rejoins la fusée LV-1. Lis le manifeste de la chambre. Les documents relus restent dans les messages de la tablette.', 'radio')
 }
 
@@ -63,7 +63,7 @@ export async function resumeGame(save: SaveFile) {
   loadExplored(data.explored)
   live.noEvents = false
   data.nextEventAt = Math.min(data.nextEventAt ?? Infinity, data.playTime + 45)
-  useGame.setState({ ...data, screen: 'playing', loading: 0, paused: false, cine: null, resume: pos ? { pos, yaw: yaw ?? 0 } : null, tp: null, tabletOpen: false, puzzle: null, readNote: null })
+  useGame.setState({ ...data, screen: 'playing', loading: 0, loadProgress: 0, paused: false, cine: null, resume: pos ? { pos, yaw: yaw ?? 0 } : null, tp: null, tabletOpen: false, puzzle: null, readNote: null })
   // A save made just before ignition must still finish the adventure on resume.
   if (data.map === 'base' && TASKS.every(t => data.lunar.solved.includes(t.id))) useGame.setState({ cine: 'lunarLaunch', cineT0: performance.now() })
   requestLock()

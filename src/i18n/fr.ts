@@ -17,6 +17,8 @@ export const fr = {
     start: 'Commencer la mission',
     clickToPlay: 'Clique pour reprendre la vue · Échap pour mettre en pause',
     loading: 'Chargement',
+    loadingSlow: 'Le chargement de cette zone peut prendre un peu de temps.',
+    loadingProgress: (n: number) => `${n} % chargé`,
     rotate: 'Tourne ton téléphone',
     rotateSub: 'Cosmotrap se joue en mode paysage.',
   },
@@ -386,7 +388,7 @@ export const fr = {
   },
   plan: {
     title: 'Planning pré-vol',
-    sub: 'Clique les opérations dans un ordre qui respecte leurs dépendances. Une opération lancée trop tôt coûte du temps.',
+    sub: (sec: number) => `Clique les opérations dans un ordre qui respecte leurs dépendances. Une opération lancée trop tôt annule la sélection et retire ${sec} secondes.`,
     tasks: {
       hatch: { name: 'Fermer l’écoutille d’amarrage', dep: [] as string[] },
       traj: { name: 'Charger la trajectoire de retour', dep: [] as string[] },
@@ -398,7 +400,7 @@ export const fr = {
       ignite: { name: 'Autoriser l’allumage', dep: ['undock', 'suits'] },
     } as Record<string, { name: string; dep: string[] }>,
     needs: 'Prérequis',
-    wrong: (n: string) => `« ${n} » ne peut pas encore commencer.`,
+    wrong: (n: string) => `« ${n} » est trop tôt. La sélection est annulée.`,
     ok: 'Planning validé. Fenêtre de tir respectée.',
   },
   dilemma: {
@@ -421,8 +423,8 @@ export const fr = {
   rules: {
     chrono: 'Temps restant',
     penalty: (s: number) => `−${s} s`,
-    hintLight: 'Indice léger (−30 s)',
-    hintStrong: 'Indice fort (−60 s)',
+    hintLight: 'Indice léger',
+    hintStrong: 'Indice fort',
     timeUp: 'Plus de temps : la station est perdue.',
     errors: 'Erreurs',
   },
