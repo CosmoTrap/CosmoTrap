@@ -14,6 +14,8 @@ export function installDevApi() {
         screen: s.screen,
         inventoryOpen: s.tabletOpen && s.tab === 3,
         tabletOpen: s.tabletOpen,
+        paused: s.paused,
+        readNote: s.readNote,
         tabletReady: s.tabletReady,
         tab: s.tab,
         messages: [...s.messages],

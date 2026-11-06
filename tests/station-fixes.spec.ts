@@ -109,7 +109,7 @@ test('zone 2 sur alarmes seules avant réparation ; retour du réseau et choix m
   await page.evaluate(() => { window.__game.give('fuse'); window.__game.set({ lampOn: false, flags: { ...window.__game.state().flags, steamFixed: true } }); window.__game.interact('breaker') })
   await page.waitForFunction(() => (window as any).stationScene.getObjectByName('room-light:labo').intensity > 10)
   await expect.poll(async () => (await lighting()).env).toBeGreaterThan(.9)
-  expect(await page.evaluate(() => (window as any).stationScene.getObjectByName('room-light:machinerie').intensity)).toBe(0)
+  expect(await page.evaluate(() => (window as any).stationScene.getObjectByName('room-light:machinerie').intensity)).toBeLessThan(10)
   await page.evaluate(() => window.__game.set({ puzzle: null, flags: { ...window.__game.state().flags, pw_lights: true } }))
   await page.waitForFunction(() => (window as any).stationScene.getObjectByName('room-light:machinerie').intensity > 10)
   await page.screenshot({ path: 'test-results/station-zone2-restored.png' })

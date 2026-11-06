@@ -312,7 +312,7 @@ function spine(parts: Parts, hub: THREE.Vector2) {
 }
 
 /** Everything on the Hermès is laid out along x, from the engines (low x) to the nose (high x, docked to the station). */
-const HERMES = { x: 0, y: MID_Y, z: 36, radius: 2.2, tail: -7.6, shoulder: 1.4, nose: 7.7 }
+export const HERMES = { x: 0, y: MID_Y, z: 36, radius: 2.2, tail: -7.6, shoulder: 1.4, nose: 7.7 }
 
 /** A shape turned around the Hermès's axis; profile points are [radius, position along it]. */
 function turned(parts: Parts, bucket: Bucket, profile: [number, number][], phiStart = 0, phiLength = Math.PI * 2) {
@@ -404,7 +404,11 @@ function serviceModules(parts: Parts, floor: 1 | 2, hub: THREE.Vector2, y: numbe
   }
 }
 
-function buildParts(map: GridMap) {
+/**
+ * full: the whole station, both floors complete (for the cinematics, where no floor is being played).
+ * rocket: with the Hermès docked, or without when a cinematic moves it on its own.
+ */
+function buildParts(map: GridMap, full = false, rocket = true) {
   const parts = emptyParts()
   const upper = GRID_MAPS[1], lower = GRID_MAPS[2]
   const hub = hubOf(lower)
@@ -419,7 +423,7 @@ function buildParts(map: GridMap) {
   }
   const sunZ = map.sun[2]
   const up = emptyParts()
-  if (map.zone !== 1) {
+  if (full || map.zone !== 1) {
     moduleAround(up, upper.rooms.find((r) => r.shape === 'round')!, FLOOR_GAP)
     hubWindows(up, upper, FLOOR_GAP)
     serviceModules(up, 1, upperHub, FLOOR_GAP)
@@ -428,7 +432,7 @@ function buildParts(map: GridMap) {
   windowsFromOutside(up, upper, FLOOR_GAP)
   solarArrays(up, 1, FLOOR_GAP, sunZ)
   placed(up, parts, toUpper)
-  if (map.zone !== 2) {
+  if (full || map.zone !== 2) {
     moduleAround(parts, lower.rooms.find((r) => r.shape === 'round')!, 0)
     hubWindows(parts, lower, 0)
     serviceModules(parts, 2, hub, 0)
@@ -437,12 +441,12 @@ function buildParts(map: GridMap) {
   windowsFromOutside(parts, lower, 0)
   solarArrays(parts, 2, 0, sunZ)
   spine(parts, hub)
-  dockedRocket(parts)
+  if (rocket) dockedRocket(parts)
   // The lift's shaft, joining the two floors along their shared axis.
   const shaft = new THREE.CylinderGeometry(2.1, 2.1, FLOOR_GAP - CEIL, 32, 1, true)
   put(parts, 'trim', shaft, new THREE.Matrix4().makeTranslation(hub.x, (FLOOR_GAP + CEIL) / 2, hub.y))
   // Everything is seen from one floor: bring that floor's own coordinates back to the origin.
-  const view = map.zone === 1 ? new THREE.Vector3(upperHub.x - hub.x, -FLOOR_GAP, upperHub.y - hub.y) : new THREE.Vector3()
+  const view = !full && map.zone === 1 ? new THREE.Vector3(upperHub.x - hub.x, -FLOOR_GAP, upperHub.y - hub.y) : new THREE.Vector3()
   return { parts, view }
 }
 
@@ -500,9 +504,9 @@ function hermesLabelTexture() {
   })
 }
 
-export function Station({ map }: { map: GridMap }) {
+export function Station({ map, full = false, rocket = true }: { map: GridMap; full?: boolean; rocket?: boolean }) {
   const { meshes, view, dispose } = useMemo(() => {
-    const { parts, view } = buildParts(map)
+    const { parts, view } = buildParts(map, full, rocket)
     const solarMap = solarTexture()
     solarMap.anisotropy = 8
     const foilMap = foilTexture()
@@ -536,7 +540,7 @@ export function Station({ map }: { map: GridMap }) {
       for (const [key, m] of Object.entries(materials)) if (key !== 'hull') m.dispose()
       solarMap.dispose(); foilMap.dispose(); tileMap.dispose(); labelMap.dispose()
     } }
-  }, [map])
+  }, [map, full, rocket])
   useEffect(() => dispose, [dispose])
   return (
     <group name="station-exterior" position={view}>

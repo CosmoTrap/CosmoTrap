@@ -12,7 +12,7 @@ import { RoomCtx, ceilingMaterial, floorMaterial, hullMaterial, setRoomLit, useM
 import { EntModels } from './props/EntModels'
 import { Props } from './props/Props'
 import { EmergencyLights } from './EmergencyLights'
-import { lampPositions, roomPowerCut } from './roomPower'
+import { beaconsOn, lampPositions, roomPowerCut } from './roomPower'
 import { RoundHub } from './RoundHub'
 import { StationPower } from './StationPower'
 import { doorShadows } from './doorShadows'
@@ -150,7 +150,8 @@ function buildLevel(map: GridMap): Built {
           [TILE, 0.12, 0.018, 0, 0.06],
           [TILE, 0.1, 0.1, 0, CEIL - 0.05],
           // Stands just proud enough to read as solid, while staying behind the cables (2.2 cm off the wall).
-          [0.045, CEIL, 0.02, -0.97, CEIL / 2],
+          // Centred on the seam between two panels, so it covers it: set 3 cm off, it left a sliver of seam beside it.
+          [0.06, CEIL, 0.02, -TILE / 2, CEIL / 2],
         ]) {
           const rib = new THREE.BoxGeometry(width, height, depth)
           rib.translate(px, py, depth / 2)
@@ -373,6 +374,8 @@ function Fixtures({ room, lit }: { room: RoomDef; lit: boolean }) {
   )
 }
 
+const EMERGENCY_RED = new THREE.Color('#ff2410')
+
 /** lumière dynamique d'une pièce (nombre constant : on change l'intensité, pas le nombre) */
 function RoomLight({ room, on, offset = [0, 0], share = 1 }: { room: RoomDef; on: boolean; offset?: [number, number]; share?: number }) {
   const ref = useRef<THREE.PointLight>(null)
@@ -392,11 +395,16 @@ function RoomLight({ room, on, offset = [0, 0], share = 1 }: { room: RoomDef; on
   const cz = (fixture ? fixture[1] : ((z0 + z1 + 1) * TILE) / 2) + offset[1]
   const reach = Math.hypot((x1 - x0 + 1) * TILE, (z1 - z0 + 1) * TILE) * 0.55 + 1.5
   const base = (room.intensity ?? 8) * 2.3 * share
+  const white = useMemo(() => new THREE.Color(room.light ?? '#ffffff'), [room.light])
   useFrame((_, dt) => {
     if (!ref.current) return
-    // The normal circuit really goes dark. Red light comes from the beacons.
-    ref.current.intensity = !on || roomPowerCut(room) ? 0
-      : THREE.MathUtils.damp(ref.current.intensity, base * diff().light, 10, Math.min(dt, 0.1))
+    // With the mains out, the emergency circuit keeps a dim, steady red in every room at once, enough to
+    // find one's way; during an alarm with the power on, the white light takes on the beacons' red.
+    const cut = roomPowerCut(room)
+    const alert = beaconsOn(room)
+    const target = !on ? 0 : cut ? (alert ? base * 0.22 : 0) : base * diff().light * (alert ? 0.8 : 1)
+    ref.current.color.copy(white).lerp(EMERGENCY_RED, cut ? 1 : alert ? 0.4 : 0)
+    ref.current.intensity = cut || !on ? target : THREE.MathUtils.damp(ref.current.intensity, target, 10, Math.min(dt, 0.1))
     if (shadowed && (G().loading < 1 || shadowVersion.current !== doorShadows.version)) {
       ref.current.shadow.needsUpdate = true
       shadowVersion.current = doorShadows.version

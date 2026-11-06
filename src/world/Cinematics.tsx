@@ -1,7 +1,7 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { audio } from '../game/audio/audio'
+import { audio, speechSeconds } from '../game/audio/audio'
 import { enterZone, pendingZone, tick } from '../game/logic'
 import { GRID_MAPS, spawnOf } from '../game/maps'
 import { riverCenter, terrainHeight } from '../game/maps/zone4'
@@ -89,7 +89,7 @@ export function CineDirector() {
       return
     }
     if (cine === 'lunarLaunch') {
-      live.camOverride = { pos: [ROCKET[0] - 12, 5 + t * 1.2, ROCKET[1] - 16], look: [ROCKET[0], 4 + Math.max(0, t - 3) ** 2 * 1.3, ROCKET[1]], fov: 62 }
+      live.camOverride = { pos: [ROCKET[0] + 22, 4 + t * 1.4, ROCKET[1] + 26], look: [ROCKET[0], 8 + Math.max(0, t - 3) ** 2 * 1.4, ROCKET[1]], fov: 58 }
       live.countdown = t < 3 ? String(3 - Math.floor(t)) : null
       once('ignition', () => { audio.sfx('airlock'); audio.playMusic('hermes') })
       if (t > 9) once('lunar-finish', finishLunar)
@@ -97,8 +97,10 @@ export function CineDirector() {
     }
     if (cine === 'briefing') {
       const lines = fr.briefing
-      const per = 4.6
-      const i = Math.floor(t / per)
+      // Each line is given the time to be said in full before the next.
+      const durations = lines.map((l) => Math.max(4.6, speechSeconds(l) + 0.4))
+      let i = 0
+      for (let acc = durations[0]; i < lines.length && t >= acc; acc += durations[i] ?? 0) i++
       if (i < lines.length) {
         once(`l${i}`, () => {
           useGame.setState({ subtitle: lines[i] })
@@ -109,8 +111,10 @@ export function CineDirector() {
           resumePlaying(true)
         })
     } else if (cine === 'zoneCard') {
-      live.fade = t < 1.2 ? t / 1.2 : t < 2.4 ? 1 : Math.max(0, 1 - (t - 2.4) / 1.4)
       if (t > 1.2 && pendingZone) once('enter', () => enterZone(pendingZone!))
+      // When a tour follows, the card stays on black: the tour opens on its own first shot, not on the room.
+      const tourNext = !s.toured.includes(pendingZone ?? s.zone)
+      live.fade = t < 1.2 ? t / 1.2 : t < 2.4 || tourNext ? 1 : Math.max(0, 1 - (t - 2.4) / 1.4)
       const z = s.zone
       const a = t < 1.4 ? 0 : t < 2.0 ? (t - 1.4) / 0.6 : t < 4.2 ? 1 : Math.max(0, 1 - (t - 4.2) / 0.8)
       live.card = { title: fr.zones[z].name, sub: fr.zones[z].sub, a }
