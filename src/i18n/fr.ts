@@ -418,8 +418,8 @@ export const fr = {
   rules: {
     chrono: 'Temps restant',
     penalty: (s: number) => `−${s} s`,
-    hintLight: 'Indice léger (−30 s)',
-    hintStrong: 'Indice fort (−60 s)',
+    hintLight: 'Indice léger',
+    hintStrong: 'Indice fort',
     timeUp: 'Plus de temps : la station est perdue.',
     errors: 'Erreurs',
   },

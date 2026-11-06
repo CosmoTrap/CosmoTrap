@@ -3,7 +3,7 @@ import { audio, speechSeconds } from '../../game/audio/audio'
 import { live, recordMessage, useGame } from '../../game/state'
 import { skipCine } from '../../world/Cinematics'
 import { IMPACT_T, prologue } from '../../world/TitleScene'
-import { transitionTo } from '../../game/logic'
+import { puzzleHintTarget, transitionTo } from '../../game/logic'
 import { fr } from '../../i18n/fr'
 import { requestLock } from '../../player/Player'
 import { Keypad } from '../../game/puzzles/Keypad'
@@ -16,6 +16,7 @@ import { Plan } from '../../game/puzzles/Plan'
 import { Dilemma } from '../../game/puzzles/Dilemma'
 import { LunarPuzzle } from '../../game/lunar/LunarPuzzle'
 import { missionNote } from '../../game/lunar/logic'
+import { HintButtons } from '../HintButtons'
 import { update } from './Settings'
 
 const M = fr.menu
@@ -43,6 +44,7 @@ export function NoteReader() {
 
 export function PuzzleHost() {
   const p = useGame((s) => s.puzzle)
+  const lunarStep = useGame((s) => s.lunar.current)
   if (!p) return null
   const close = () => {
     useGame.setState({ puzzle: null })
@@ -50,7 +52,7 @@ export function PuzzleHost() {
   }
   return (
     <div className="modal-bg" onClick={close} data-testid="puzzle">
-      <div onClick={(e) => e.stopPropagation()} style={{ position: 'relative' }}>
+      <div className="puzzle-frame" onClick={(e) => e.stopPropagation()}>
         {p === 'keypad' && <Keypad />}
         {p === 'valves' && <Valves />}
         {p === 'power' && <PowerGrid />}
@@ -59,8 +61,11 @@ export function PuzzleHost() {
         {p === 'algo' && <Algo />}
         {p === 'plan' && <Plan />}
         {p === 'dilemma' && <Dilemma />}
-        {p === 'lunar' && <LunarPuzzle key={useGame.getState().lunar.current} />}
-        <div style={{ textAlign: 'center', marginTop: 12 }}>
+        {p === 'lunar' && <LunarPuzzle key={lunarStep} />}
+        <div className="puzzle-hints">
+          <HintButtons target={puzzleHintTarget(p, lunarStep)} lightId="puzzle-hint" strongId="puzzle-hint2" />
+        </div>
+        <div style={{ textAlign: 'center' }}>
           <button className="btn ghost" data-testid="puzzle-close" onClick={close}>
             {fr.puzzles.close} (Échap)
           </button>

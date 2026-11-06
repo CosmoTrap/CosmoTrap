@@ -578,6 +578,7 @@ export function normalizeSave(d: any): SaveFile | null {
       solved: Array.isArray(l?.solved) ? l.solved.filter((x: unknown) => typeof x === 'string') : [],
       drafts: l?.drafts && typeof l.drafts === 'object' ? l.drafts : {}, current: null }
   }
+  saved.hintsShown = Array.isArray(d.hintsShown) ? d.hintsShown.filter((x: unknown) => typeof x === 'string') : []
   if (!Array.isArray(d.valveStart) || d.valveStart.length !== 9)
     saved.valveStart = Array.isArray(saved.valves) && saved.valves.length === 9 ? [...saved.valves] : [...saved.valveStart]
   const colors = ['blue', 'yellow', 'red', 'green']
