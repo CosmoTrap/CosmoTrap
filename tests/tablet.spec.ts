@@ -52,7 +52,8 @@ test('le bras gauche se lève avant la tablette ; plan réel, position, niveaux 
   await expect(page.getByTestId('tablet')).toBeVisible()
   await page.keyboard.up('ArrowUp')
   expect(await page.evaluate(() => window.__game.live.pos[0])).toBeCloseTo(41, 1)
-  await expect(page.getByRole('tab')).toHaveCount(4)
+  // trois onglets (Plan, Messages, Inventaire) : le Journal a été retiré de la tablette
+  await expect(page.getByRole('tab')).toHaveCount(3)
   await expect(page.getByTestId('map-player')).toHaveAttribute('data-x', '41.000')
   await expect(page.getByTestId('map-player')).toHaveAttribute('data-z', '41.000')
   await expect(page.getByTestId('map-room-couloir').locator('circle').first()).toHaveAttribute('r', '7')

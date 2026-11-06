@@ -30,7 +30,6 @@ body,
   -webkit-font-smoothing: antialiased;
   user-select: none;
   -webkit-user-select: none;
-  touch-action: none;
 }
 canvas {
   display: block;
@@ -407,6 +406,68 @@ button {
   color: var(--muted);
   font-size: 14px;
   margin: 0 0 18px;
+}
+.puzzle-frame {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(760px, calc(100vw - 16px));
+  max-height: calc(100dvh - 16px);
+  overflow: hidden;
+}
+.puzzle-frame .panel,
+.puzzle-frame .lunar-puzzle {
+  width: auto;
+  max-width: 100%;
+  max-height: none;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+}
+.puzzle-hints {
+  flex: none;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(9, 10, 18, 0.94);
+}
+.hint-block { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.hint-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.hint-actions button {
+  flex: 1 1 180px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #39437c;
+  border-radius: 9px;
+  background: #10163a;
+  color: #f2f3fb;
+  font-size: clamp(12px, 2.6vw, 14px);
+  font-weight: 600;
+  cursor: pointer;
+}
+.hint-actions button:not(:disabled):hover { border-color: #ff9a62; }
+.hint-actions button.used {
+  border-color: #3fd6a0;
+  color: #d9ffe9;
+  background: #143028;
+  cursor: default;
+}
+.hint-actions button:disabled:not(.used) { opacity: 0.5; cursor: default; }
+.hint-block blockquote,
+.nav-help-panel .hint-block blockquote {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #ffe0c9;
+  background: #ff9a6214;
+  border-left: 3px solid #ff9a62;
+  border-radius: 6px;
+}
+@media (max-width: 560px) {
+  .hint-actions button { flex-basis: 100%; }
+  .puzzle-frame { width: calc(100vw - 12px); gap: 8px; }
+  .puzzle-hints { padding: 8px; }
 }
 .btn {
   appearance: none;
@@ -1133,110 +1194,6 @@ button {
   pointer-events: none;
 }
 
-/* ——— mobile ——— */
-.joy {
-  position: fixed;
-  left: max(24px, env(safe-area-inset-left));
-  bottom: 28px;
-  width: 140px;
-  height: 140px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.05);
-  touch-action: none;
-  z-index: 5;
-}
-.joy .knob {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 60px;
-  height: 60px;
-  margin: -30px 0 0 -30px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.25);
-  border: 2px solid rgba(255, 255, 255, 0.4);
-}
-.look-zone {
-  position: fixed;
-  right: 0;
-  top: 0;
-  width: 55vw;
-  height: 100%;
-  touch-action: none;
-  z-index: 4;
-}
-.mbtns {
-  position: fixed;
-  right: max(20px, env(safe-area-inset-right));
-  bottom: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  align-items: flex-end;
-  z-index: 6;
-}
-.mbtn {
-  width: 78px;
-  height: 78px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  background: rgba(10, 12, 20, 0.55);
-  backdrop-filter: blur(6px);
-  font-family: Rajdhani, sans-serif;
-  font-weight: 700;
-  font-size: 14px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.mbtn.act {
-  width: 92px;
-  height: 92px;
-  background: rgba(255, 107, 53, 0.35);
-  border-color: var(--orange);
-}
-.mtop {
-  position: fixed;
-  top: 12px;
-  right: max(16px, env(safe-area-inset-right));
-  display: flex;
-  gap: 8px;
-  z-index: 6;
-}
-.mtop .mbtn {
-  width: 52px;
-  height: 52px;
-  font-size: 11px;
-}
-.rotate {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: none;
-  place-items: center;
-  text-align: center;
-  background: var(--navy);
-  padding: 24px;
-}
-@media (orientation: portrait) and (pointer: coarse) {
-  .rotate {
-    display: grid;
-  }
-}
-.rotate .phone {
-  width: 60px;
-  height: 100px;
-  border: 4px solid var(--cream);
-  border-radius: 12px;
-  margin: 0 auto 20px;
-  animation: rot 2s ease-in-out infinite;
-}
-@keyframes rot {
-  50% {
-    transform: rotate(-90deg);
-  }
-}
-
 @media (max-width: 900px), (max-height: 520px) {
   .gauge {
     grid-template-columns: 18px 96px 38px;
@@ -1280,17 +1237,6 @@ button {
   .subtitle {
     bottom: 110px;
     font-size: 15px;
-  }
-}
-@media (pointer: coarse) {
-  .hotbar {
-    left: auto;
-    right: auto;
-    left: 50%;
-    bottom: 10px;
-  }
-  .toasts {
-    bottom: 80px;
   }
 }
 
@@ -1383,6 +1329,12 @@ button {
 .chrono.low {
   color: var(--bad);
   border-color: rgba(255, 90, 74, 0.5);
+}
+.hurt-flash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(255, 130, 40, 0.14) 0%, rgba(255, 70, 20, 0.5) 60%, rgba(215, 25, 10, 0.9) 100%);
 }
 .penalty-flash {
   position: fixed;

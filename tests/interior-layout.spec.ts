@@ -260,7 +260,7 @@ test('chaque pièce est rangée : meubles sans chevauchement, passages libres et
       await page.screenshot({ path: `test-results/hub-plant-${map.zone}-${degrees}.png` })
     }
 
-    // The lift's red light keeps breathing, whatever the state of the room.
+    // Rouge et pulsée pendant l'alarme du niveau 1 ; blanche et fixe au niveau 2, une fois la fuite fermée.
     const samples: number[] = []
     for (let i = 0; i < 16; i++) {
       samples.push(await page.evaluate(async (path) => {
@@ -269,7 +269,6 @@ test('chaque pièce est rangée : meubles sans chevauchement, passages libres et
       }, FIBER))
       await page.waitForTimeout(200)
     }
-    // Red and breathing while locked; steady once it works, which is always the case on floor 2.
     const swing = Math.max(...samples) - Math.min(...samples)
     if (map.zone === 1 ? swing < 3 : swing > 0.01) problems.push(`niveau ${map.zone} : lumière de l'ascenseur incorrecte (${samples.join(', ')})`)
     await page.evaluate(({ x, z }) => window.__game.teleportXZ(x, z, Math.PI / 2), { x: hx + 4.5, z: hz })

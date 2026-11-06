@@ -6,7 +6,7 @@ Deux missions indépendantes sont sélectionnables dans le menu : **Station spat
 
 Guides : [solution de la station spatiale](#solution-station) · [plan et repères de la base lunaire](#base-lunaire) · [solution des douze épreuves lunaires](#solution-lunaire).
 
-Le jeu est en 3D à la première personne. Il se joue dans le navigateur, sans installation, sur ordinateur et sur mobile en mode paysage.
+Le jeu est en 3D à la première personne. Il se joue dans le navigateur, sans installation, sur ordinateur uniquement.
 
 ## Lancer le jeu
 
@@ -24,7 +24,7 @@ Ouvrir l'URL publique : `https://royalblue-wolverine-280146.hostingersite.com`. 
 | Nova | Économe : la lampe consomme 35 % de piles en moins |
 | Kenji | Décodeur : pénalités d'erreur divisées par 2 |
 | Inès | Sang-froid : +3 min au chrono |
-| Sam | Endurant : −40 % d'eau, trousses de secours à +60 % de vie |
+| Sam | Endurant : −40 % d'eau, trousses de secours à +30 % de vie |
 | Maya | Souffle long : −25 % d'O₂ |
 
 **Paramètres → Jeu.** Niveau d'aide (Recrue : 1er indice gratuit ; Pilote : 30 s / 60 s ; Commandant : 60 s / 120 s), chronomètre, sous-titres, sauvegarde à chaque énigme, langue FR / EN, qualité, luminosité, sensibilité, champ de vision (70–110°), plein écran et résolution.
@@ -81,25 +81,52 @@ Les textures de surface restent présentes dans tous les modes. Les modes
 et demandent une carte graphique plus puissante. Garder la résolution sur
 **Automatique** permet d'adapter aussi les effets à la charge de rendu.
 
+### Utiliser le GPU dédié du navigateur sous Windows
+
+Si ton ordinateur possède une carte graphique dédiée, tu peux demander à Windows de l’utiliser pour ton navigateur afin d’améliorer les performances du jeu.
+
+#### Via les paramètres de Windows
+
+1. Ouvre les **Paramètres de Windows**.
+2. Va dans **Système → Affichage → Graphiques** (ou **Paramètres graphiques**, selon la version).
+3. Clique sur **Parcourir** ou cherche ton navigateur dans la liste : **Chrome** (`chrome.exe`), **Edge** (`msedge.exe`) ou **Firefox** (`firefox.exe`).
+4. Une fois le navigateur ajouté, clique dessus, puis sur **Options**.
+5. Choisis **Haute performance (GPU dédié)**, puis **Enregistrer**.
+6. Ferme et rouvre le navigateur.
+
+#### Via le panneau NVIDIA
+
+Si tu disposes d’une carte NVIDIA et que cette option est disponible :
+
+1. Fais un clic droit sur le bureau, puis ouvre le **Panneau de configuration NVIDIA**.
+2. Va dans **Gérer les paramètres 3D**.
+3. Dans **Paramètres de programme**, sélectionne ton navigateur ou ajoute-le s’il est absent.
+4. Dans **Processeur graphique préféré**, choisis **Processeur NVIDIA haute performance**.
+5. Clique sur **Appliquer**, puis relance le navigateur.
+
+#### Avec une carte AMD
+
+Selon la version, ouvre **Radeon Settings / AMD Software**, puis la section graphique et attribue à ton navigateur le profil **Haute performance**, si cette option est proposée. Sinon, utilise les paramètres graphiques de Windows décrits ci-dessus. Relance ensuite le navigateur.
+
 ## Commandes
 
-| Action | Clavier (modifiable dans Réglages → Touches) | Mobile (paysage) |
-|---|---|---|
-| Se déplacer | ZQSD / WASD ou flèches (position physique : AZERTY et QWERTY marchent) | Joystick à gauche |
-| Regarder | Souris | Glisser à droite |
-| Courir | Maj | Pousser le joystick à fond |
-| Sauter | Espace | — |
-| S’accroupir | Ctrl | — |
-| Agir | E | Bouton « Agir » |
-| Lampe | F | Bouton « Lampe » |
-| Oxygène, piles, boire | O, R, B | Tablette → Inventaire |
-| Tablette → Inventaire | I (ou touche personnalisée), I / Échap pour fermer | Bouton Inventaire |
-| Sélection d’objet | Molette ou 1 à 9, sans consommer | Toucher une case / flèches de la barre |
-| Utiliser la sélection | X, ou bouton dans l’inventaire | Bouton d’utilisation |
-| Tablette → Plan | Tab | Bouton « Tablette » |
-| Tablette → Journal et indices | H | Onglet « Journal » |
-| Pause | P ou Échap | Bouton « Pause » |
-| Passer une cinématique | Entrée ou bouton « Passer » | Bouton « Passer » |
+| Action | Clavier (modifiable dans Réglages → Touches) |
+|---|---|
+| Se déplacer | ZQSD / WASD ou flèches (position physique : AZERTY et QWERTY marchent) |
+| Regarder | Souris |
+| Courir | Maj |
+| Sauter | Espace |
+| S’accroupir | Ctrl |
+| Agir | E |
+| Lampe | F |
+| Oxygène, piles, boire | O, R, B |
+| Tablette → Inventaire | I (ou touche personnalisée), I / Échap pour fermer |
+| Sélection d’objet | Molette ou 1 à 9, sans consommer |
+| Utiliser la sélection | X, ou bouton dans l’inventaire |
+| Tablette → Plan | Tab |
+| Tablette → Journal et indices | H |
+| Pause | P ou Échap |
+| Passer une cinématique | Entrée ou bouton « Passer » |
 
 **Regard.** La souris reste verrouillée dans la vue pendant le jeu. Elle se libère pour les interfaces (tablette, documents, énigmes, pause), puis est reprise à leur fermeture. Si le navigateur exige une nouvelle interaction, cliquer dans la vue pour la reprendre. Échap permet toujours de mettre en pause. Le geste Alt + glisser à deux doigts sur le pavé tactile reste disponible (réglage activé par défaut).
 
@@ -146,13 +173,15 @@ Le classement est séparé par difficulté.
 
 ### Imprévus (zones 1 à 3)
 
-- **Coupure de courant** (32 s) : l’éclairage normal s’éteint et les gyrophares rouges prennent le relais. Les coupures locales des couloirs durent 16 s ; la lampe reste utilisable.
+- **Coupure de courant** : tout le niveau 2 est sans courant dès l'arrivée, jusqu'à la réparation du disjoncteur. Une coupure imprévue de 32 s peut aussi survenir. Les lampes s'éteignent, seuls les gyrophares rouges restent allumés, et l'ascenseur reste utilisable. La lampe torche devient indispensable.
+- **Extérieur** : par les vitres, on voit la station inspirée de l'ISS : l'autre niveau, relié par l'ascenseur (le niveau 1 est au-dessus du niveau 2), les panneaux solaires du plan de la tablette, la poutre, les radiateurs et la fusée amarrée.
+- **Alarme** : les gyrophares tournent, lumières allumées, tant que le sas n'est pas pressurisé (niveau 1), tant que le gaz fuit (niveau 2), pendant une micro-fuite et dans les 5 dernières minutes avant l'impact des météorites. Pendant une alarme ou une coupure, l'ascenseur passe au rouge ; sinon il reste blanc.
 - **Micro-fuite** (28 s) : l'O₂ baisse 2,2 fois plus vite. Le ruban adhésif (objet de survie, Tablette → Inventaire → Colmater) l'arrête tout de suite.
 
 ### Succès et réplique fantôme
 
 - **Succès.** Il y en a 10 : partie terminée, sans indice, sans faute, moins de 10 min, 10 objets de survie, O₂ jamais sous 15 %, échantillons gardés, Survie terminée, fuite colmatée, station explorée en entier. Ils sont gardés dans le compte et visibles depuis le menu **Succès**.
-- **Réplique fantôme.** Le parcours du meilleur temps de ta difficulté est rejoué en hologramme orange, en même temps que toi. Il se désactive dans Réglages.
+- **Réplique fantôme.** Le parcours du meilleur temps de ta difficulté est rejoué en hologramme orange, en même temps que toi. Désactivée par défaut, elle s'active dans Réglages.
 
 - **Chronomètre.** La partie dure au plus 30 minutes, avec le temps restant affiché en haut. À zéro, c'est l'échec : la station est perdue.
 - **Erreurs.** Une mauvaise réponse a une conséquence visible : flash rouge et pénalité de temps.
@@ -168,7 +197,7 @@ Le classement est séparé par difficulté.
   - Oxygène : −0,21 %/s, ×1,5 en zone 2 tant que le gaz fuit. Une bouteille d'O₂ ajoute 55 % : on ne peut la brancher qu'à 45 % ou moins, et elle se branche seule à 15 %. À 0, la partie est perdue.
   - Lampe : −0,20 %/s quand elle est allumée. À 0, elle s'éteint, et on ne peut plus lire ni ramasser dans le noir.
   - Eau : −0,11 %/s. Une poche ajoute 50 % et se boit seule à 15 %. À 0, la partie est perdue.
-  - Vie : le gaz de la conduite cassée (zone 2) enlève 75 % à chaque contact. Une trousse de secours rend 40 % (60 % avec Sam) et se déclenche seule à 15 %. À 0, la partie est perdue.
+  - Vie : le gaz de la conduite cassée (zone 2) enlève 40 % à chaque passage. Une trousse de secours rend 20 % (30 % avec Sam) et se déclenche seule à 15 %. À 0, la partie est perdue.
   - Couverture de survie : sur Terre, sans elle, tu perds 0,1 % de vie par seconde et tu avances 20 % moins vite.
 - **Score.** `6000 + 3 × (secondes restantes) − 150 × indices − 100 × erreurs + 60 × objets de survie (+300 si les échantillons sont gardés)`.
 - **Classement.** Il garde le meilleur temps de chaque joueur, pénalités comprises.
@@ -176,7 +205,7 @@ Le classement est séparé par difficulté.
 
 ## Scénario de la station spatiale
 
-1. **Prologue** (passable) : 2041, base lunaire Selene-7. Le labo de Maya vient de trouver de l'eau sous le pôle Sud. Une micro-météorite frappe la station.
+1. **Prologue** (passable) : la station Selene-7, en orbite lunaire. Le labo de Maya vient de trouver de l'eau sous le pôle Sud. Une micro-météorite frappe la station.
 2. **Zone 1 · Quartiers d'équipage.** Visite cinématique de la zone. Briefing holographique de la commandante. Il faut sortir du dortoir et pressuriser le sas.
 3. **Zone 2 · Labo & machinerie.** Il faut couper la fuite de gaz, réparer le disjoncteur, faire un choix d'énergie, puis décoder le programme de lancement.
 4. **Zone 3 · Fusée Hermès.** Il faut trouver la cellule, planifier le pré-vol, prendre une décision sur les échantillons et lancer la séquence. Suivent le décollage et la rentrée atmosphérique.
@@ -207,7 +236,7 @@ Le classement est séparé par difficulté.
 À l’arrivée, tout l’étage fonctionne sur les alarmes rouges : plafonniers, écrans de décor et éclairage normal sont coupés. La lampe torche reste utilisable. La réparation du disjoncteur rétablit le réseau ; l’éclairage de la machinerie dépend ensuite du choix d’énergie ci-dessous.
 
 1. Prendre le **fusible** dans le labo (nord-ouest) et la **clé à molette** dans la serre (nord).
-2. Fermer la **vanne de gaz** dans le couloir, à l'est. Le gaz bloque l'accès au disjoncteur.
+2. Traverser la fuite de gaz dans le couloir, à l'est (−40 % de vie à chaque passage), puis fermer la **vanne de gaz**, de l'autre côté. Prends la clé avant de passer. Le disjoncteur reste inutilisable tant que la vanne n'est pas fermée.
 3. **Disjoncteur** (nord-est) : y poser le fusible.
 4. **Choix stratégique (gestion de projet).** Le réseau fournit 3 unités pour 4 systèmes. Démarrer le **sas** d'abord, puis le **terminal**. Lancer le terminal avant le sas fait sauter le disjoncteur : les quatre systèmes s'éteignent (−20 s). Ensuite, choisir **Recyclage O₂** ou **Lumières de la machinerie**.
 5. **Énigme 3, algorithmique.** Le terminal de la machinerie affiche :
@@ -488,7 +517,7 @@ Les trois premières valeurs dépendent de la partie. Les retrouver dans **Table
   - fond 3D de la base lunaire Selene-7 derrière la connexion, le menu et les paramètres.
 
   Pour régénérer les ressources : `npm run assets` (télécharge dans `asset-src/`, ignoré par git, puis écrit dans `public/assets/`).
-- **Cinématiques.** Chaque zone s'ouvre sur une scène découpée en plans (réveil au sol, travellings, plans serrés, plan large sur le personnage) : bandes cinémascope 2,39:1, grain de pellicule, bords d'objectif adoucis. Sur Terre, la capsule Hermès traverse le ciel en feu et s'écrase dans la clairière (traînée, souffle, colonne de fumée), puis le personnage se relève.
+- **Cinématiques.** Elles montrent les lieux sans le personnage : survol de la station et de ses deux étages, couloirs et pièces (aucune scène à l'arrivée au niveau 2) ; désarrimage de l'Hermès, retournement et départ vers la Terre ; sauvetage final avec hélicoptères de presse, police, ambulance, pompiers et CosmoTrap ; mort en vue subjective (vision en tunnel, hallucinations, clignements, chute, GAME OVER et sa cause). Plans découpés : bandes cinémascope 2,39:1, grain de pellicule, bords d'objectif adoucis. Sur Terre, la capsule Hermès traverse le ciel en feu et s'écrase dans la clairière (traînée, souffle, colonne de fumée), puis le personnage se relève.
 - **Post-traitement.** ACES, N8AO, bloom, étalonnage « clair-obscur », aberration chromatique et SMAA.
 - **Qualité.** 4 niveaux : Basse, Moyenne, Haute, Ultra. Le niveau est détecté automatiquement selon la carte graphique, et la résolution baisse seule si les images par seconde chutent.
 - **Audio.** Tout est synthétisé en Web Audio : bruitages et musique adaptative. Le tempo et le cœur accélèrent quand l'O₂ baisse et quand le chrono s'épuise. Chaque zone a plusieurs morceaux qui changent toutes les 2 à 3 min en fondu, dont des thèmes « orgue cosmique » originaux (orgue à tuyaux, tic-tac d'horloge, ostinato, grande réverbération). Les voix et bruitages sont de vrais enregistrements ElevenLabs (`public/audio`, 87 fichiers) : une voix par rôle (narrateur, commandante, voix intérieure masculine ou féminine selon le personnage), en français et en anglais. La voix de synthèse du navigateur est désactivée par défaut (Paramètres → Audio).
@@ -508,28 +537,60 @@ Les trois premières valeurs dépendent de la partie. Les retrouver dans **Table
 
   Les mots de passe sont hachés avec `password_hash`, la session passe par un jeton porteur.
 
-### Déploiement sur Hostinger
+### Mise en ligne sur Hostinger
 
-1. Lancer `npm run build`, puis envoyer **le contenu de `dist/`** dans `public_html/`. Il contient `api/` et ses `.htaccess`.
-2. Créer une base MySQL dans hPanel, puis `public_html/api/config.local.php` :
+Le site est en ligne sur `https://royalblue-wolverine-280146.hostingersite.com`.
 
-   ```php
-   <?php return ['driver' => 'mysql', 'host' => 'localhost', 'name' => 'u123_cosmo', 'user' => 'u123_cosmo', 'pass' => 'mot-de-passe'];
-   ```
+**Mise à jour automatique à chaque push sur main.** Il n'y a rien à faire.
 
-   Les tables sont créées au premier appel.
-3. **Optionnel, connexion Google.** Créer un identifiant OAuth « Application Web » dans Google Cloud. Le mettre dans `config.local.php` (`'google_client_id' => '…'`) et dans `.env` (`VITE_GOOGLE_CLIENT_ID=…`) avant le build. Sans cette configuration, le bouton Google affiche un message et la connexion par e-mail reste disponible.
+1. Le workflow GitHub `.github/workflows/deploy.yml` vérifie les types et compile le jeu.
+2. Il envoie `dist/` sur la branche `hostinger` du dépôt (le site compilé, rien d'autre).
+3. Sur Hostinger, une tâche Cron lance `api/deploy.php` toutes les 5 minutes. Elle est configurée dans hPanel → Avancé → Tâches Cron.
+4. `deploy.php` compare la dernière version de la branche `hostinger` avec celle en ligne. Si elle est nouvelle, il la télécharge depuis GitHub et remplace les fichiers de `public_html`. Sinon, il ne fait rien.
+
+`https://…/version.json` indique le commit en ligne. Le site est donc à jour au plus 5 minutes après la fin du workflow (onglet Actions de GitHub, 2 à 3 minutes). Il n'y a ni FTP ni mot de passe, et aucun secret GitHub n'est nécessaire.
+
+**Mise à jour immédiate depuis un poste :**
+
+```bash
+npm run deploy
+```
+
+La commande fait la même chose, puis demande au serveur d'installer la version tout de suite, sans attendre le Cron. Elle a besoin du fichier `.deploy-token` à la racine du projet. Ce fichier n'est pas versionné : demander son contenu à Simon. Le même jeton est rangé sur le serveur hors du dossier web, dans `cosmotrap-data/deploy-token.txt`. Sans ce fichier, la commande envoie la branche et le Cron fait le reste.
+
+**Base de données.** Il n'y a rien à configurer. Sans `config.local.php`, l'API crée une base SQLite dans `cosmotrap-data/`, à côté de `public_html` et donc jamais servie par le web. Les tables sont créées et migrées automatiquement, une seule fois par version du schéma. `https://…/api/health.php` indique si la base répond.
+
+Pour passer sur MySQL, créer une base dans hPanel (Bases de données), puis le fichier `public_html/api/config.local.php`. Il n'est jamais écrasé par une mise à jour.
+
+```php
+<?php return ['driver' => 'mysql', 'host' => 'localhost', 'name' => 'u123_cosmo', 'user' => 'u123_cosmo', 'pass' => 'mot-de-passe'];
+```
+
+Les comptes existants restent alors dans l'ancienne base SQLite : il faut changer de base avant d'ouvrir le jeu au public.
+
+**Ce que règlent les `.htaccess` :**
+
+- `index.html` passe avant la page « Bientôt disponible » de Hostinger (`default.php`) ;
+- types des fichiers `.glb` et `.hdr`, compression, cache d'un an sur les fichiers à empreinte ;
+- l'en-tête `Authorization` (jeton de session) est transmis à PHP ;
+- `config.php`, `config.local.php` et `db.php` ne sont jamais servis.
+
+**Connexion.** Les comptes utilisent une adresse e-mail et un mot de passe. La connexion accepte aussi le pseudo. Aucune configuration OAuth Google n’est nécessaire.
+
+**Mot de passe oublié.** L'e-mail part avec la fonction PHP `mail()`. Sur le domaine temporaire `hostingersite.com`, il peut arriver en spam ou ne pas partir. Avec un vrai nom de domaine, créer une adresse e-mail dans hPanel.
 
 ### Tests
 
 ```bash
-npx playwright test
+PLAYWRIGHT_SOFTWARE=1 npx playwright test
 ```
+
+`PLAYWRIGHT_SOFTWARE=1` active le rendu WebGL logiciel. Sans lui, le navigateur de test sans carte graphique affiche « Problème d’affichage 3D » et la plupart des tests échouent.
 
 `tests/playthrough.spec.ts` crée un compte et joue toute la partie en se téléportant devant chaque objectif. Il résout les énigmes par l'interface et vérifie les verrous :
 
 - l'ascenseur reste verrouillé avant la pressurisation ;
-- le gaz bloque l'accès au disjoncteur ;
+- le gaz brûle à chaque passage : 40 % de vie pour atteindre la vanne et le disjoncteur ;
 - le sas reste fermé tant que le terminal n'est pas décodé ;
 - la rivière est infranchissable avant le pont.
 

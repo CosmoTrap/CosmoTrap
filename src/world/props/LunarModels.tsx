@@ -3,17 +3,17 @@ import { useGame } from '../../game/state'
 import { taskById } from '../../game/lunar/puzzles'
 import { useMats } from '../materials'
 import { Box, Screen } from './models'
+import { TerminalBody } from './EntModels'
 
 export function LunarTerminal({ id }: { id: string }) {
   const m = useMats(), key = id.slice(2), solved = useGame(s => s.lunar.solved.includes(key))
   const task = taskById(key)
-  return <group>
-    <Box s={[1.35, .12, .65]} p={[0, .06, 0]} m={m.metal('#45545f')} />
-    <Box s={[.84, .95, .42]} p={[0, .55, 0]} m={m.painted('#626c78', .45, .6)} />
-    <Box s={[1.3, .72, .16]} p={[0, 1.3, -.1]} m={m.painted('#303a47', .35, .65)} />
-    <Screen w={1.16} h={.56} p={[0, 1.31, -.01]} lines={['SELENE-7 // ' + (task?.room.toUpperCase() ?? 'NAV'), task?.name ?? 'POSTE', solved ? 'SYSTEME VALIDE' : 'INTERVENTION REQUISE', 'E : OUVRIR LE TERMINAL']} fg={solved ? '#7de8ba' : '#ffbd8b'} intensity={.9} />
-    <Box s={[1.25, .08, .55]} p={[0, .95, .2]} m={m.metal('#606e79', .45)} />
-    <RigidBody type="fixed" colliders={false}><CuboidCollider args={[.68, .87, .35]} position={[0, .87, .04]} /></RigidBody>
+  // Same diagnostic desk as the station's machine room, centred on its placement and facing +z.
+  return <group position={[0, 0, -.3]}>
+    <TerminalBody lit={solved}>
+      <Screen w={.94} h={.57} lines={['SELENE-7 // ' + (task?.room.toUpperCase() ?? 'NAV'), task?.name ?? 'POSTE', solved ? 'SYSTEME VALIDE' : 'INTERVENTION REQUISE', 'E : OUVRIR LE TERMINAL']} fg={solved ? '#7de8ba' : '#ffbd8b'} intensity={.9} />
+    </TerminalBody>
+    <RigidBody type="fixed" colliders={false}><CuboidCollider args={[.7, .9, .32]} position={[0, .9, .3]} /></RigidBody>
   </group>
 }
 export function LunarNote({ id }: { id: string }) {

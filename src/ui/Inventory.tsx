@@ -16,6 +16,9 @@ function actionLabel(item: ItemId, held: ItemId | null, lampOn: boolean) {
   return fr.items[item].action ?? (held === item ? t.unequip : t.equip)
 }
 
+/** Objects shown at once in the bar; the others are reached with the arrows or the wheel. */
+const HOTBAR_SLOTS = 12
+
 /** The same selection is shared by the wheel, keyboard, controller and full inventory. */
 export function Hotbar() {
   const inv = useGame((s) => s.inv)
@@ -30,32 +33,38 @@ export function Hotbar() {
   const items = hotbarItems()
   const selected = selectedInventoryItem()
   const index = selected ? items.indexOf(selected) : 0
-  const start = Math.max(0, Math.min(index - 3, items.length - 7))
+  const start = Math.max(0, Math.min(index - 5, items.length - HOTBAR_SLOTS))
+  const shown = items.slice(start, start + HOTBAR_SLOTS)
+  const wheelHint = pad ? `${padButtonName(padType, padKeys.previousItem)} / ${padButtonName(padType, padKeys.nextItem)}` : t.wheel
   return (
     <section className="quick-inventory" data-testid="hotbar" data-hotbar aria-label={t.title}>
       <div className="quick-title">
-        <span data-testid="selected-item-name">{selected ? fr.items[selected].name : t.empty}</span>
-        {items.length > 0 && <small>{index + 1} / {items.length}</small>}
-      </div>
-      {items.length > 0 && <div className="quick-slots">
-        <button type="button" className="quick-arrow" aria-label={t.previous} onClick={() => cycleItem(-1)}>‹</button>
-        {items.slice(start, start + 7).map((item, i) => <button type="button" key={item}
-          className={`slot ${selected === item ? 'selected' : ''}`} data-testid={`hotbar-${item}`}
-          aria-label={`${fr.items[item].name} ×${inv[item]}`} aria-pressed={selected === item}
-          title={fr.items[item].name} onClick={() => selectItem(item)}>
-          <span className="num">{start + i < 9 ? start + i + 1 : ''}</span>
-          <ItemIcon item={item} />
-          <span className="cnt">×{inv[item]}</span>
-          {(held === item || (item === 'lamp' && lampOn)) && <i className="quick-equipped" />}
-        </button>)}
-        <button type="button" className="quick-arrow" aria-label={t.next} onClick={() => cycleItem(1)}>›</button>
-      </div>}
-      <div className="quick-actions">
-        <button type="button" onClick={openInventory} data-testid="open-inventory"><kbd>{pad ? padButtonName(padType, padKeys.inventory) : labelFor(keys, 'inventory')}</kbd> {t.title}</button>
-        {selected && canUseItem(selected) && <button type="button" data-testid="hotbar-use" onClick={useSelectedItem}>
+        <span className="quick-name" data-testid="selected-item-name">{selected ? fr.items[selected].name : t.empty}</span>
+        {items.length > 1 && <small>{index + 1} / {items.length}</small>}
+        {selected && canUseItem(selected) && <button type="button" className="quick-use" data-testid="hotbar-use" onClick={useSelectedItem}>
           <kbd>{pad ? padButtonName(padType, padKeys.useSelected) : labelFor(keys, 'useSelected')}</kbd> {actionLabel(selected, held, lampOn)}
         </button>}
-        <span className="quick-wheel">{pad ? `${padButtonName(padType, padKeys.previousItem)} / ${padButtonName(padType, padKeys.nextItem)}` : t.wheel}</span>
+      </div>
+      <div className="quick-tray">
+        {items.length > HOTBAR_SLOTS && <button type="button" className="quick-arrow" aria-label={t.previous} title={wheelHint} onClick={() => cycleItem(-1)}>‹</button>}
+        <div className="quick-slots">
+          {shown.map((item, i) => <button type="button" key={item}
+            className={`slot kind-${ITEM_KIND[item]} ${selected === item ? 'selected' : ''}`} data-testid={`hotbar-${item}`}
+            aria-label={`${fr.items[item].name} ×${inv[item]}`} aria-pressed={selected === item}
+            title={fr.items[item].name} onClick={() => selectItem(item)}>
+            {start + i < 9 && <span className="num">{start + i + 1}</span>}
+            <ItemIcon item={item} />
+            {(inv[item] ?? 0) > 1 && <span className="cnt">{inv[item]}</span>}
+            {(held === item || (item === 'lamp' && lampOn)) && <i className="quick-equipped" />}
+          </button>)}
+          {/* Free places keep the bar's width steady as items are picked up. */}
+          {Array.from({ length: Math.max(0, 5 - shown.length) }, (_, i) => <span key={i} className="quick-free" aria-hidden />)}
+        </div>
+        {items.length > HOTBAR_SLOTS && <button type="button" className="quick-arrow" aria-label={t.next} title={wheelHint} onClick={() => cycleItem(1)}>›</button>}
+        <button type="button" className="quick-bag" data-testid="open-inventory" onClick={openInventory} title={t.title} aria-label={t.title}>
+          <svg viewBox="0 0 24 24" aria-hidden><path d="M9 7V5.2a3 3 0 0 1 6 0V7M6 10.5A3.5 3.5 0 0 1 9.5 7h5a3.5 3.5 0 0 1 3.5 3.5V21H6zM9 14.5h6V18H9zM9 11h6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" /></svg>
+          <kbd>{pad ? padButtonName(padType, padKeys.inventory) : labelFor(keys, 'inventory')}</kbd>
+        </button>
       </div>
     </section>
   )

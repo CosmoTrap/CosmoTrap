@@ -1,5 +1,11 @@
 import { Howl, Howler } from 'howler'
 import { GenerativeMusic, type ThemeId } from './music'
+/**
+ * How long a line takes to say, read off the recordings (about 15 characters a second) with a margin
+ * for the browser's own voice, a little slower. Cinematics wait this long before the next line.
+ */
+export const speechSeconds = (text: string) => text.length / 12.5 + 0.8
+
 import { SFX, heart, makeImpulse, makeNoise, startLoop, type LoopName, type SfxName, type SynthCtx } from './synth'
 
 // Gestionnaire audio : fichiers (howler, .ogg + .m4a) si présents dans public/audio/manifest.json,
@@ -133,6 +139,8 @@ class AudioManager {
     this.voiceBus.gain.setTargetAtTime(this.vols.voice, t, 0.05)
     Howler.volume(1)
     for (const h of this.howls.values()) h.volume(this.vols.sfx)
+    // A line or a music track already playing follows the slider at once, not only from the next one.
+    this.voiceHowl?.volume(this.vols.voice)
     for (const [key, l] of this.loops) {
       if (!key.startsWith('amb')) continue
       if (l.howl && l.hid != null) l.howl.volume((l.vol ?? 1) * this.vols.sfx * this.ambience, l.hid)
@@ -365,7 +373,27 @@ class AudioManager {
   browserVoice = false
 
   /** meilleure voix française disponible (voix « naturelles » en priorité) */
+  private chosenVoice: SpeechSynthesisVoice | undefined
+  /**
+   * One voice for every line. The browser lists its voices late: the first line used to be said by its default
+   * voice and the next ones by the voice picked once the list had arrived, so the voice changed mid-scene.
+   */
   private pickVoice() {
+    if (this.chosenVoice) return this.chosenVoice
+    const v = this.bestVoice()
+    if (v) this.chosenVoice = v
+    return v
+  }
+  /** Chooses the voice as soon as the browser lists them, before the first line is said. */
+  prepareVoice() {
+    try {
+      this.pickVoice()
+      speechSynthesis.addEventListener('voiceschanged', () => this.pickVoice())
+    } catch {
+      /* synthèse vocale indisponible */
+    }
+  }
+  private bestVoice() {
     const vs = speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith('fr'))
     const score = (v: SpeechSynthesisVoice) =>
       (/natural|neural|online/i.test(v.name) ? 10 : 0) + (/google/i.test(v.name) ? 6 : 0) + (/premium|enhanced|amélie|amelie|thomas|audrey|aurélie/i.test(v.name) ? 5 : 0) + (v.lang === 'fr-FR' ? 2 : 0) + (v.localService ? 0 : 1)
@@ -376,7 +404,8 @@ class AudioManager {
   /** personnage féminin (choix de la voix intérieure) */
   female = false
 
-  speak(text: string, opts: { radio?: boolean; rate?: number; id?: string } = {}) {
+  /** `narration`: a cinematic's line, read by the browser's voice when there is no recording, whatever the setting. */
+  speak(text: string, opts: { radio?: boolean; rate?: number; id?: string; narration?: boolean } = {}) {
     if (this.vols.voice <= 0.01) return
     this.stopSpeech()
     const pre = 'voice_'
@@ -390,7 +419,7 @@ class AudioManager {
       if (opts.radio) this.sfx('radio_tune', { vol: 0.5 })
       return
     }
-    if (!('speechSynthesis' in window) || !this.browserVoice) return
+    if (!('speechSynthesis' in window) || !(this.browserVoice || opts.narration)) return
     try {
       const u = new SpeechSynthesisUtterance(text)
       u.lang = 'fr-FR'
@@ -418,3 +447,4 @@ class AudioManager {
 }
 
 export const audio = new AudioManager()
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) audio.prepareVoice()

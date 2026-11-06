@@ -101,15 +101,17 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
 
   // ——— Zone 2 ———
   await waitIdle(page, 2)
-  // le disjoncteur est inaccessible avant la vanne : le gaz bloque le couloir
+  // le gaz se traverse, au prix d'une brûlure de 40 % à chaque passage
   await g(page, 'teleportXZ', 51, 37, -Math.PI / 2)
   await page.waitForTimeout(600)
   await holdKey(page, 'w', 2500)
-  // Steam starts at x=56; capsule radius 0.30 + controller skin 0.02.
-  expect((await st(page)).pos[0]).toBeLessThan(55.75)
-  expect((await st(page)).pos[0]).toBeGreaterThan(51.3)
+  expect((await st(page)).pos[0]).toBeGreaterThan(54.6)
+  expect((await st(page)).res.hp).toBe(60)
   await act(page, 'fuse')
   await act(page, 'wrench')
+  // le disjoncteur refuse de servir tant que la vanne n'est pas fermée
+  expect(await g(page, 'interact', 'breaker')).toBe(false)
+  expect((await st(page)).flags.power).toBeFalsy()
   await act(page, 'steamValve')
   expect((await st(page)).flags.steamFixed).toBe(true)
   await act(page, 'breaker')
@@ -127,6 +129,10 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
   await page.getByTestId('algo-load').click()
   await expect.poll(async () => (await st(page)).flags.readTerminal).toBe(true)
   expect(await g(page, 'doorOpen', 'door_dock')).toBe(true)
+  // le terminal décodé ouvre son document (séquence de lancement) : on le referme comme un joueur
+  await expect(page.getByTestId('note')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('note')).toHaveCount(0)
   await page.waitForTimeout(1200)
   await page.screenshot({ path: 'test-results/zone2.png' })
   await act(page, 'dockExit')
@@ -161,11 +167,20 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
   await page.waitForTimeout(800)
   await holdKey(page, 'w', 3000)
   expect((await st(page)).pos[2]).toBeGreaterThan(-18.9)
+  // Tombé dans la rivière : on est ramené sur la berge sèche, jamais coincé entre les rives.
+  await g(page, 'teleportXZ', -12, -22, 0, -2)
+  await expect.poll(async () => Math.abs((await st(page)).pos[2] + 22), { timeout: 6000 }).toBeGreaterThan(4)
   await act(page, 'capsule')
   expect((await st(page)).notes).toContain('manual')
   await act(page, 'antenna')
+  // Sans les trois planches du tablier, la corde ne suffit pas.
+  await act(page, 'bridge')
+  expect((await st(page)).flags.bridge).toBeFalsy()
+  for (const id of ['plank_1', 'plank_2', 'plank_3']) await act(page, id)
+  expect((await st(page)).inv.plank).toBe(3)
   await act(page, 'bridge')
   expect((await st(page)).flags.bridge).toBe(true)
+  expect((await st(page)).inv.plank).toBeUndefined()
   await act(page, 'beacon')
   const radioPenalty = (await st(page)).penalty
   await page.getByTestId('radio-emit').click()
@@ -181,6 +196,9 @@ test('partie complète, de la station à la Terre', async ({ page, request }) =>
   await page.screenshot({ path: 'test-results/zone4.png' })
   // l'API refuse les parties de moins de 2 min (anti-triche) : on simule un temps réaliste
   await g(page, 'set', { playTime: 9 * 60 + 12 })
+  // N'importe où sur l'hélisurface, quelle que soit la direction du regard.
+  await g(page, 'teleportXZ', 10.5, -57.5, Math.PI / 2)
+  await expect.poll(() => page.evaluate(() => window.__game.live.aimed)).toBe('helipad')
   await act(page, 'helipad')
   await page.waitForFunction(() => window.__game.state().cine === 'heli')
   await page.waitForTimeout(1500)

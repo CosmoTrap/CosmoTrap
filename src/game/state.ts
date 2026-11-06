@@ -28,7 +28,7 @@ export const ability = () => {
     errorPenalty: c === 'kenji' ? 0.5 : 1,
     water: c === 'sam' ? 0.6 : 1,
     o2: c === 'maya' ? 0.75 : 1,
-    medkitHeal: c === 'sam' ? 60 : 40,
+    medkitHeal: c === 'sam' ? 30 : 20,
   }
 }
 /** vitesse sur Terre sans couverture de survie (0,8 = 20 % plus lent) */
@@ -38,6 +38,8 @@ export const AUTOSAVE_EVERY = 30
 
 export interface Settings {
   quality: Quality
+  /** Chosen by the player: the adaptive quality then never lowers it. */
+  qualityLocked?: boolean
   sensitivity: number
   invertY: boolean
   /** volume général (multiplie musique, effets et voix) */
@@ -62,7 +64,8 @@ export interface Settings {
   padType: PadType
   showFps: boolean
   /** afficher la réplique fantôme du record */
-  ghost: boolean
+  /** Named anew so that the old setting, saved as on, no longer applies: the replay is now opt-in. */
+  ghostReplay: boolean
   /** hauteur de rendu en pixels, ou automatique */
   resolution: 'auto' | number
   /** personnage choisi dans le profil (invités : local) */
@@ -105,12 +108,17 @@ export const live = {
   /** décor extérieur pendant les cinématiques (décollage, rentrée) */
   ext: { y: 0, plasma: 0 },
   /** contrôle caméra par une cinématique */
-  camOverride: null as null | { pos: [number, number, number]; look: [number, number, number]; fov?: number },
+  camOverride: null as null | { pos: [number, number, number]; look: [number, number, number]; fov?: number; roll?: number },
+  /** collapse in progress (0..1): the picture narrows, loses its colour; hallucinations at the edges */
+  faint: 0,
+  hallu: 0,
   bob: 0,
   /** fondu au noir (0..1) et flash blanc (0..1) pilotés par les cinématiques */
   fade: 0,
   flash: 0,
   penaltyFlash: 0,
+  /** brûlure en cours (1 au coup, retombe à 0) : flash, flou et secousse */
+  hurt: 0,
   card: null as null | { title: string; sub: string; a: number },
   countdown: null as null | string,
   /** cases explorées (brouillard de la mini-carte) : « zone:x,z » */
@@ -274,6 +282,8 @@ export interface GameState extends GameData {
   creditsOpen: boolean
   tp: { pos: [number, number, number]; yaw: number; n: number } | null
   loading: number // 0..1, 1 = prêt
+  /** pourcentage affiché pendant le chargement d'une zone ou d'une carte */
+  loadProgress: number
   settings: Settings
   subtitle: string | null
   shake: number
@@ -291,35 +301,9 @@ export interface GameState extends GameData {
 
 const SETTINGS_KEY = 'cosmotrap.settings.v1'
 
-export function isMobile() {
-  return typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches
-}
-
-/** estimation de la puissance graphique pour choisir la qualité par défaut */
-export function detectQuality(): Quality {
-  if (isMobile()) return 'low'
-  try {
-    const c = document.createElement('canvas')
-    const gl = c.getContext('webgl2') as WebGL2RenderingContext | null
-    if (!gl) return 'low'
-    const ext = gl.getExtension('WEBGL_debug_renderer_info')
-    const r = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)).toLowerCase()
-    const cores = navigator.hardwareConcurrency || 4
-    if (/swiftshader|llvmpipe|software|basic render/.test(r)) return 'low'
-    if (/rtx|radeon rx [67]|rx 7|apple m[2-9] (pro|max|ultra)|apple m[3-9]/.test(r)) return 'ultra'
-    if (/apple m|apple gpu|geforce gtx 1[0-9]|rx 5|arc a/.test(r)) return 'high'
-    // CPU thread count is not a measure of integrated graphics performance.
-    if (/uhd|intel.*hd graphics|mali|adreno/.test(r)) return 'low'
-    if (/intel|iris/.test(r)) return 'medium'
-    return cores >= 8 ? 'high' : 'medium'
-  } catch {
-    return 'medium'
-  }
-}
-
 function loadSettings(): Settings {
   const def: Settings = {
-    quality: detectQuality(),
+    quality: 'medium',
     sensitivity: 1,
     invertY: false,
     master: 0.8,
@@ -338,8 +322,8 @@ function loadSettings(): Settings {
     pad: DEFAULT_PAD,
     padType: 'xbox',
     showFps: false,
-    ghost: true,
-    resolution: 'auto',
+    ghostReplay: false,
+    resolution: 1080,
     character: 'nova',
     map: 'base',
     difficulty: 'astronaut',
@@ -398,6 +382,7 @@ export const useGame = create<GameState>((set) => ({
   creditsOpen: false,
   tp: null,
   loading: 1,
+  loadProgress: 0,
   settings: loadSettings(),
   subtitle: null,
   shake: 0,
@@ -572,6 +557,7 @@ export function normalizeSave(d: any): SaveFile | null {
       solved: Array.isArray(l?.solved) ? l.solved.filter((x: unknown) => typeof x === 'string') : [],
       drafts: l?.drafts && typeof l.drafts === 'object' ? l.drafts : {}, current: null }
   }
+  saved.hintsShown = Array.isArray(d.hintsShown) ? d.hintsShown.filter((x: unknown) => typeof x === 'string') : []
   if (!Array.isArray(d.valveStart) || d.valveStart.length !== 9)
     saved.valveStart = Array.isArray(saved.valves) && saved.valves.length === 9 ? [...saved.valves] : [...saved.valveStart]
   const colors = ['blue', 'yellow', 'red', 'green']
@@ -601,7 +587,7 @@ export function clearSave() {
   }
 }
 
-/** plein écran (avec repli Safari) ; sur mobile, verrouille aussi le paysage */
+/** plein écran (avec repli Safari) */
 export async function toggleFullscreen() {
   const d = document as any
   const el = document.documentElement as any
@@ -610,7 +596,6 @@ export async function toggleFullscreen() {
       await (document.exitFullscreen?.() ?? d.webkitExitFullscreen?.())
     } else {
       await (el.requestFullscreen?.({ navigationUI: 'hide' }) ?? el.webkitRequestFullscreen?.())
-      await (screen.orientation as any)?.lock?.('landscape').catch?.(() => {})
     }
   } catch {
     /* refusé par le navigateur */

@@ -81,12 +81,13 @@ test('une coupure imprévue éteint les plafonniers et allume les gyrophares rou
     } finally { Math.random = random }
   })
   expect(await page.evaluate(() => window.__game.state().event?.kind)).toBe('blackout')
-  await page.waitForFunction(() => (window as any).testScene.getObjectByName('room-light:couloir').intensity === 0)
+  // Pendant la coupure, seuls les gyrophares et le rouge de secours éclairent ; l'alarme du niveau 1 continue ensuite, lampes rallumées.
+  await page.waitForFunction(() => (window as any).testScene.getObjectByName('room-light:couloir').intensity < 4)
   await page.waitForFunction(() => (window as any).testScene.getObjectByName('alert-beam:0').intensity > 0)
   await page.evaluate(() => window.__game.drain(33))
   expect(await page.evaluate(() => window.__game.state().event)).toBeNull()
-  await page.waitForFunction(() => (window as any).testScene.getObjectByName('room-light:couloir').intensity > 10)
-  await page.waitForFunction(() => (window as any).testScene.getObjectByName('alert-beam:0').intensity === 0)
+  await page.waitForFunction(() => (window as any).testScene.getObjectByName('room-light:couloir').intensity > 6)
+  await page.waitForFunction(() => (window as any).testScene.getObjectByName('alert-beam:0').intensity > 0)
 })
 
 test('une fois l’ascenseur déverrouillé, plus aucune coupure régulière ni alarme, aux deux étages', async ({ page }) => {
@@ -129,7 +130,7 @@ test('passer après impact efface immédiatement le flou et toutes les particule
   await expect(page.getByTestId('scene-loading')).toBeHidden()
 })
 
-test('le niveau 1 reste en alerte, lumières éteintes, jusqu’à sa dernière énigme, dortoir compris', async ({ page }) => {
+test('le niveau 1 reste en alerte, lumières allumées, jusqu’à sa dernière énigme, dortoir compris', async ({ page }) => {
   await guest(page)
   await page.evaluate(() => window.__game.start())
   await ready(page)
@@ -140,9 +141,11 @@ test('le niveau 1 reste en alerte, lumières éteintes, jusqu’à sa dernière 
       panel: s.getObjectByName('ceiling-light:dortoir').material.emissiveIntensity }
   })
   await page.waitForFunction(() => window.__game.live.roomId === 'dortoir')
-  await expect.poll(look).toEqual({ red: 48, light: 0, panel: 0 })
+  await expect.poll(async () => (await look()).red).toBe(14)
+  expect((await look()).light).toBeGreaterThan(10)
   await page.evaluate(() => window.__game.drain(40)) // Past any local power cycle: still on alert.
-  await expect.poll(look).toEqual({ red: 48, light: 0, panel: 0 })
+  await expect.poll(async () => (await look()).red).toBe(14)
+  expect((await look()).light).toBeGreaterThan(10)
   await page.screenshot({ path: 'test-results/alert-dortoir.png' })
   await page.evaluate(() => window.__game.set({ flags: { ...window.__game.state().flags, pressurized: true } }))
   await expect.poll(async () => (await look()).red).toBe(0)

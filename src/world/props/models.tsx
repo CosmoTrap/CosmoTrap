@@ -1,4 +1,5 @@
 import { useFrame } from '@react-three/fiber'
+import { BatteryGauge, BreakerRow, HatchMarking, HatchRail, O2Column, ServerRack, SuitBench, Turbine, WallDisplays } from './LunarDecor'
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
@@ -8,6 +9,7 @@ import { useGame } from '../../game/state'
 import { useMats } from '../materials'
 import { RealModel } from './RealModel'
 import { drawTexture, textTexture, texRnd, texSeed } from '../textures'
+import { maxAniso } from '../quality'
 
 // Accessoires de décor modélisés en code. Convention : les objets muraux ont le dos en z = 0
 // et s'étendent vers +z (l'intérieur de la pièce) ; les objets au sol sont centrés.
@@ -59,39 +61,6 @@ export function Screen({ w, h, lines, fg = '#7fe3ff', bg = '#06141c', p = [0, 0,
   )
 }
 
-const photoTex = (sd: number) =>
-  drawTexture(256, 200, (c) => {
-    texSeed(sd)
-    const sky = c.createLinearGradient(0, 0, 0, 200)
-    const warm = texRnd() > 0.5
-    sky.addColorStop(0, warm ? '#f2b27a' : '#8fc2e8')
-    sky.addColorStop(1, warm ? '#6b4a6e' : '#e8dcc0')
-    c.fillStyle = sky
-    c.fillRect(0, 0, 256, 200)
-    c.fillStyle = warm ? '#3b2c3a' : '#4d6b3a'
-    c.beginPath()
-    c.moveTo(0, 150)
-    for (let x = 0; x <= 256; x += 32) c.lineTo(x, 130 + texRnd() * 30)
-    c.lineTo(256, 200)
-    c.lineTo(0, 200)
-    c.fill()
-    const n = 2 + Math.floor(texRnd() * 3)
-    for (let i = 0; i < n; i++) {
-      const x = 60 + i * (140 / n) + texRnd() * 10
-      const s = 0.7 + texRnd() * 0.5
-      c.fillStyle = `hsl(${texRnd() * 360},35%,${30 + texRnd() * 20}%)`
-      c.beginPath()
-      c.ellipse(x, 175 - 30 * s, 16 * s, 34 * s, 0, 0, Math.PI * 2)
-      c.fill()
-      c.fillStyle = `hsl(25,${30 + texRnd() * 20}%,${35 + texRnd() * 30}%)`
-      c.beginPath()
-      c.arc(x, 128 - 40 * s + 30, 11 * s, 0, Math.PI * 2)
-      c.fill()
-    }
-    c.fillStyle = 'rgba(255,240,220,0.12)'
-    c.fillRect(0, 0, 256, 200)
-  })
-
 const postitTex = (lines: string[], color = '#f6e27a') =>
   drawTexture(128, 128, (c) => {
     c.fillStyle = color
@@ -104,18 +73,18 @@ const postitTex = (lines: string[], color = '#f6e27a') =>
   })
 
 // ——— modèles ———
-function Bunk() {
+function Bunk({ side = 1 }: { side?: 1 | -1 }) {
   const m = useMats()
   const frame = m.painted('#7d8288', 0.4, 0.6)
   const mattress = m.fabric('#3e5566')
   const blanket = m.fabric('#a4643e')
   const blanketGeo = useMemo(() => {
-    const g = new THREE.PlaneGeometry(1.25, 1.02, 28, 24)
+    const g = new THREE.PlaneGeometry(1.25, 0.92, 28, 24)
     g.rotateX(-Math.PI / 2)
     const p = g.attributes.position
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), z = p.getZ(i)
-      p.setY(i, 0.025 * Math.sin(x * 19 + z * 3) + 0.009 * Math.sin(z * 37 + x * 8) - Math.pow(Math.max(0, Math.abs(z) - 0.38) * 3, 2))
+      p.setY(i, 0.025 * Math.sin(x * 19 + z * 3) + 0.009 * Math.sin(z * 37 + x * 8) - Math.pow(Math.max(0, Math.abs(z) - 0.36) * 3, 2))
     }
     g.computeVertexNormals()
     return g
@@ -127,17 +96,22 @@ function Bunk() {
         <group key={i} position={[0, y, 0.48]}>
           <Box s={[1.9, 0.08, 0.9]} m={frame} />
           <Box s={[1.84, 0.14, 0.84]} p={[0, 0.11, 0]} m={mattress} />
-          <mesh geometry={blanketGeo} material={blanket} position={[0.28, 0.22, 0]} castShadow receiveShadow />
-          <Box s={[0.4, 0.1, 0.6]} p={[-0.7, 0.23, 0]} m={m.fabric('#d9d4c8')} />
+          <mesh geometry={blanketGeo} material={blanket} position={[side * 0.28, 0.22, 0]} castShadow receiveShadow />
+          <Box s={[0.4, 0.1, 0.6]} p={[side * -0.7, 0.23, 0]} m={m.fabric('#d9d4c8')} />
         </group>
       ))}
       {[-0.95, 0.95].map((x) => (
         <Box key={x} s={[0.05, 2.0, 0.05]} p={[x, 1.0, 0.92]} m={frame} />
       ))}
-      <Box s={[0.04, 0.55, 0.9]} p={[0.97, 1.85, 0.48]} m={frame} />
-      {[0.5, 0.8, 1.1].map((y) => <Cyl key={y} a={[0.012, 0.012, 0.32]} p={[0.8, y, 0.95]} r={[0, 0, Math.PI / 2]} m={m.metal('#a9aeb2', 0.3)} seg={10} />)}
-      {[0.64, 0.96].map((x) => <Cyl key={x} a={[0.014, 0.014, 1.3]} p={[x, 0.68, 0.95]} m={m.metal('#a9aeb2', 0.3)} seg={10} />)}
-      <Screen w={0.22} h={0.14} p={[-0.7, 1.95, 0.02]} lines={['LÉO', '♥ 62 bpm']} intensity={0.8} />
+      {/* The end plate: each bunk's stands against the wall in its corner. */}
+      <Box s={[0.04, 0.55, 0.9]} p={[side * 0.97, 1.85, 0.48]} m={frame} />
+      {/* The ladder stands on the floor, hooked onto both bed frames, clear of the blanket's fall. */}
+      {[0.55, 0.85, 1.15].map((y) => <Cyl key={y} a={[0.012, 0.012, 0.32]} p={[side * 0.8, y, 0.99]} r={[0, 0, Math.PI / 2]} m={m.metal('#a9aeb2', 0.3)} seg={10} />)}
+      {[0.64, 0.96].map((x) => <group key={x}>
+        <Cyl a={[0.014, 0.014, 1.62]} p={[side * x, 0.81, 0.99]} m={m.metal('#a9aeb2', 0.3)} seg={10} />
+        {[0.35, 1.45].map((y) => <Box key={y} s={[0.03, 0.03, 0.08]} p={[side * x, y, 0.955]} m={frame} />)}
+      </group>)}
+      <Screen w={0.22} h={0.14} p={[side * -0.7, 1.95, 0.02]} lines={['LÉO', '♥ 62 bpm']} intensity={0.8} />
     </group>
   )
 }
@@ -241,17 +215,155 @@ export function Flashlight({ on = false }: { on?: boolean }) {
   )
 }
 
-function Photos() {
+/** Surveillance camera on a wall plate, tipped towards the floor, sweeping slowly from side to side. */
+function SecurityCamera() {
   const m = useMats()
-  const mats = useMemo(() => [11, 23, 37].map((s) => new THREE.MeshStandardMaterial({ map: photoTex(s), roughness: 0.35 })), [])
+  const head = useRef<THREE.Group>(null)
+  // Each camera keeps its own rhythm rather than all turning in step.
+  const phase = useMemo(() => Math.random() * Math.PI * 2, [])
+  useFrame(({ clock }) => {
+    if (head.current) head.current.rotation.y = Math.sin(clock.elapsedTime * 0.45 + phase) * 0.6
+  })
   return (
-    <group>
-      {mats.map((mat, i) => (
-        <group key={i} position={[-0.32 + i * 0.32, i === 1 ? 0.08 : 0, 0.012]} rotation={[0, 0, (i - 1) * 0.06]}>
-          <Box s={[0.24, 0.2, 0.012]} m={m.plastic('#e8e3d8')} cast={false} />
-          <mesh position={[0, 0, 0.007]} material={mat}>
-            <planeGeometry args={[0.2, 0.16]} />
-          </mesh>
+    <group name="security-camera">
+      <Cyl a={[0.05, 0.05, 0.012]} p={[0, 0.125, 0.006]} r={[Math.PI / 2, 0, 0]} m={m.painted('#3c4348', 0.5, 0.5)} seg={18} />
+      <group ref={head} position={[0, 0.125, 0.1]}>
+        <group rotation={[0.32, 0, 0]} position={[0, 0, -0.1]}>
+          <RealModel id="security_camera_01" fit="wall" height={0.25} p={[0, -0.125, 0]} />
+        </group>
+      </group>
+    </group>
+  )
+}
+
+/** Jointed desk lamp on a weighted foot, its shade reaching out over the desk, away from the wall. */
+function DeskLamp() {
+  const m = useMats()
+  const paint = m.painted('#d9542b', 0.38, 0.45)
+  const steel = m.metal('#b9bdc0', 0.3)
+  const elbow = new THREE.Vector3(0, 0.27, -0.07), head = new THREE.Vector3(0, 0.44, 0.13)
+  const arm = (a: THREE.Vector3, b: THREE.Vector3) => {
+    const d = b.clone().sub(a)
+    return <Cyl a={[0.008, 0.008, d.length()]} p={a.clone().add(b).multiplyScalar(0.5).toArray() as [number, number, number]} r={[Math.atan2(d.z, d.y), 0, 0]} m={paint} seg={10} />
+  }
+  return (
+    <group name="desk-lamp">
+      <Lathe m={paint} seg={28} profile={[[0, 0], [0.085, 0], [0.09, 0.012], [0.07, 0.024], [0.016, 0.03], [0, 0.03]]} />
+      {arm(new THREE.Vector3(0, 0.025, 0), elbow)}
+      {arm(elbow, head)}
+      <Cyl a={[0.016, 0.016, 0.03]} p={elbow.toArray() as [number, number, number]} r={[0, 0, Math.PI / 2]} m={steel} seg={12} />
+      <Cyl a={[0.014, 0.014, 0.03]} p={head.toArray() as [number, number, number]} r={[0, 0, Math.PI / 2]} m={steel} seg={12} />
+      {/* Shade open downwards, tipped towards the room, with its bulb inside. */}
+      <group position={[0, 0.425, 0.17]} rotation={[0.5, 0, 0]}>
+        <Lathe m={paint} seg={24} profile={[[0.062, -0.075], [0.056, -0.05], [0.03, -0.012], [0.018, 0.012], [0, 0.016]]} />
+        <mesh position={[0, -0.04, 0]} material={m.glow('#ffe7bd', 1.4)}><sphereGeometry args={[0.02, 12, 10]} /></mesh>
+      </group>
+    </group>
+  )
+}
+
+/** A pot of pencils, with a pen and an eraser left out on the desk. */
+function Stationery() {
+  const m = useMats()
+  const colours = ['#e0b32a', '#2a6bb3', '#c5302a', '#2f8a4a']
+  return (
+    <group name="stationery">
+      <Lathe m={m.metal('#6d7377', 0.42)} seg={22} profile={[[0, 0], [0.036, 0], [0.04, 0.09], [0.037, 0.09], [0.033, 0.006], [0, 0.006]]} />
+      {/* Standing in the pot, each leaning on its rim. */}
+      {colours.map((c, i) => {
+        const a = i * 1.7 + 0.4, lean = 0.13
+        return <group key={c} position={[Math.cos(a) * 0.014, 0.008, Math.sin(a) * 0.014]} rotation={[Math.sin(a) * lean, 0, -Math.cos(a) * lean]}>
+          <Cyl a={[0.0045, 0.0045, 0.15]} p={[0, 0.075, 0]} m={m.plastic(c, 0.45)} seg={7} />
+          <Cyl a={[0.001, 0.0045, 0.014]} p={[0, 0.157, 0]} m={m.plastic('#2a2622', 0.6)} seg={7} />
+        </group>
+      })}
+      {/* Lying flat: their radius above the desk, so they rest on it. */}
+      <Cyl a={[0.0045, 0.0045, 0.14]} p={[-0.13, 0.0045, 0.03]} r={[0, 0.5, Math.PI / 2]} m={m.plastic('#1d3f8a', 0.4)} seg={8} />
+      <Cyl a={[0.0045, 0.0045, 0.12]} p={[-0.1, 0.0045, 0.07]} r={[0, -0.25, Math.PI / 2]} m={m.plastic('#e0b32a', 0.5)} seg={8} />
+      <Box s={[0.045, 0.012, 0.022]} p={[0.07, 0.006, 0.05]} r={[0, 0.4, 0]} m={m.plastic('#e8a3a8', 0.7)} />
+    </group>
+  )
+}
+
+/** Real photographs (NASA, public domain, see LICENCES.md), each hung-up set showing a different mix. */
+const PHOTO_FILES = ['earthrise', 'moon', 'bluemarble', 'launch']
+const photoMaps = new Map<string, THREE.Texture>()
+function photoMap(name: string) {
+  let t = photoMaps.get(name)
+  if (!t) {
+    t = new THREE.TextureLoader().load(`/assets/photos/${name}.jpg`)
+    t.colorSpace = THREE.SRGBColorSpace
+    t.anisotropy = maxAniso()
+    photoMaps.set(name, t)
+  }
+  return t
+}
+let photoSets = 0
+
+/** A sheet of paper that is not quite flat: lifting a little at the corners, away from its tape at the top. */
+function printSheet(w: number, h: number, lift: number) {
+  const g = new THREE.PlaneGeometry(w, h, 10, 10)
+  const p = g.attributes.position as THREE.BufferAttribute
+  for (let i = 0; i < p.count; i++) {
+    const u = p.getX(i) / (w / 2), v = p.getY(i) / (h / 2)
+    p.setZ(i, lift * (0.25 * u * u + Math.max(0, -v) * Math.max(0, -v) * (0.6 + 0.8 * Math.abs(u))))
+  }
+  g.computeVertexNormals()
+  return g
+}
+
+/** The soft contact shadow a print throws on the wall behind it. */
+function shadowTexture() {
+  return drawTexture(128, 128, (c) => {
+    c.clearRect(0, 0, 128, 128)
+    c.filter = 'blur(9px)'
+    c.fillStyle = 'rgba(0,0,0,.72)'
+    c.fillRect(20, 20, 88, 88)
+    c.filter = 'none'
+  })
+}
+
+/** Glossy photographic prints taped to the wall, with a white border and a real shadow. */
+function Photos() {
+  const parts = useMemo(() => {
+    const set = photoSets++
+    const W = 0.235, H = 0.27
+    const paper = new THREE.MeshStandardMaterial({ color: '#f4f1e8', roughness: 0.62, side: THREE.DoubleSide })
+    const shadow = new THREE.MeshBasicMaterial({ map: shadowTexture(), transparent: true, depthWrite: false, opacity: 0.6, fog: false })
+    const tape = new THREE.MeshStandardMaterial({ color: '#e7dcae', roughness: 0.5, transparent: true, opacity: 0.72 })
+    const lifts = [0.005, 0.009, 0.004]
+    return {
+      W, H, paper, shadow, tape,
+      sheets: lifts.map((l) => printSheet(W, H, l)),
+      faces: lifts.map((l) => {
+        // The picture follows the sheet's curve, set inside its border; the wider margin is at the bottom.
+        const g = new THREE.PlaneGeometry(0.21, 0.21, 10, 10)
+        const p = g.attributes.position as THREE.BufferAttribute
+        for (let i = 0; i < p.count; i++) {
+          const u = p.getX(i) / (W / 2), v = (p.getY(i) + 0.021) / (H / 2)
+          p.setZ(i, l * (0.25 * u * u + Math.max(0, -v) * Math.max(0, -v) * (0.6 + 0.8 * Math.abs(u))) + 0.0006)
+        }
+        g.computeVertexNormals()
+        return g
+      }),
+      pictures: [0, 1, 2].map((i) => new THREE.MeshPhysicalMaterial({ map: photoMap(PHOTO_FILES[(set + i) % PHOTO_FILES.length]), roughness: 0.38, clearcoat: 0.55, clearcoatRoughness: 0.28 })),
+    }
+  }, [])
+  useEffect(() => () => {
+    parts.sheets.forEach((g) => g.dispose()); parts.faces.forEach((g) => g.dispose())
+    parts.pictures.forEach((m) => m.dispose())
+    parts.paper.dispose(); parts.tape.dispose(); parts.shadow.map?.dispose(); parts.shadow.dispose()
+  }, [parts])
+  const place: [number, number, number][] = [[-0.3, -0.012, -0.045], [0, 0.05, 0.03], [0.3, -0.03, 0.065]]
+  return (
+    <group name="photos">
+      {place.map(([x, y, tilt], i) => (
+        <group key={i} position={[x, y, 0.004]} rotation={[0, 0, tilt]}>
+          <mesh position={[0.006, -0.009, -0.002]} material={parts.shadow} scale={[1.42, 1.42, 1]}><planeGeometry args={[parts.W, parts.H]} /></mesh>
+          <mesh geometry={parts.sheets[i]} material={parts.paper} />
+          <mesh geometry={parts.faces[i]} position={[0, 0.021, 0]} material={parts.pictures[i]} />
+          {/* A strip of tape over the top edge, at a slightly careless angle. */}
+          <mesh position={[0, parts.H / 2 - 0.004, 0.0024]} rotation={[0, 0, (i - 1) * 0.16 + 0.05]} material={parts.tape}><planeGeometry args={[0.078, 0.028]} /></mesh>
         </group>
       ))}
     </group>
@@ -517,8 +629,9 @@ function Conduit({ scale = 6 }: { scale?: number }) {
     }
     // Junction boxes, and cables that hang slightly between their clips.
     for (let x = -half + 2.4; x < half - 0.6; x += 3.6) {
-      const box = new THREE.BoxGeometry(0.22, 0.18, 0.06)
-      box.translate(x, -0.16, 0.035)
+      // Its back goes into the wall: no gap can show behind it.
+      const box = new THREE.BoxGeometry(0.22, 0.18, 0.09)
+      box.translate(x, -0.16, 0.02)
       boxes.push(box)
     }
     for (const [offset, sag, radius] of [[-0.09, 0.07, 0.006], [-0.115, 0.05, 0.008], [-0.14, 0.085, 0.005]] as const) {
@@ -726,8 +839,8 @@ function MedCart() {
         {[-1, 1].map((k) => <Box key={k} s={[0.008, 0.03, 0.46]} p={[k * 0.358, y + 0.02, 0]} m={steel} />)}
       </group>)}
       <Cyl a={[0.01, 0.01, 0.46]} p={[0.4, 0.86, 0]} r={[Math.PI / 2, 0, 0]} m={steel} seg={8} />
-      <RealModel id="medical_box" height={0.17} shadows={false} p={[-0.14, 0.91, 0]} />
-      <RealModel id="medical_tape" height={0.07} shadows={false} p={[0.2, 0.91, 0.08]} />
+      <RealModel id="medical_box" height={0.07} shadows={false} p={[-0.14, 0.909, 0]} />
+      <RealModel id="medical_tape" height={0.07} shadows={false} p={[0.22, 0.909, 0.08]} />
       <RealModel id="multi_cleaner_bottle" height={0.2} shadows={false} p={[-0.18, 0.59, 0.02]} />
       <RealModel id="plastic_crate_02" height={0.2} shadows={false} p={[0.02, 0.29, 0]} />
     </group>
@@ -1059,8 +1172,9 @@ function Bent({ points, r, m: material }: { points: [number, number, number][]; 
 }
 
 /**
- * The ruptured steam main. It comes down from the ceiling services, runs along the wall through
- * the shut-off valve, and is torn open here; the far half carries on into the bulkhead by the door.
+ * The ruptured gas main. It comes down from the ceiling by the far door, runs along the wall through
+ * the shut-off valve, and is torn open here; the far half carries on towards the node.
+ * Modelled from -x, then mirrored: the valve sits beyond the leak for someone arriving from the node.
  */
 function BrokenPipe() {
   const m = useMats()
@@ -1079,7 +1193,7 @@ function BrokenPipe() {
     })}
   </group>
   return (
-    <group name="broken-steam-main">
+    <group name="broken-steam-main" scale={[-1, 1, 1]}>
       {/* From the ceiling down to the wall, then along it to the valve (at x = -4 from here). */}
       <Bent m={copper} r={0.09} points={[[-6.45, 2.86, Z], [-6.45, 1.55, Z], [-6.32, 1.27, Z], [-6.05, Y, Z], [-5, Y, Z]]} />
       <Cyl a={[0.15, 0.15, 0.03]} p={[-6.45, CEIL - 0.015, Z]} m={m.metal('#7f878c', 0.35)} seg={20} />
@@ -1112,7 +1226,8 @@ function ElecCabinet() {
   const on = useGame((s) => s.flags.power)
   return (
     <group>
-      <Box s={[1.0, 2.0, 0.5]} p={[0, 1.0, 0.25]} m={m.painted('#5c646c', 0.5, 0.5)} />
+      {/* Square-edged: rounded, its back would leave a gap along the wall. */}
+      <BoxExact s={[1.0, 2.0, 0.5]} p={[0, 1.0, 0.25]} m={m.painted('#5c646c', 0.5, 0.5)} />
       <Box s={[0.9, 1.8, 0.02]} p={[0, 1.0, 0.51]} m={m.painted('#68717a', 0.5, 0.5)} />
       {Array.from({ length: 6 }).map((_, i) => (
         <mesh key={i} position={[-0.3 + (i % 3) * 0.3, 1.6 - Math.floor(i / 3) * 0.12, 0.525]} material={m.glow(on ? (i === 4 ? '#ffb020' : '#38ff7a') : i === 0 ? '#ff2a1a' : '#110000', on ? 2.5 : 3)}>
@@ -1397,12 +1512,49 @@ function Grating() {
   )
 }
 
+/** A monitor on a short stand, as on a desk: bezel, screen and foot. Origin under its foot, screen facing +z. */
+export function DeskScreen({ w, h, lines, fg, p = [0, 0, 0] }: { w: number; h: number; lines: string[]; fg?: string; p?: [number, number, number] }) {
+  const m = useMats()
+  const dark = m.plastic('#15171a', 0.35)
+  return <group position={p}>
+    <Box s={[0.26, 0.02, 0.18]} p={[0, 0.01, 0]} m={dark} />
+    <Box s={[0.05, 0.12, 0.04]} p={[0, 0.07, -0.03]} m={m.metal('#5d6268', 0.35)} />
+    <group position={[0, 0.13 + h / 2, -0.02]} rotation={[-0.12, 0, 0]}>
+      <Box s={[w + 0.05, h + 0.05, 0.035]} m={dark} />
+      <Screen w={w} h={h} p={[0, 0, 0.019]} lines={lines} fg={fg} />
+    </group>
+  </group>
+}
+
+/** A keyboard lying on a desk: one instanced draw for all its keys. Origin under its centre. */
+export function Keyboard({ p = [0, 0, 0], w = 0.46 }: { p?: [number, number, number]; w?: number }) {
+  const m = useMats()
+  const keys = useRef<THREE.InstancedMesh>(null)
+  const cols = Math.round(w / 0.031), rows = 4
+  useEffect(() => {
+    const mtx = new THREE.Matrix4()
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      mtx.makeTranslation((c - (cols - 1) / 2) * 0.031 + (r % 2) * 0.006, 0, (r - (rows - 1) / 2) * 0.031)
+      keys.current!.setMatrixAt(r * cols + c, mtx)
+    }
+    keys.current!.instanceMatrix.needsUpdate = true
+    keys.current!.computeBoundingSphere()
+  }, [cols])
+  return <group position={p}>
+    <Box s={[w + 0.03, 0.016, 0.15]} p={[0, 0.008, 0]} m={m.plastic('#1c1e22', 0.4)} />
+    <instancedMesh ref={keys} args={[undefined, undefined, cols * rows]} position={[0, 0.02, 0]} material={m.plastic('#2c3036', 0.5)}>
+      <boxGeometry args={[0.026, 0.01, 0.026]} />
+    </instancedMesh>
+  </group>
+}
+
 function PilotSeat() {
   const m = useMats()
   const shell = m.painted('#2f3237', 0.5, 0.6)
   const pad = m.fabric('#43362e')
+  // Backrest towards +z: the pilot faces -z, the console on the north wall.
   return (
-    <group rotation={[0, Math.PI, 0]}>
+    <group>
       <Cyl a={[0.08, 0.12, 0.45]} p={[0, 0.22, 0]} m={m.metal('#55595e')} />
       <Box s={[0.6, 0.12, 0.6]} p={[0, 0.5, 0]} m={shell} />
       <Box s={[0.54, 0.1, 0.54]} p={[0, 0.58, 0]} m={pad} />
@@ -1423,9 +1575,13 @@ function SideConsole() {
   return (
     <group>
       <Box s={[1.8, 1.0, 0.55]} p={[0, 0.5, 0.28]} m={m.painted('#2f3237', 0.5, 0.6)} />
-      <Box s={[1.8, 0.05, 0.6]} p={[0, 1.02, 0.3]} r={[0.25, 0, 0]} m={m.plastic('#16181a', 0.3)} />
-      <Screen w={0.5} h={0.3} p={[-0.45, 1.06, 0.3]} lines={['ALT 112 km', 'V 1.63 km/s']} fg="#ffb38a" />
-      <Screen w={0.5} h={0.3} p={[0.45, 1.06, 0.3]} lines={['CABINE OK', 'P 101 kPa']} />
+      {/* Sloped desk: two monitors at the back on their stands, a keyboard in front of each. */}
+      <group position={[0, 1.02, 0.3]} rotation={[0.25, 0, 0]}>
+        <Box s={[1.8, 0.05, 0.6]} m={m.plastic('#16181a', 0.3)} />
+        <DeskScreen w={0.5} h={0.3} p={[-0.45, 0.025, -0.16]} lines={['ALT 112 km', 'V 1.63 km/s']} fg="#ffb38a" />
+        <DeskScreen w={0.5} h={0.3} p={[0.45, 0.025, -0.16]} lines={['CABINE OK', 'P 101 kPa']} />
+        {[-0.45, 0.45].map((x) => <Keyboard key={x} p={[x, 0.025, 0.14]} w={0.42} />)}
+      </group>
     </group>
   )
 }
@@ -1511,7 +1667,7 @@ export const PROP_MODELS: Record<string, (p: { color?: string; scale?: number; m
   toolChest: () => <RealModel id="metal_tool_chest" solid fit="wall" height={1.05} />,
   toolCart: () => <RealModel id="tool_cart" solid height={0.95} />,
   generator: () => <RealModel id="portable_generator" solid height={0.6} />,
-  camera: () => <RealModel id="security_camera_01" fit="wall" height={0.25} />,
+  camera: () => <SecurityCamera />,
   utilityBox: () => <RealModel id="utility_box_01" fit="wall" height={0.55} />,
   stool: () => <RealModel id="metal_stool_01" solid height={0.65} />,
   clock: () => <RealModel id="alarm_clock_01" height={0.12} />,
@@ -1525,7 +1681,7 @@ export const PROP_MODELS: Record<string, (p: { color?: string; scale?: number; m
   coffeeTable: () => <RealModel id="modern_coffee_table_01" solid height={0.39} />,
   armchair: () => <RealModel id="modern_arm_chair_01" solid fit="wall" height={0.95} />,
   nightTable: () => <RealModel id="side_table_01" solid fit="wall" height={0.55} />,
-  deskLamp: () => <RealModel id="desk_lamp_arm_01" height={0.5} />,
+  deskLamp: () => <DeskLamp />,
   frame: () => <RealModel id="standing_picture_frame_01" height={0.22} r={Math.PI} />,
   cassette: () => <RealModel id="cassette_player" height={0.2} />,
   dartboard: () => <RealModel id="dartboard" fit="wall" height={0.45} />,
@@ -1554,9 +1710,10 @@ export const PROP_MODELS: Record<string, (p: { color?: string; scale?: number; m
   ladderRack: () => <RealModel id="ladder_sectioned_01" fit="wall" height={2.1} />,
   lubricant: () => <RealModel id="lubricant_spray" height={0.16} />,
   wallLamp: () => <RealModel id="industrial_wall_lamp" fit="wall" height={0.43} />,
-  powerBox: () => <RealModel id="power_box_01" solid fit="wall" height={0.5} />,
+  // Wall-mounted: its back sits slightly into the wall, so no gap shows behind it.
+  powerBox: () => <RealModel id="power_box_01" solid fit="wall" height={0.5} p={[0, 0, -0.03]} />,
   stack: () => <><RealModel id="plastic_container" solid fit="wall" height={0.43} /><RealModel id="plastic_crate_02" fit="wall" height={0.25} shadows={false} p={[0, 0.43, 0.08]} /></>,
-  medicalBox: () => <RealModel id="medical_box" height={0.16} shadows={false} />,
+  medicalBox: () => <RealModel id="medical_box" height={0.09} shadows={false} />,
   kettle: () => <RealModel id="vintage_electric_kettle" height={0.22} shadows={false} />,
   foodBox: () => <RealModel id="long_life_food" height={0.24} shadows={false} />,
   foodCans: () => <RealModel id="russian_food_cans_01" height={0.08} shadows={false} />,
@@ -1571,7 +1728,7 @@ export const PROP_MODELS: Record<string, (p: { color?: string; scale?: number; m
   elecBox: () => <RealModel id="utility_box_02" solid fit="wall" height={1.12} />,
   clipboard: () => <RealModel id="clipboard" height={0.04} shadows={false} />,
   binder: () => <RealModel id="binder_notebook" height={0.03} shadows={false} />,
-  stationery: () => <RealModel id="stationery_supplies" height={0.16} shadows={false} />,
+  stationery: () => <Stationery />,
   circuit: () => <RealModel id="circuit_board" height={0.05} shadows={false} />,
   multimeter: () => <RealModel id="retro_multimeter" height={0.2} shadows={false} />,
   pliers: () => <RealModel id="pliers" height={0.02} shadows={false} />,
@@ -1590,6 +1747,7 @@ export const PROP_MODELS: Record<string, (p: { color?: string; scale?: number; m
   crutches: () => <RealModel id="vintage_crutches_01" fit="wall" height={1.3} />,
   metalStool: () => <RealModel id="metal_stool_02" solid height={0.46} />,
   bunk: () => <Bunk />,
+  bunkMirrored: () => <Bunk side={-1} />,
   shelf: () => <Shelf />,
   photos: () => <Photos />,
   toy: () => <Toy />,
@@ -1647,4 +1805,13 @@ export const PROP_MODELS: Record<string, (p: { color?: string; scale?: number; m
   gasTank: () => <RealModel id="propane_tank" solid height={0.72} />,
   shelfUnit: () => <RealModel id="steel_frame_shelves_01" solid fit="wall" height={1.7} />,
   poster: () => <Poster />,
+  turbine: () => <Turbine />,
+  breakerRow: () => <BreakerRow />,
+  batteryGauge: () => <BatteryGauge />,
+  serverRack: () => <ServerRack />,
+  wallDisplays: () => <WallDisplays />,
+  o2Column: () => <O2Column />,
+  suitBench: () => <SuitBench />,
+  hatchMarking: () => <HatchMarking />,
+  hatchRail: () => <HatchRail />,
 }

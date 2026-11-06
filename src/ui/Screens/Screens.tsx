@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { audio } from '../../game/audio/audio'
+import { audio, speechSeconds } from '../../game/audio/audio'
 import { live, recordMessage, useGame } from '../../game/state'
 import { skipCine } from '../../world/Cinematics'
 import { IMPACT_T, prologue } from '../../world/TitleScene'
-import { transitionTo } from '../../game/logic'
+import { puzzleHintTarget, transitionTo } from '../../game/logic'
+import { HintButtons } from '../HintButtons'
 import { fr } from '../../i18n/fr'
 import { requestLock } from '../../player/Player'
 import { Keypad } from '../../game/puzzles/Keypad'
@@ -43,6 +44,7 @@ export function NoteReader() {
 
 export function PuzzleHost() {
   const p = useGame((s) => s.puzzle)
+  const lunarStep = useGame((s) => s.lunar.current)
   if (!p) return null
   const close = () => {
     useGame.setState({ puzzle: null })
@@ -50,7 +52,7 @@ export function PuzzleHost() {
   }
   return (
     <div className="modal-bg" onClick={close} data-testid="puzzle">
-      <div onClick={(e) => e.stopPropagation()} style={{ position: 'relative' }}>
+      <div className="puzzle-frame" onClick={(e) => e.stopPropagation()}>
         {p === 'keypad' && <Keypad />}
         {p === 'valves' && <Valves />}
         {p === 'power' && <PowerGrid />}
@@ -59,8 +61,11 @@ export function PuzzleHost() {
         {p === 'algo' && <Algo />}
         {p === 'plan' && <Plan />}
         {p === 'dilemma' && <Dilemma />}
-        {p === 'lunar' && <LunarPuzzle key={useGame.getState().lunar.current} />}
-        <div style={{ textAlign: 'center', marginTop: 12 }}>
+        {p === 'lunar' && <LunarPuzzle key={lunarStep} />}
+        <div className="puzzle-hints">
+          <HintButtons target={puzzleHintTarget(p, lunarStep)} lightId="puzzle-hint" strongId="puzzle-hint2" />
+        </div>
+        <div style={{ textAlign: 'center' }}>
           <button className="btn ghost" data-testid="puzzle-close" onClick={close}>
             {fr.puzzles.close} (Échap)
           </button>
@@ -99,11 +104,15 @@ export function Prologue() {
     prologue.t0 = performance.now()
     audio.playMusic('title')
     const L = fr.story.prologue
+    // Each line starts once the previous one has been said in full.
+    const starts = L.map((_, i) => 600 + L.slice(0, i).reduce((a, l) => a + speechSeconds(l) * 1000 + 350, 0))
     const timers = L.map((l, i) =>
       setTimeout(() => {
         setLine(l)
-        audio.speak(l, { rate: 1.0, id: `prologue_${i}` })
-      }, 600 + i * 3500),
+        // The first line, a place and an orbit, is a title on screen: its recording gives the year (the locker's
+        // code), and the browser's voice would not be the recorded one that says the rest.
+        if (i > 0) audio.speak(l, { rate: 1.0, id: `prologue_${i}` })
+      }, starts[i]),
     )
     timers.push(
       setTimeout(() => {
@@ -155,22 +164,10 @@ function finish(skip = false) {
   setTimeout(() => (finished = false), 1000)
   audio.stopSpeech()
   live.flash = 0
-  useGame.setState({ screen: 'playing', loading: 0, paused: false })
+  useGame.setState({ screen: 'playing', loading: 0, loadProgress: 0, paused: false })
   transitionTo(1)
   if (skip) skipCine()
   requestLock()
-}
-
-export function RotatePhone() {
-  return (
-    <div className="rotate">
-      <div>
-        <div className="phone" />
-        <h2 style={{ fontFamily: 'Rajdhani', letterSpacing: '0.15em' }}>{M.rotate}</h2>
-        <p style={{ color: 'var(--muted)' }}>{M.rotateSub}</p>
-      </div>
-    </div>
-  )
 }
 
 export { update as updateSettings }

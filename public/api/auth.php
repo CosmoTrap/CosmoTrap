@@ -1,5 +1,5 @@
 <?php
-// Inscription, connexion (email + mot de passe ou Google), session courante, déconnexion.
+// Inscription, connexion (email + mot de passe), session courante, déconnexion.
 declare(strict_types=1);
 require __DIR__ . '/db.php';
 
@@ -8,7 +8,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 if ($action === 'me' && $method === 'GET') {
   $u = current_user();
-  out(['user' => $u ? public_user($u) : null, 'google' => $CFG['google_client_id'] !== '']);
+  out(['user' => $u ? public_user($u) : null]);
 }
 
 if ($method !== 'POST') fail('Méthode non autorisée.', 405);
@@ -40,25 +40,6 @@ if ($action === 'login') {
   if (!$u || !$u['pass_hash'] || !password_verify($pass, $u['pass_hash'])) {
     usleep(300000);
     fail('E-mail ou mot de passe incorrect.', 401);
-  }
-  out(['token' => new_session((int)$u['id']), 'user' => public_user($u)]);
-}
-
-if ($action === 'google') {
-  if ($CFG['google_client_id'] === '') fail('Connexion Google non configurée sur ce serveur.', 501);
-  $cred = (string)($b['credential'] ?? '');
-  if (!preg_match('/^[A-Za-z0-9_\-\.]+$/', $cred)) fail('Jeton Google invalide.');
-  $resp = @file_get_contents('https://oauth2.googleapis.com/tokeninfo?id_token=' . urlencode($cred));
-  $info = $resp ? json_decode($resp, true) : null;
-  if (!$info || ($info['aud'] ?? '') !== $CFG['google_client_id'] || ($info['email_verified'] ?? '') !== 'true') fail('Connexion Google refusée.', 401);
-  $email = strtolower($info['email']);
-  $st = db()->prepare('SELECT * FROM users WHERE email = ?');
-  $st->execute([$email]);
-  $u = $st->fetch();
-  if (!$u) {
-    $pseudo = mb_substr(preg_replace('/[^\p{L}\p{N} _\-\.]/u', '', $info['given_name'] ?? explode('@', $email)[0]) ?: 'Astronaute', 0, 20);
-    db()->prepare('INSERT INTO users (email, pseudo, google_sub, created_at) VALUES (?, ?, ?, ?)')->execute([$email, $pseudo, $info['sub'], time()]);
-    $u = ['id' => (int)db()->lastInsertId(), 'email' => $email, 'pseudo' => $pseudo];
   }
   out(['token' => new_session((int)$u['id']), 'user' => public_user($u)]);
 }

@@ -176,15 +176,15 @@
 .lunar-success {
   color:#6be2c4
 }
-.lunar-map {
-  width:100%;
-  min-height:360px;
-  max-height:65vh;
-  background:radial-gradient(ellipse,#172333,#080d19)
+.nav-map-frame.lunar-frame {
+  background:#0a0c10 url('/menu/lunar-surface.jpg') center / cover no-repeat
+}
+.nav-map-frame.lunar-frame::before {
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,#05070f55,#05070f22 40%,#05070f66)
 }
 .lunar-map text {
-  font-family:monospace;
-  fill:#dbe9f8
+  font-family:'JetBrains Mono',monospace
 }
 .lunar-map [role=button] {
   cursor:pointer
@@ -192,13 +192,18 @@
 .lunar-map [role=button]:focus {
   outline:none
 }
-.lunar-map [role=button]:focus-visible>g>rect:first-child {
-  stroke:#ffb077;
-  stroke-width:.5
-}
 .lunar-map {
   touch-action:none;
   overscroll-behavior:contain
+}
+.lunar-mission .lunar-progress {
+  height:4px;border-radius:2px;background:#232b52;margin:9px 0 6px;overflow:hidden
+}
+.lunar-mission .lunar-progress i {
+  display:block;height:100%;background:#3fd6a0;box-shadow:0 0 8px #3fd6a088
+}
+.lunar-mission ol.nav-mission-zone {
+  border:0;padding:0;margin:0;list-style:none
 }
 .lunar-plan .nav-module ol {
   font-size:13px;

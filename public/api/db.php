@@ -44,6 +44,23 @@ function db(): PDO {
     $long = 'TEXT';
   }
   $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+  // le schéma n'est créé / migré qu'une fois par version (pas à chaque requête)
+  $pdo->exec("CREATE TABLE IF NOT EXISTS meta (k $text PRIMARY KEY, v INTEGER NOT NULL)");
+  $v = (int)($pdo->query("SELECT v FROM meta WHERE k = 'schema'")->fetchColumn() ?: 0);
+  if ($v < SCHEMA_VERSION) {
+    migrate($pdo, $auto, $text, $long);
+    try {
+      $pdo->prepare('DELETE FROM meta WHERE k = ?')->execute(['schema']);
+      $pdo->prepare('INSERT INTO meta (k, v) VALUES (?, ?)')->execute(['schema', SCHEMA_VERSION]);
+    } catch (Throwable $e) { /* deux premières requêtes simultanées : l'autre a déjà écrit la version */ }
+  }
+  return $pdo;
+}
+
+/** version du schéma : à incrémenter quand on ajoute une table ou une colonne dans migrate() */
+const SCHEMA_VERSION = 2;
+
+function migrate(PDO $pdo, string $auto, string $text, string $long): void {
   $pdo->exec("CREATE TABLE IF NOT EXISTS users (
     id $auto,
     email $text NOT NULL UNIQUE,
@@ -88,7 +105,10 @@ function db(): PDO {
   foreach (["ALTER TABLE scores ADD COLUMN difficulty $text NOT NULL DEFAULT 'astronaut'", "ALTER TABLE scores ADD COLUMN ghost $long", "ALTER TABLE users ADD COLUMN character_id $text NOT NULL DEFAULT 'nova'", "ALTER TABLE scores ADD COLUMN map_id $text NOT NULL DEFAULT 'base'"] as $sql) {
     try { $pdo->exec($sql); } catch (Throwable $e) { /* colonne déjà présente */ }
   }
-  return $pdo;
+  // index du classement (meilleur temps par joueur) et des sessions
+  foreach (['CREATE INDEX scores_user_time ON scores (user_id, time_ms)', 'CREATE INDEX sessions_user ON sessions (user_id)'] as $sql) {
+    try { $pdo->exec($sql); } catch (Throwable $e) { /* index déjà présent */ }
+  }
 }
 
 function bearer(): ?string {

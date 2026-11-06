@@ -3,14 +3,14 @@ import { fr } from '../i18n/fr'
 import { stepsState } from '../game/logic'
 import { Hotbar } from './Inventory'
 import { timeLimit, live, useGame } from '../game/state'
-import { isTouch, requestLock } from '../player/Player'
+import { requestLock } from '../player/Player'
 import { keyName, padButtonName } from '../player/input'
 import { GaugeIcon } from './Icons'
 import { fmtTime } from '../game/api'
 import { gridMap } from '../game/maps'
 
 function Gauge({ kind, color, label }: { kind: 'hp' | 'o2' | 'lamp' | 'water'; color: string; label: string }) {
-  const value = useGame(s => s.res[kind])
+  const value = useGame((s) => s.res[kind])
   const low = value < 25
   const beat = kind === 'o2' && low ? 60 / (70 + 80 * (1 - value / 25)) : 0
   return (
@@ -89,7 +89,7 @@ function Chrono() {
   const errors = useGame((s) => s.errors)
   const ev = useGame((s) => s.event)
   const eventLeft = useGame((s) => s.event ? Math.max(0, Math.ceil(s.event.until - s.playTime)) : 0)
-  const ghostOn = useGame((s) => s.settings.ghost)
+  const ghostOn = useGame((s) => s.settings.ghostReplay)
   useGame((s) => s.difficulty)
   const mm = Math.floor(left / 60)
   const ss = Math.floor(left % 60)
@@ -131,6 +131,20 @@ function Banner() {
       <b>{b.sub}</b>
     </div>
   )
+}
+
+function HurtFlash() {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    let raf = 0
+    const loop = () => {
+      if (ref.current) ref.current.style.opacity = String(live.hurt)
+      raf = requestAnimationFrame(loop)
+    }
+    loop()
+    return () => cancelAnimationFrame(raf)
+  }, [])
+  return <div className="hurt-flash" data-testid="hurt-flash" ref={ref} style={{ opacity: 0 }} />
 }
 
 function PenaltyFlash() {
@@ -184,7 +198,6 @@ export function Hud() {
   const briefer = character === 'ines' ? 'kenji' : 'ines'
   const showChrono = useGame((s) => s.settings.showChrono)
   const subsOn = useGame((s) => s.settings.subtitles)
-  const touch = isTouch()
   const showUi = !cine || cine === 'briefing'
   return (
     <div className="layer" style={{ pointerEvents: 'none' }}>
@@ -203,7 +216,7 @@ export function Hud() {
               <div className={`reticle ${label ? 'on' : ''}`} />
               {label && (
                 <div className="prompt">
-                  <span className={`key ${padActive ? 'pad-a' : ''}`}>{padActive ? padButtonName(padType, padAct) : touch ? fr.hud.act : keyName(keys.act[0])}</span>
+                  <span className={`key ${padActive ? 'pad-a' : ''}`}>{padActive ? padButtonName(padType, padAct) : keyName(keys.act[0])}</span>
                   {label}
                 </div>
               )}
@@ -226,9 +239,10 @@ export function Hud() {
         </div>
       )}
       <PenaltyFlash />
+      <HurtFlash />
       <Banner />
       <CineOverlay />
-      {!touch && !locked && !overlay && !cine && <LockHint />}
+      {!locked && !overlay && !cine && <LockHint />}
       <Fps />
     </div>
   )

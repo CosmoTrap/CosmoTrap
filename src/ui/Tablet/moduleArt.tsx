@@ -13,11 +13,12 @@ type Status = 'solved' | 'current' | 'locked' | 'idle'
 const ROOM_STEPS: Record<number, Record<string, string[]>> = {
   1: { dortoir: ['lamp', 'locker'], refectoire: ['board'], reserve: ['plate'], sas: ['door', 'valves'], couloir: ['lift'] },
   2: { labo: ['fuse'], serre: ['wrench'], liaison_est: ['steam'], disjoncteur: ['breaker', 'power'], machinerie: ['terminal'], amarrage: ['dock'] },
-  3: {},
+  3: { soute: ['cell'], moteurs: ['engine'], cockpit: ['plan', 'choice', 'launch'] },
 }
 const ROOM_CODES: Record<string, string> = {
   'couloir:1': '0-00', dortoir: '0-01', refectoire: '0-02', reserve: '0-03', infirmerie: '0-04', sas: '0-05',
   'couloir:2': '0-06', labo: '0-07', serre: '0-08', disjoncteur: '0-09', machinerie: '0-10', amarrage: '0-11',
+  cockpit: 'H-01', pont: 'H-02', soute: 'H-03', moteurs: 'H-04',
 }
 export const roomCode = (room: RoomDef, zone: number) => ROOM_CODES[`${room.id}:${zone}`] ?? ROOM_CODES[room.id] ?? '0-XX'
 
@@ -27,10 +28,8 @@ export function roomSteps(zone: ZoneId, room: RoomDef) {
 }
 
 export function roomLocked(zone: ZoneId, room: RoomDef) {
-  const f = useGame.getState().flags
   if (zone === 1 && room.id === 'sas') return !doorUnlocked('door_d1')
   if (zone === 2 && room.id === 'amarrage') return !doorUnlocked('door_dock')
-  if (zone === 2 && room.id === 'disjoncteur') return !f.steamFixed
   return false
 }
 
@@ -50,8 +49,9 @@ const dot = (x: number, z: number, radius: number, fill: string, stroke?: string
 const WHITE = '#d9dee6', STEEL = '#7d8798', DARK = '#3a4356', WOOD = '#a9825a', BLUE = '#3f6fc4', GREEN = '#4fae62', RED = '#c5453c'
 
 /** Icon of each model, in metres; +z points into the room, as in the 3D props. */
-const ICONS: Record<string, () => ReactNode> = {
+export const ICONS: Record<string, () => ReactNode> = {
   bunk: () => <>{r(0, .48, 1.95, .94, STEEL)}{r(.25, .48, 1.3, .82, BLUE)}{r(-.7, .48, .4, .62, WHITE)}</>,
+  bunkMirrored: () => <>{r(0, .48, 1.95, .94, STEEL)}{r(-.25, .48, 1.3, .82, BLUE)}{r(.7, .48, .4, .62, WHITE)}</>,
   table: () => <>{r(0, 0, 1.7, .85, WHITE, .14)}{dot(0, 0, .1, STEEL)}</>,
   chair: () => <>{r(0, 0, .45, .45, DARK, .08)}{r(0, -.17, .42, .1, '#232a3a')}</>,
   stool: () => dot(0, 0, .17, WOOD), metalStool: () => dot(0, 0, .2, WOOD),
@@ -109,11 +109,28 @@ const ICONS: Record<string, () => ReactNode> = {
   terminal: () => <>{r(0, .32, 1.4, .64, DARK)}{r(0, .12, 1, .14, '#59c8ff')}</>,
   breaker: () => <>{r(0, .16, 1.3, .32, '#566070')}{r(0, .28, .5, .08, '#ffb02a')}</>,
   dispenser: () => <>{r(0, .26, .45, .52, WHITE)}{dot(0, .26, .1, '#7fc4ff')}</>,
+  // Lunar base equipment
+  turbine: () => <>{dot(0, 0, 1.0, '#c9ccc8', STEEL)}{dot(0, 0, .6, DARK)}{dot(0, 0, .2, RED)}</>,
+  breakerRow: () => <>{r(0, .06, 2.3, .12, DARK)}{[0, 1, 2, 3, 4, 5, 6, 7].map((i) => <circle key={i} cx={-.9 + i * .257} cy=".06" r=".06" fill={[1, 0, 0, 1, 0, 1, 1, 0][i] ? GREEN : RED} />)}</>,
+  batteryGauge: () => <>{r(0, .21, .72, .42, '#d8a72c')}{r(0, .25, .3, .2, '#3ddc84')}</>,
+  serverRack: () => <>{r(0, .4, .62, .78, '#1f262d', .04, STEEL)}{[-.15, 0, .15].map((x) => <circle key={x} cx={x} cy=".72" r=".035" fill="#38ff7a" />)}</>,
+  wallDisplays: () => <>{[-1.72, 0, 1.72].map((x) => <rect key={x} x={x - .75} y=".02" width="1.5" height=".1" fill="#4f9dff" />)}</>,
+  o2Column: () => <>{dot(0, .42, .36, '#3e7fd1', WHITE)}</>,
+  suitBench: () => <>{r(0, 0, 2.2, .46, '#2f4e78')}{dot(-.55, 0, .17, WHITE)}{dot(.45, 0, .17, WHITE)}</>,
+  hatchMarking: () => <>{r(0, .96, 2.6, 1.9, '#30363d', .1, '#e0a92a')}</>,
+  hatchRail: () => r(0, .11, .36, .22, '#d3d6d8'),
+  lunarTerminal: () => <>{r(0, 0, 1.42, .62, DARK)}{r(0, -.2, 1.06, .1, '#59c8ff')}</>,
+  // Hermès
+  pilotConsole: () => <>{r(0, .5, 5.6, 1, DARK, .2)}{[-1.6, 1.6].map((x) => <rect key={x} x={x - .45} y=".55" width=".9" height=".3" fill="#59c8ff" />)}{['#2f6bff', '#ffd23a', '#ff3a2a', '#2fd060'].map((c, i) => <circle key={c} cx={-.45 + i * .3} cy=".7" r=".09" fill={c} />)}</>,
+  pilotSeat: () => <>{r(0, -.08, .7, .7, '#2b2f3a', .16)}{r(0, -.3, .5, .2, '#474d5c', .06)}</>,
+  sideConsole: () => <>{r(0, .31, 1.8, .62, DARK)}{r(0, .2, 1.2, .14, '#59c8ff')}</>,
+  crewSeats: () => <>{[-.6, .6].map((x) => <g key={x}>{r(x, .35, .6, .55, '#2b2f3a', .12)}{r(x, .15, .46, .14, '#e8602a', .04)}</g>)}</>,
+  engineSlot: () => <>{r(0, .19, 1, .38, '#566070')}{dot(0, .2, .12, '#ff9a62')}</>,
   board: () => r(0, .03, 1.6, .06, WHITE), dockHatch: () => <>{r(0, .1, 1.8, .2, STEEL)}{r(0, .22, 1.2, .05, '#ffb02a')}</>,
 }
 
 /** Everything standing inside a room, placed exactly as in the 3D level. */
-function Furniture({ zone, room }: { zone: ZoneId; room: RoomDef }) {
+export function Furniture({ zone, room }: { zone: ZoneId; room: RoomDef }) {
   const map = GRID_MAPS[zone as 1 | 2 | 3]
   const [x0, z0, x1, z1] = room.rect
   const inside = (x: number, z: number) => x >= x0 * TILE - 0.2 && x <= (x1 + 1) * TILE + 0.2 && z >= z0 * TILE - 0.2 && z <= (z1 + 1) * TILE + 0.2

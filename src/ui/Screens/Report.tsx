@@ -278,6 +278,13 @@ export function Pause() {
             <Row title={R.master} desc={R.masterDesc}>
               <Range value={st.master} min={0} max={1} step={0.01} onChange={(v) => update({ master: v })} />
             </Row>
+            {/* Music and the game's sounds apart, so either can be turned down without the other. */}
+            <Row title={fr.settings2.musicTitle} desc={fr.settings2.musicDesc}>
+              <Range value={st.music} min={0} max={1} step={0.01} onChange={(v) => update({ music: v })} />
+            </Row>
+            <Row title={fr.settings2.sfxTitle} desc={fr.settings2.sfxDesc}>
+              <Range value={st.sfx} min={0} max={1} step={0.01} onChange={(v) => update({ sfx: v })} />
+            </Row>
             <Row title={fr.settings2.brightness} desc={R.brightnessDesc}>
               <Range value={st.brightness} min={0.4} max={1.4} step={0.02} onChange={(v) => update({ brightness: v })} />
             </Row>

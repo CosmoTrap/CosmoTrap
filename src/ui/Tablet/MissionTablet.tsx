@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { allEnts, entActive, hintFor, hintKey, requestHint, stepsState } from '../../game/logic'
+import { allEnts, entActive, stepsState } from '../../game/logic'
 import { GRID_MAPS, entWorld, roomAt } from '../../game/maps'
 import { isExplored } from '../../game/explore'
 import { live, timeLimit, useGame, type MissionMessage, type TabletTab } from '../../game/state'
 import type { RoomDef, ZoneId } from '../../game/types'
 import { fr } from '../../i18n/fr'
+import { HintButtons } from '../HintButtons'
 import { closeTablet } from '../../player/Player'
 import { labelFor, matches } from '../../player/input'
 import { InventoryContent } from '../Inventory'
@@ -14,6 +15,7 @@ import { ModuleArt, roomCode, roomStatus, roomSteps } from './moduleArt'
 import { elapsed, levelName, tabletText } from './copy'
 import './tablet.css'
 import { LunarPlan } from './LunarPlan'
+import { RocketFlightCard } from './RocketMap'
 import { missionNote } from '../../game/lunar/logic'
 
 const ZONES: ZoneId[] = [1, 2, 3, 4]
@@ -42,7 +44,7 @@ function Plan() {
   }).length : 0
   const f = useGame.getState().flags
   const event = useGame.getState().event
-  const alert = zone === 1 && !f.pressurized && alarmOn(1) ? t.alarm : event?.kind === 'blackout' ? t.blackout : event?.kind === 'leak' ? t.leak : zone === 2 && !f.power ? t.noPower : null
+  const alert = event?.kind === 'blackout' ? t.blackout : event?.kind === 'leak' ? t.leak : alarmOn(zone) ? `${t.alarm} · NIVEAU ${zone}` : zone === 2 && !f.power ? t.noPower : null
   const allSteps = stepsState(zone)
   const stationSolved = allSteps.filter((s) => s.status === 'done').length
   const status = room ? roomStatus(zone, room) : 'idle'
@@ -92,28 +94,24 @@ function Plan() {
           <div><dt>{t.hintsUsedLabel}</dt><dd>{hints}</dd></div>
         </dl>}
       </section>
+      {zone === 3 && <RocketFlightCard />}
     </aside>
   </div>
 }
 
 /** Asking for help: a light hint, then a stronger one, each costing time. */
 function HelpPanel() {
-  const shown = useGame((s) => s.hintsShown)
   const hints = useGame((s) => s.hintsUsed)
   const zone = useGame((s) => s.zone)
   const t = tabletText()
-  const k1 = hintKey(1), k2 = hintKey(2)
-  const first = !!k1 && shown.includes(k1), second = !!k2 && shown.includes(k2)
   const current = stepsState(zone).find((s) => s.status === 'current')
   return <section className="nav-help-panel">
     <h2>{t.askHelp}</h2>
     <p>{t.current} : <b>{current?.text ?? t.noMission}</b></p>
     <div className="nav-help-actions">
-      <button data-testid="hint" disabled={first || !k1} onClick={() => requestHint(1)}>{fr.rules.hintLight}</button>
-      <button data-testid="hint2" disabled={!first || second} onClick={() => requestHint(2)}>{fr.rules.hintStrong}</button>
+      <HintButtons />
       <small>{fr.tablet.hintsUsed(hints)}</small>
     </div>
-    {first && <blockquote>{hintFor(1)}</blockquote>}{second && <blockquote>{hintFor(2)}</blockquote>}
   </section>
 }
 

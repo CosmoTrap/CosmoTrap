@@ -72,6 +72,8 @@ export const zone4Spawn = { pos: [0, 0, -4] as [number, number, number], yaw: 0 
 
 export const zone4Ents: Ent[] = [
   { id: 'capsule', model: 'capsuleHatch', pos: g(0, 1.4, 1.2), dot: 'key', hit: [2.2, 2.2, 1.6] },
+  // Trois planches de la caisse de fret, éjectées autour de la capsule : le tablier du pont.
+  ...([[4.2, 4.6, 0.7], [-4.6, 2.6, 2.1], [-2.8, -7.2, 1.2]] as const).map(([x, z, r], i): Ent => ({ id: `plank_${i + 1}`, model: 'plank', pos: g(x, z, 0.03), rot: r, item: 'plank', dot: 'key', hit: [1.4, 0.6, 0.8] })),
   { id: 'antenna', model: 'antennaItem', pos: g(-17, -5, 0.12), item: 'antenna', dot: 'key', hit: [1.6, 0.8, 1.6] },
   { id: 'lighter', model: 'lighter', pos: g(-5.2, 7.5, 0.45), item: 'lighter', dot: 'surv' },
   { id: 'sign', model: 'trailSign', pos: g(4, -15, 0), rot: 0.3, dot: 'exam', hit: [1.2, 2, 0.6] },

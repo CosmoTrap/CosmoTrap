@@ -5,6 +5,8 @@ import { ORDER_LABELS, TASKS, initialDraft, pipePorts, values } from '../src/gam
 test.setTimeout(240000)
 async function boot(page: Page, menu = false) {
   page.setDefaultTimeout(30000)
+  // menu : API injoignable pour jouer en invité
+  if (menu) await page.route('**/api/**', (route) => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
   await page.addInitScript(() => localStorage.setItem('cosmotrap.settings.v1', JSON.stringify({ quality: 'high', resolution: 720, music: 0, voice: 0, sfx: 0, ambience: 0, browserVoice: false, map: 'base' })))
   await page.goto('/')
   await expect(page.getByTestId('launch')).toBeVisible()
@@ -236,7 +238,8 @@ test('les parois extérieures sont opaques et seuls les vrais hublots sont ouver
         return new T.Raycaster(origin,dir,0,.9).intersectObjects([wall,hull],false).length
       }
       out.push({room:m.id,panels:shoot(-m.width/2-.6,1.5,0,1,0)>0 && shoot(m.width/2+.6,1.5,0,-1,0)>0 && shoot(2,1.5,-m.depth/2-.6,0,1)>0,
-        windows:shoot(-m.width/2-.6,1.5,m.depth/4,1,0)===0 && shoot(m.width/2+.6,1.5,-m.depth/4,-1,0)===0,
+        // Every porthole declared for the module is a real hole through both skins.
+        windows:m.windows.every(([face,along]:[string,number])=>face==='left'?shoot(-m.width/2-.6,1.5,along,1,0)===0:face==='right'?shoot(m.width/2+.6,1.5,along,-1,0)===0:face==='back'?shoot(along,1.5,m.depth/2+.6,0,-1)===0:shoot(along,1.5,-m.depth/2-.6,0,1)===0),
         pbr:!hull.material.transparent && hull.material.depthWrite && !!hull.material.map && !!hull.material.normalMap && !!hull.material.roughnessMap})
     }
     return out

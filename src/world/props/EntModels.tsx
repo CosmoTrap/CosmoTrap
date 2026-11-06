@@ -12,7 +12,7 @@ import { live, useGame } from '../../game/state'
 import type { Ent, ZoneId } from '../../game/types'
 import { RoomCtx, useMats } from '../materials'
 import { textTexture } from '../textures'
-import { Box, Cyl, DockHatch, Flashlight, Lathe, Screen } from './models'
+import { Box, BoxExact, Cyl, DeskScreen, DockHatch, Flashlight, Keyboard, Lathe, Screen } from './models'
 import { useModel } from '../assets'
 import { RealModel } from './RealModel'
 import { ZONE4_ENT_MODELS } from '../zone4/Zone4Ents'
@@ -44,40 +44,7 @@ function Hitbox({ e }: { e: Ent }) {
   )
 }
 
-/** petit reflet pulsé pour repérer les objets à ramasser */
-// petite étincelle douce (texture ronde, plus de carré visible)
-let sparkTex: THREE.Texture | null = null
-function sparkTexture() {
-  if (sparkTex) return sparkTex
-  const c = document.createElement('canvas')
-  c.width = c.height = 64
-  const g = c.getContext('2d')!
-  const r = g.createRadialGradient(32, 32, 0, 32, 32, 32)
-  r.addColorStop(0, 'rgba(255,255,255,1)')
-  r.addColorStop(0.15, 'rgba(255,255,255,0.6)')
-  r.addColorStop(1, 'rgba(255,255,255,0)')
-  g.fillStyle = r
-  g.fillRect(0, 0, 64, 64)
-  g.fillStyle = 'rgba(255,255,255,0.7)'
-  g.fillRect(31, 4, 2, 56)
-  g.fillRect(4, 31, 56, 2)
-  sparkTex = new THREE.CanvasTexture(c)
-  return sparkTex
-}
 
-function Glint({ resource }: { resource: boolean }) {
-  const mat = useMemo(
-    () => new THREE.SpriteMaterial({ map: sparkTexture(), color: resource ? '#7dffb0' : '#fff1d6', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }),
-    [resource],
-  )
-  useEffect(() => () => mat.dispose(), [mat])
-  useFrame(({ clock }) => {
-    const t = clock.elapsedTime
-    // les ressources gardent une lueur phosphorescente visible dans le noir
-    mat.opacity = (resource ? 0.16 : 0.06) + (0.5 + 0.5 * Math.sin(t * 1.2)) * 0.12
-  })
-  return <sprite position={[0, 0.14, 0.05]} scale={resource ? 0.14 : 0.1} material={mat} />
-}
 
 function Bracket() {
   const m = useMats()
@@ -260,7 +227,8 @@ function BlanketPack() {
 
 /** Real first-aid case, hung on the wall with its lid facing the room. */
 function Medkit() {
-  return <group position={[0, -0.14, 0.015]} rotation={[Math.PI / 2, 0, 0]}><RealModel id="medical_box" height={0.1} shadows={false} /></group>
+  // Lid facing the room, handle on top: it hangs from the wall the right way up.
+  return <group position={[0, 0.14, 0.015]} rotation={[Math.PI / 2, Math.PI, 0]}><RealModel id="medical_box" height={0.1} shadows={false} /></group>
 }
 
 // ——— éléments d'énigme ———
@@ -490,7 +458,8 @@ function SteamValve() {
   })
   return (
     <group>
-      <Cyl a={[0.09, 0.09, 1.9]} p={[0, 0, 0.18]} r={[0, 0, Math.PI / 2]} m={m.painted('#9b5a2a', 0.5, 0.6)} />
+      {/* Overlaps the main on both sides, so that the pipe reads as one piece through the valve. */}
+      <Cyl a={[0.09, 0.09, 2.14]} p={[0, 0, 0.18]} r={[0, 0, Math.PI / 2]} m={m.painted('#9b5a2a', 0.5, 0.6)} />
       <Box s={[0.22, 0.22, 0.22]} p={[0, 0, 0.18]} m={m.painted('#5a5f66', 0.4, 0.8)} />
       <group ref={wheel} position={[0, 0, 0.36]}>
         <mesh material={m.painted('#c5302a', 0.4, 0.4)} castShadow>
@@ -504,7 +473,7 @@ function SteamValve() {
   )
 }
 
-/** fuite de gaz : particules + collision + son spatial */
+/** fuite de gaz : particules + son spatial ; on peut la traverser, au prix d'une brûlure (voir tick) */
 function Steam({ e }: { e: Ent }) {
   const fixed = useGame((s) => s.flags.steamFixed)
   const light = useRef<THREE.PointLight>(null)
@@ -535,7 +504,7 @@ function Steam({ e }: { e: Ent }) {
       const life = (t * 0.6 + seeds[i]) % 1
       const a = seeds[i] * 40
       // A jet out of the tear in the pipe, spreading into the corridor and rising.
-      p.setXYZ(i, 0.1 + Math.cos(a) * life * 0.75 + Math.sin(t + i) * 0.05, 1.25 + life * life * 1.25 + Math.sin(a * 3) * 0.12 * life, -0.72 + life * 1.55 + Math.sin(a) * life * 0.25)
+      p.setXYZ(i, -0.1 + Math.cos(a) * life * 0.75 + Math.sin(t + i) * 0.05, 1.25 + life * life * 1.25 + Math.sin(a * 3) * 0.12 * life, -0.72 + life * 1.55 + Math.sin(a) * life * 0.25)
     }
     p.needsUpdate = true
   })
@@ -551,11 +520,7 @@ function Steam({ e }: { e: Ent }) {
   return (
     <group>
       <points ref={pts} geometry={geo} material={mat} frustumCulled={false} />
-      {!fixed && (
-        <RigidBody type="fixed" colliders={false}>
-          <CuboidCollider args={[1, 1.4, 1]} position={[0, 1.4, 0]} />
-        </RigidBody>
-      )}
+      {/* No collider: the gas can be crossed, at the price of a burn (see tick). */}
       <pointLight ref={light} name="steam-service-light" color="#ffd2a8" intensity={0} distance={4} position={[0, 1.6, 0]} />
     </group>
   )
@@ -570,7 +535,8 @@ function Breaker() {
   })
   return (
     <group>
-      <Box s={[1.3, 1.5, 0.3]} p={[0, 0, 0.15]} m={m.painted('#5c646c', 0.5, 0.5)} />
+      {/* Square-edged: rounded, its back would leave a gap along the wall. */}
+      <BoxExact s={[1.3, 1.5, 0.3]} p={[0, 0, 0.15]} m={m.painted('#5c646c', 0.5, 0.5)} />
       <Box s={[1.2, 1.4, 0.02]} p={[0, 0, 0.31]} m={m.painted('#2e3237', 0.5, 0.5)} />
       <group ref={lever} position={[0.4, 0, 0.34]}>
         <Box s={[0.05, 0.4, 0.05]} p={[0, 0.2, 0]} m={m.metal('#8d9196')} />
@@ -602,15 +568,59 @@ function Terminal() {
     const t = textTexture(lines, { w: 512, h: 320, fg: on ? '#7fe3ff' : '#331111', bg: on ? '#061820' : '#020202', scan: true, glow: on, size: 32 })
     return new THREE.MeshStandardMaterial({ map: t, emissiveMap: t, emissive: '#fff', emissiveIntensity: on ? 1.6 : 0 })
   }, [on, f.pw_sas, f.readTerminal])
+  return <TerminalBody screen={mat} lit={on} />
+}
+
+/** Diagnostic desk: steel cabinet, sloped keyboard deck with real keys, and a hooded screen on a column. */
+export function TerminalBody({ screen, lit, children }: { screen?: THREE.Material; lit: boolean; children?: ReactNode }) {
+  const m = useMats()
+  const keys = useRef<THREE.InstancedMesh>(null)
+  const COLS = 15, ROWS = 5
+  useEffect(() => {
+    const mtx = new THREE.Matrix4()
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      // The bottom row carries a long space bar in the middle.
+      const space = r === ROWS - 1 && c >= 5 && c <= 9
+      const sx = space ? (c === 7 ? 5.4 : 0) : 1
+      mtx.makeScale(sx, 1, 1).setPosition((c - (COLS - 1) / 2) * 0.046 + (r % 2) * 0.01, 0, (r - (ROWS - 1) / 2) * 0.046)
+      keys.current!.setMatrixAt(r * COLS + c, mtx)
+    }
+    keys.current!.instanceMatrix.needsUpdate = true
+    keys.current!.computeBoundingSphere()
+  }, [])
+  const body = m.painted('#3a4249', 0.45, 0.55), dark = m.plastic('#16181b', 0.35), steel = m.metal('#9aa3a8', 0.3)
   return (
     <group>
-      <Box s={[1.4, 0.9, 0.6]} p={[0, 0.45, 0.3]} m={m.painted('#3c4046', 0.5, 0.6)} />
-      <Box s={[1.4, 0.05, 0.65]} p={[0, 0.92, 0.32]} m={m.plastic('#1e2023', 0.35)} />
-      <Box s={[1.0, 0.65, 0.06]} p={[0, 1.45, 0.12]} r={[-0.1, 0, 0]} m={m.plastic('#1b1d20', 0.3)} />
-      <mesh position={[0, 1.45, 0.155]} rotation={[-0.1, 0, 0]} material={mat}>
-        <planeGeometry args={[0.92, 0.57]} />
-      </mesh>
-      <Box s={[0.6, 0.02, 0.2]} p={[0, 0.955, 0.4]} m={m.plastic('#2a2c30', 0.5)} />
+      {/* Cabinet with a recessed door, vents and a kick plate. */}
+      <Box s={[1.4, 0.86, 0.6]} p={[0, 0.47, 0.3]} m={body} />
+      <Box s={[1.42, 0.06, 0.62]} p={[0, 0.03, 0.3]} m={m.metal('#24282c', 0.5)} />
+      <Box s={[1.1, 0.56, 0.02]} p={[0, 0.46, 0.605]} m={m.painted('#2e353b', 0.5, 0.5)} />
+      {[0, 1, 2, 3, 4, 5].map((i) => <Box key={i} s={[0.5, 0.012, 0.012]} p={[-0.22, 0.62 - i * 0.045, 0.62]} m={dark} cast={false} />)}
+      <Box s={[0.06, 0.12, 0.03]} p={[0.42, 0.46, 0.625]} m={steel} />
+      <mesh position={[0.3, 0.68, 0.617]} material={m.glow(lit ? '#38ff7a' : '#ff3b2a', lit ? 2.2 : 1.4)}><circleGeometry args={[0.018, 12]} /></mesh>
+      {/* Sloped deck: wrist rest, keyboard, trackball and a row of toggles. */}
+      <group position={[0, 0.94, 0.36]} rotation={[0.2, 0, 0]}>
+        <Box s={[1.44, 0.05, 0.56]} m={m.metal('#5a646b', 0.4)} />
+        <Box s={[0.82, 0.02, 0.28]} p={[-0.12, 0.03, 0.04]} m={dark} />
+        <instancedMesh ref={keys} args={[undefined, undefined, COLS * ROWS]} position={[-0.12, 0.05, 0.04]} material={m.plastic('#2b2f34', 0.5)} castShadow>
+          <boxGeometry args={[0.038, 0.018, 0.038]} />
+        </instancedMesh>
+        <Box s={[1.3, 0.03, 0.08]} p={[0, 0.035, 0.23]} m={m.rubber('#202326')} />
+        <Cyl a={[0.06, 0.07, 0.03]} p={[0.48, 0.04, 0.06]} m={dark} seg={20} />
+        <mesh position={[0.48, 0.07, 0.06]} material={m.plastic('#7d8a95', 0.2)}><sphereGeometry args={[0.04, 16, 10]} /></mesh>
+        {[0, 1, 2, 3].map((i) => <group key={i} position={[0.36 + i * 0.075, 0.035, -0.16]}>
+          <Box s={[0.05, 0.02, 0.05]} m={dark} />
+          <Box s={[0.016, 0.05, 0.016]} p={[0, 0.03, 0]} r={[i % 2 ? 0.4 : -0.4, 0, 0]} m={steel} />
+        </group>)}
+      </group>
+      {/* Screen on a column, under a small hood. */}
+      <Box s={[0.12, 0.42, 0.08]} p={[0, 1.15, 0.06]} m={body} />
+      <group position={[0, 1.55, 0.12]} rotation={[-0.12, 0, 0]}>
+        <Box s={[1.06, 0.7, 0.08]} m={dark} />
+        <Box s={[1.12, 0.05, 0.16]} p={[0, 0.37, 0.04]} m={body} />
+        {[-1, 1].map((s) => <Box key={s} s={[0.04, 0.72, 0.16]} p={[s * 0.56, 0, 0.04]} m={body} />)}
+        {screen ? <mesh position={[0, 0, 0.042]} material={screen}><planeGeometry args={[0.94, 0.57]} /></mesh> : <group position={[0, 0, 0.042]}>{children}</group>}
+      </group>
     </group>
   )
 }
@@ -622,9 +632,13 @@ function PilotConsole() {
   return (
     <group>
       <Box s={[5.6, 0.95, 0.9]} p={[0, 0.475, 0.45]} m={m.painted('#2c2f33', 0.5, 0.6)} />
-      <Box s={[5.6, 0.08, 1.0]} p={[0, 1.0, 0.5]} r={[0.3, 0, 0]} m={m.plastic('#15171a', 0.3)} />
-      <Screen w={0.9} h={0.5} p={[-1.6, 1.12, 0.45]} lines={['TRAJECTOIRE', 'TLI → TERRE', 'T-0 : en attente']} fg="#ffb38a" />
-      <Screen w={0.9} h={0.5} p={[1.6, 1.12, 0.45]} lines={['MOTEUR', engine ? 'CELLULE OK' : 'SANS ÉNERGIE', engine ? 'PRÊT' : '—']} fg={engine ? '#7fffb0' : '#ff7a6b'} />
+      {/* Sloped desk: a monitor on its stand at the back of each pilot's place, a keyboard in front of it. */}
+      <group position={[0, 1.0, 0.5]} rotation={[0.3, 0, 0]}>
+        <Box s={[5.6, 0.08, 1.0]} m={m.plastic('#15171a', 0.3)} />
+        <DeskScreen w={0.9} h={0.5} p={[-1.6, 0.04, -0.3]} lines={['TRAJECTOIRE', 'TLI → TERRE', 'T-0 : en attente']} fg="#ffb38a" />
+        <DeskScreen w={0.9} h={0.5} p={[1.6, 0.04, -0.3]} lines={['MOTEUR', engine ? 'CELLULE OK' : 'SANS ÉNERGIE', engine ? 'PRÊT' : '—']} fg={engine ? '#7fffb0' : '#ff7a6b'} />
+        {[-1.6, 1.6].map((x) => <Keyboard key={x} p={[x, 0.04, 0.2]} w={0.5} />)}
+      </group>
       {cols.map((c, i) => (
         <group key={i} position={[-0.45 + i * 0.3, 1.07, 0.62]} rotation={[0.3, 0, 0]}>
           <Cyl a={[0.08, 0.09, 0.05]} m={m.metal('#2a2c30')} />
@@ -636,21 +650,30 @@ function PilotConsole() {
   )
 }
 
+/** The engine's power socket: empty and red until the cell is in, then the cell sits locked in it, glowing. */
 function EngineSlot() {
   const m = useMats()
   const engine = useGame((s) => s.flags.engine)
+  const steel = m.metal('#9aa3a8', 0.3)
+  const label = useMemo(() => new THREE.MeshStandardMaterial({ map: textTexture([engine ? 'CELLULE ENGAGÉE' : 'INSÉRER LA CELLULE'], { w: 512, h: 80, bg: engine ? '#123d2a' : '#3d1512', fg: engine ? '#7fffb0' : '#ff9a8a', size: 34, pad: 14 }), roughness: 0.5 }), [engine])
+  useEffect(() => () => { label.map?.dispose(); label.dispose() }, [label])
   return (
     <group>
       <Box s={[1.0, 1.2, 0.35]} p={[0, 0, 0.17]} m={m.painted('#3c4046', 0.5, 0.7)} />
-      <Cyl a={[0.12, 0.12, 0.2]} p={[0, 0.1, 0.36]} r={[Math.PI / 2, 0, 0]} m={m.metal('#1b1d20', 0.5)} />
-      {engine && (
-        <mesh position={[0, 0.1, 0.42]} rotation={[Math.PI / 2, 0, 0]} material={m.glow('#3ad7ff', 5)}>
-          <cylinderGeometry args={[0.07, 0.07, 0.16, 16]} />
-        </mesh>
-      )}
-      <mesh position={[0, 0.45, 0.352]} material={m.glow(engine ? '#38ff7a' : '#ff2a1a', 3)}>
-        <planeGeometry args={[0.5, 0.05]} />
-      </mesh>
+      {/* Socket: a collar round a dark well. */}
+      <Cyl a={[0.17, 0.17, 0.06]} p={[0, 0.05, 0.37]} r={[Math.PI / 2, 0, 0]} m={steel} seg={28} />
+      <Cyl a={[0.12, 0.12, 0.07]} p={[0, 0.05, 0.38]} r={[Math.PI / 2, 0, 0]} m={m.metal('#111316', 0.6)} seg={24} />
+      {engine && <group position={[0, 0.05, 0.4]}>
+        {/* The cell, pushed home: its end cap, a lit band and the locking handle turned across. */}
+        <Cyl a={[0.1, 0.1, 0.14]} p={[0, 0, 0.05]} r={[Math.PI / 2, 0, 0]} m={m.painted('#d9dde0', 0.35, 0.4)} seg={20} />
+        <Cyl a={[0.103, 0.103, 0.035]} p={[0, 0, 0.06]} r={[Math.PI / 2, 0, 0]} m={m.glow('#3ad7ff', 4)} seg={20} />
+        <Box s={[0.26, 0.04, 0.04]} p={[0, 0, 0.14]} r={[0, 0, Math.PI / 4]} m={m.plastic('#ffb020', 0.4)} />
+      </group>}
+      {/* Charge bar: empty and red, then full and green. */}
+      {[0, 1, 2, 3, 4, 5].map((i) => <mesh key={i} position={[-0.25 + i * 0.1, -0.3, 0.352]} material={m.glow(engine ? '#38ff7a' : i === 0 ? '#ff2a1a' : '#2a1110', engine ? 2.4 : i === 0 ? 3 : 0.2)}>
+        <planeGeometry args={[0.08, 0.06]} />
+      </mesh>)}
+      <mesh position={[0, 0.45, 0.352]} material={label}><planeGeometry args={[0.8, 0.125]} /></mesh>
     </group>
   )
 }
@@ -780,14 +803,15 @@ function EntNode({ e, zone }: { e: Ent; zone: ZoneId }) {
   const keepWhenDone = !e.item
   // L'étagère fait partie du nœud ramassable : elle doit rester quand l'objet part.
   const shelf = !!(e.item && e.wall && (e.y ?? 0) > 0.3 && WALL_BRACKET.has(e.model))
+  // Une fois fermée, la vanne reste en place : seule son interaction disparaît.
+  const staysVisible = e.model === 'steamValve' || e.model === 'engineSlot'
   if (!active && !keepWhenDone && !shelf) return null
   return (
     <RoomCtx.Provider value={{ id: room?.id ?? '', dark: !!room?.dark }}>
       <group name={`ent:${e.id}`} position={p} rotation={[0, r, 0]}>
-        {active && model ? (e.item ? <PickupHighlight>{model(e)}</PickupHighlight> : model(e)) : null}
+        {(active || staysVisible) && model ? (e.item ? <PickupHighlight>{model(e)}</PickupHighlight> : model(e)) : null}
         {!e.item && <SolidProp model={e.model} />}
         {shelf && <Bracket />}
-        {active && e.item && <Glint resource={ITEM_KIND[e.item] === 'resource'} />}
         {active && <Hitbox e={e} />}
       </group>
     </RoomCtx.Provider>

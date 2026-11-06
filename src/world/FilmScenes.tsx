@@ -1,13 +1,13 @@
 import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { audio } from '../game/audio/audio'
+import { audio, speechSeconds } from '../game/audio/audio'
 import { GRID_MAPS, TILE, entWorld, roomAt, spawnOf } from '../game/maps'
 import { terrainHeight } from '../game/maps/zone4'
 import { entById } from '../game/logic'
 import { G, live, useGame } from '../game/state'
 import { fr } from '../i18n/fr'
-import { Astronaut, type AstronautHandle } from './Astronaut'
+import { RealModel } from './props/RealModel'
 
 // Cinématiques « film » à l'entrée de chaque zone : plans découpés (travellings, plans serrés,
 // contre-plongées), acteur à la 3e personne, et le crash de la capsule Hermès sur Terre.
@@ -71,55 +71,23 @@ function shotsFor(zone: number): Shot[] {
   // Floor 2 opens in the lift: the over-the-shoulder shot starts inside the cab, not behind its wall.
   const start = z === 2 ? 2.2 : 0
   const at = (f: number, r: number, y: number): V3 => [sp.pos[0] + fwd[0] * (f + start) + right[0] * r, y, sp.pos[2] + fwd[2] * (f + start) + right[2] * r]
-  const standAt = (f: number, yaw = sp.yaw, walk = 0) => {
-    actor.visible = true
-    actor.pos = at(f, 0, 0)
-    actor.yaw = yaw + Math.PI
-    actor.lie = 0
-    actor.walk = walk
-  }
   if (z === 1) {
+    // A quick presentation of the station, without the character: outside, its two levels joined by the
+    // lift; then inside, a corridor, the mess, the infirmary, the hub and its lift, and the dormitory.
+    // The real station, filmed from outside: floor 1 around the hub at (41, 41), floor 2 under it.
+    const outside = (on: boolean) => {
+      actor.visible = false
+      void on
+    }
     return [
-      // réveil au sol : paupières, flou, alarme
-      {
-        d: 5.5,
-        from: [at(0.2, 0, 0.32), at(0.9, 0.3, 2.4)],
-        to: [at(0.25, 0.05, 0.36), at(1.2, -0.2, 2.1)],
-        fov: 62,
-        line: 0,
-        run: (_, t) => {
-          actor.visible = false
-          // clignements des yeux
-          live.fade = t < 0.9 ? 1 : t < 1.6 ? 1 - (t - 0.9) / 0.7 : t < 2.0 ? (t - 1.6) / 0.4 : t < 2.6 ? 1 - (t - 2.0) / 0.6 : t < 3.6 ? 0 : t < 3.8 ? (t - 3.6) / 0.2 : Math.max(0, 1 - (t - 3.8) / 0.5)
-          film.blur = Math.max(0.15, 1 - t / 5)
-          if (t > 2.1) once('gasp', () => audio.sfx('gasp'))
-        },
-      },
-      // on se relève
-      {
-        d: 4.5,
-        from: [at(0.25, 0, 0.6), at(2, 0.4, 1.4)],
-        to: [at(0.3, 0, 1.62), at(4, 0, 1.55)],
-        fov: 58,
-        line: 1,
-        run: (k) => {
-          actor.visible = false
-          film.blur = 0.25 * (1 - k)
-        },
-      },
-      // plan large : l'astronaute seul dans le module
-      {
-        d: 6,
-        from: [at(3.4, 1.3, 0.75), at(0, 0, 1.45)],
-        to: [at(2.8, 0.9, 0.85), at(0, 0, 1.5)],
-        fov: 40,
-        line: 2,
-        run: (k) => {
-          film.blur = 0
-          standAt(0, sp.yaw)
-          if (actor.visible) actor.yaw = sp.yaw + Math.PI + Math.sin(k * 3) * 0.15
-        },
-      },
+      { d: 6.5, from: [[118, 26, 104], [41, -3, 41]], to: [[96, 16, 96], [41, -2.5, 41]], fov: 40, line: 0, run: () => outside(true) },
+      { d: 5, from: [[78, -9, 78], [41, -6, 41]], to: [[52, -8, 92], [38, -5, 44]], fov: 46, run: () => outside(true) },
+      { d: 4.6, from: [[41, 1.65, 36.5], [41, 1.5, 16]], to: [[41, 1.65, 27.5], [41, 1.45, 16]], fov: 58, line: 1, run: () => outside(false) },
+      { d: 4.6, from: [[53, 1.8, 21], [30, 1.1, 17.5]], to: [[47, 1.7, 20.5], [28, 1.1, 17]], fov: 56, run: () => outside(false) },
+      // The infirmary: a wide shot down its whole length, at eye level, rather than a close-up on one corner.
+      { d: 4.2, from: [[39.2, 1.9, 65.2], [56, 1.15, 62.6]], to: [[41.6, 1.85, 65.1], [56, 1.1, 62.2]], fov: 62, run: () => outside(false) },
+      { d: 4.8, from: [[47.5, 2.2, 45], [41, 1.4, 41]], to: [[45, 1.9, 47.5], [41, 1.3, 41]], fov: 52, line: 2, run: () => outside(false) },
+      { d: 5.2, from: [[21, 1.75, 41], [11, 1.0, 41]], to: [[15.5, 1.62, 41], [10.5, 1.1, 41]], fov: 58, line: 3, run: () => outside(false) },
     ]
   }
   const key = z === 2 ? 'steam' : 'engine'
@@ -132,7 +100,8 @@ function shotsFor(zone: number): Shot[] {
       to: [at(0.2, 0.55, 1.6), at(5.5, 0, 1.3)],
       fov: 46,
       line: 0,
-      run: (k) => standAt(-1 + k * 2.4, sp.yaw, 1),
+      // The places, never the character.
+      run: () => (actor.visible = false),
     },
     // plan serré sur l'objectif
     {
@@ -151,7 +120,7 @@ function crashShots(): Shot[] {
   const L: V3 = [0, terrainHeight(0, 2.2), 2.2]
   const sp = spawnOf(4).pos
   const me: V3 = [sp[0], terrainHeight(sp[0], sp[2]), sp[2]]
-  const cam: V3 = [-7, terrainHeight(-7, -15) + 1.35, -15]
+  const cam: V3 = above(-7, -15, 1.35)
   const IMPACT = 6.6
   return [
     {
@@ -184,8 +153,9 @@ function crashShots(): Shot[] {
     },
     {
       d: 5,
-      from: [add(L, 4.8, 0.45, 5.2), add(L, 0, 1.3, 0)],
-      to: [add(L, 3.9, 0.6, 4.3), add(L, 0, 1.6, 0)],
+      // Heights from the ground under the camera itself: the slope round the capsule would otherwise bury it.
+      from: [above(L[0] + 4.8, L[2] + 5.2, 1.05), add(L, 0, 1.3, 0)],
+      to: [above(L[0] + 3.9, L[2] + 4.3, 1.25), add(L, 0, 1.6, 0)],
       fov: 36,
       line: 0,
       run: () => {
@@ -195,18 +165,17 @@ function crashShots(): Shot[] {
         useGame.setState({ shake: 0 })
       },
     },
+    // Through the crew member's eyes: lying in the grass, blurred, then sitting up and looking at the capsule.
     {
       d: 6.5,
-      from: [add(me, 2.4, 0.5, 1.6), add(me, 0, 0.3, 0)],
-      to: [add(me, 2.1, 1.1, 2.2), add(me, 0, 1.3, 0)],
-      fov: 40,
+      from: [add(me, 0, 0.28, 0), add(me, 0.4, 6, -1.2)],
+      to: [add(me, 0, 1.55, 0), add(L, 0, 1.4, 0)],
+      fov: 62,
       line: 1,
       run: (k, t) => {
-        actor.visible = true
-        actor.pos = me
-        actor.yaw = Math.PI * 0.85
-        actor.walk = 0
-        actor.lie = 1 - ease(THREE.MathUtils.clamp((t - 1) / 2.6, 0, 1))
+        actor.visible = false
+        film.blur = Math.max(0, 0.85 - t * 0.2)
+        live.fade = t < 0.6 ? 1 - t / 0.6 : t > 1.4 && t < 1.8 ? (t - 1.4) / 0.4 : t >= 1.8 && t < 2.2 ? 1 - (t - 1.8) / 0.4 : 0
         void k
       },
     },
@@ -217,8 +186,13 @@ function crashShots(): Shot[] {
 export function capsulePos(k: number): V3 {
   const L: V3 = [0, terrainHeight(0, 2.2) + 2.2, 2.2]
   const a = 1 - k
-  return [L[0] + 150 * a + Math.sin(a * 2) * 10, L[1] + 190 * a * a + 30 * a, L[2] + 210 * a]
+  const x = L[0] + 150 * a + Math.sin(a * 2) * 10, z = L[2] + 210 * a
+  // Never through a hill on the way in: always a few metres over the ground below, down to the impact point.
+  const floor = terrainHeight(x, z) + 2.2 + 6 * Math.min(1, a * 5)
+  return [x, Math.max(L[1] + 190 * a * a + 30 * a, floor), z]
 }
+/** A point at a given height above the ground right under it. */
+const above = (x: number, z: number, h: number): V3 => [x, terrainHeight(x, z) + h, z]
 
 let onceFlags: Record<string, boolean> = {}
 function once(k: string, fn: () => void) {
@@ -228,9 +202,27 @@ function once(k: string, fn: () => void) {
   }
 }
 
+/**
+ * Lengthen shots where needed so that each line is said in full before the next one starts (or the
+ * scene ends): a new line would otherwise cut the voice off mid-sentence.
+ */
+function fitLines(zone: number, shots: Shot[]) {
+  const lines = fr.story.tours[zone] ?? []
+  const starts = (i: number) => shots.slice(0, i).reduce((a, s) => a + s.d, 0)
+  shots.forEach((sh, i) => {
+    if (sh.line == null || !lines[sh.line]) return
+    let next = shots.findIndex((s, j) => j > i && s.line != null)
+    if (next < 0) next = shots.length
+    const room = starts(next) - starts(i)
+    const need = speechSeconds(lines[sh.line]) + 0.3 + (next === shots.length ? 0.7 : 0)
+    if (room < need) shots[next - 1].d += need - room
+  })
+  return shots
+}
+
 const cache = new Map<number, Shot[]>()
 export function sceneDuration(zone: number) {
-  const s = cache.get(zone) ?? shotsFor(zone)
+  const s = cache.get(zone) ?? fitLines(zone, shotsFor(zone))
   cache.set(zone, s)
   return s.reduce((a, x) => a + x.d, 0)
 }
@@ -240,7 +232,7 @@ export function runScene(zone: number, t: number, first: boolean) {
   if (first) onceFlags = {}
   let shots = cache.get(zone)
   if (!shots) {
-    shots = shotsFor(zone)
+    shots = fitLines(zone, shotsFor(zone))
     cache.set(zone, shots)
   }
   const total = shots.reduce((a, x) => a + x.d, 0)
@@ -265,7 +257,9 @@ export function runScene(zone: number, t: number, first: boolean) {
     if (line)
       once(`line${i}`, () => {
         useGame.setState({ subtitle: line })
-        audio.speak(line, { rate: 1.0, id: `tour_${zone}_${sh.line}` })
+        // Floor 1's lines are new: their old recordings would no longer match the subtitles.
+        // Floor 1's recordings say an older text: the browser's voice reads the current one meanwhile.
+        audio.speak(line, { rate: 1.0, id: zone === 1 ? undefined : `tour_${zone}_${sh.line}`, narration: true })
       })
   }
   return true
@@ -285,10 +279,8 @@ export function endScene() {
 }
 
 export function CineActor() {
-  const character = useGame((s) => s.character)
   const g = useRef<THREE.Group>(null)
   const body = useRef<THREE.Group>(null)
-  const ref = useRef<AstronautHandle>(null)
   useFrame(({ clock }) => {
     if (!g.current || !body.current) return
     g.current.visible = actor.visible && G().cine === 'tour'
@@ -299,17 +291,14 @@ export function CineActor() {
     // allongé sur le dos → assis → debout
     body.current.rotation.x = -actor.lie * 1.45
     body.current.position.y = actor.lie * 0.25
-    const a = ref.current
-    if (a?.armR && a.armL) {
-      a.armR.rotation.x = Math.sin(t * 4.2) * 0.45 * actor.walk - actor.lie * 0.6
-      a.armL.rotation.x = -Math.sin(t * 4.2) * 0.45 * actor.walk - actor.lie * 0.3
-    }
-    if (a?.head) a.head.rotation.x = actor.lie * 0.5 - 0.05
+    // A slight sway from side to side while walking, the suit being one rigid piece.
+    body.current.rotation.z = Math.sin(t * 4.2) * 0.035 * actor.walk
   })
   return (
     <group ref={g} visible={false}>
       <group ref={body}>
-        <Astronaut ref={ref} skin={character} accent={fr.characters[character]?.color ?? '#d9673a'} />
+        {/* The station's own EVA suit (NASA Z-2), as on the airlock racks. */}
+        <RealModel id="z2_spacesuit" height={1.85} />
       </group>
     </group>
   )

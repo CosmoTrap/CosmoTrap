@@ -2,6 +2,8 @@ import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { NOISE } from './glsl'
 import { tex } from '../assets'
+import { G } from '../../game/state'
+import { QUALITY } from '../quality'
 
 // Lune procédurale : cratères multi-échelles (relief analytique), mers sombres,
 // photométrie lunaire (Lommel-Seeliger) → terminateur jour/nuit marqué.
@@ -101,7 +103,8 @@ export function Moon({ radius, position, sun, detail = 3, intensity = 2.8 }: { r
         vertexShader: vert,
         fragmentShader: frag,
         uniforms: {
-          uAlbedo: { value: tex('/assets/planets/moon.jpg') },
+          // The 4K map alone is ~45 MB of video memory: the lighter presets get the 2K one.
+          uAlbedo: { value: tex(QUALITY[G().settings.quality].tex >= 1024 ? '/assets/planets/moon.jpg' : '/assets/planets/moon_2k.jpg') },
           uRegolith: { value: tex('/assets/tex/moon_01/diff.jpg') },
           uSun: { value: sun.clone() },
           uDetail: { value: detail },

@@ -1,0 +1,50 @@
+# Mise en ligne automatique à chaque push sur main (ou à la main : Actions → Mise en ligne → Run workflow).
+# Build du jeu, puis envoi de dist/ sur la branche « hostinger ». Sur Hostinger, une tâche Cron
+# (toutes les 5 min) lance api/deploy.php, qui installe la nouvelle version dans public_html.
+# Aucun secret n'est nécessaire. Facultatif :
+#   DEPLOY_TOKEN           contenu de .deploy-token → installation immédiate au lieu d'attendre le Cron
+name: Mise en ligne
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Dépendances
+        run: npm ci
+
+      - name: Build (vérification des types + Vite)
+        run: npm run build
+
+      - name: Contrôle du build
+        run: |
+          test -f dist/index.html
+          test -f dist/.htaccess
+          test -f dist/api/.htaccess
+          test -f dist/api/deploy.php
+          test ! -f dist/api/config.local.php
+
+      - name: Envoi sur Hostinger
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+          REPO_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        run: node scripts/deploy.mjs --no-build

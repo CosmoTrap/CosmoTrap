@@ -1,7 +1,7 @@
 import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { CEIL, TILE } from '../../game/maps'
+import { CEIL, GRID_MAPS, TILE } from '../../game/maps'
 import { G, live } from '../../game/state'
 import type { GridMap } from '../../game/types'
 import { QUALITY } from '../quality'
@@ -10,6 +10,8 @@ import { Earth } from './Earth'
 import { NOISE } from './glsl'
 import { Moon } from './Moon'
 import { MilkyWay, ShootingStars, Stars, Sun } from './Space'
+import { LaunchStage } from '../cine/LaunchStage'
+import { FLOOR_GAP, Station } from './Station'
 
 /** tout ce qu'on voit par les hublots, selon la zone */
 export function Exterior({ map }: { map: GridMap }) {
@@ -21,8 +23,20 @@ export function Exterior({ map }: { map: GridMap }) {
   const keepOut = useMemo(() => {
     const hx = (W * TILE) / 2
     const hz = (H * TILE) / 2
-    return { cx: hx, cy: CEIL / 2, cz: hz, hx, hy: CEIL / 2, hz }
-  }, [W, H])
+    // Far enough to clear the whole station: the other floor, the truss and the solar arrays.
+    const margin = map.zone < 3 ? 34 : 0
+    const tall = map.zone < 3 ? FLOOR_GAP + CEIL : CEIL / 2
+    return { cx: hx, cy: CEIL / 2, cz: hz, hx: hx + margin, hy: tall, hz: hz + margin }
+  }, [W, H, map.zone])
+  // One sky for the whole station: from floor 2, the Moon and the Earth are where floor 1 sees them, seen from just below.
+  const sky = useMemo(() => {
+    const upper = GRID_MAPS[1]
+    const base = new THREE.Vector3(Math.max(...upper.grid.map((r) => r.length)), 0, upper.grid.length)
+    if (map.zone !== 2) return map.zone === 1 ? base : c
+    const hub = (m: GridMap) => { const [x0, z0, x1, z1] = m.rooms.find((r) => r.shape === 'round')!.rect; return new THREE.Vector2(x0 + x1 + 1, z0 + z1 + 1) }
+    const a = hub(map), b = hub(upper)
+    return base.add(new THREE.Vector3(a.x - b.x, FLOOR_GAP, a.y - b.y))
+  }, [map, c])
   const sun = useMemo(() => new THREE.Vector3(...map.sun).normalize(), [map])
   // Le flux est perpendiculaire au soleil : les rochers traversent son disque.
   const flow = useMemo(() => {
@@ -37,22 +51,16 @@ export function Exterior({ map }: { map: GridMap }) {
   return (
     <>
       <MilkyWay />
-      <Stars count={q.particles > 400 ? 9000 : 5000} />
+      <Stars count={q.particles > 400 ? 16000 : 9000} />
       <Sun dir={sun} />
+      {map.zone < 3 && <Station map={map} />}
       <group ref={group}>
         {map.exterior === 'moon' && (
           <>
-            <Moon radius={1500} position={[c.x - 200, -1525, c.z + 150]} sun={sun} detail={q.moonDetail} />
-            <Earth radius={75} position={c.clone().add(new THREE.Vector3(-0.55, 0.14, -0.82).normalize().multiplyScalar(3200)).toArray()} sun={sun} />
+            <Moon radius={1500} position={[sky.x - 200, -1525 + sky.y, sky.z + 150]} sun={sun} detail={q.moonDetail} />
+            <Earth radius={75} position={sky.clone().add(new THREE.Vector3(-0.55, 0.14, -0.82).normalize().multiplyScalar(3200)).toArray()} sun={sun} />
             <ShootingStars />
-            <Asteroids center={c} keepOut={keepOut} minY={-2} flow={flow} count={q.particles > 400 ? 260 : 160} />
-          </>
-        )}
-        {map.exterior === 'asteroids' && (
-          <>
-            <Moon radius={320} position={c.clone().add(new THREE.Vector3(0.45, -0.3, -0.84).normalize().multiplyScalar(2600)).toArray()} sun={sun} detail={2} />
-            <Earth radius={60} position={c.clone().add(new THREE.Vector3(-0.7, 0.1, 0.7).normalize().multiplyScalar(3600)).toArray()} sun={sun} />
-            <Asteroids center={c} keepOut={keepOut} flow={flow} count={q.particles > 400 ? 260 : 160} />
+            <Asteroids center={c} keepOut={keepOut} minY={map.zone === 2 ? -14 : -2} flow={flow} count={q.particles > 400 ? 260 : 160} />
           </>
         )}
         {map.exterior === 'earthrise' && (
@@ -63,6 +71,7 @@ export function Exterior({ map }: { map: GridMap }) {
         )}
       </group>
       {map.exterior === 'earthrise' && <Reentry center={c} />}
+      {map.zone === 3 && <LaunchStage />}
     </>
   )
 }

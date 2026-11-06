@@ -68,14 +68,11 @@ test('verrouillé sans les énigmes, puis aller-retour libre entre les deux éta
   expect(await page.evaluate(() => window.__game.interact('lift'))).toBe(false)
   await page.evaluate(() => window.__game.set({ flags: { ...window.__game.state().flags, pressurized: true }, inv: { lamp: 1 }, taken: ['1:lamp'] }))
 
-  // First trip down: title card and the floor's film scene, then the player is in the cab.
+  // First trip down: no title card and no film scene on floor 2, the player simply steps out of the cab.
   await boardAndRide(page, 1)
   await arrive(page, 2)
-  await page.waitForFunction(() => window.__game.state().cine === 'tour', undefined, { timeout: 30000 })
-  await page.waitForTimeout(1500)
-  await page.screenshot({ path: 'test-results/lift-tour-2.png' })
-  await page.getByTestId('skip').click()
-  await expect.poll(() => page.evaluate(() => window.__game.state().cine)).toBe(null)
+  await expect.poll(() => page.evaluate(() => window.__game.state().cine), { timeout: 15000 }).toBe(null)
+  expect(await page.evaluate(() => window.__game.state().toured)).toContain(2)
   await page.waitForTimeout(1200)
   expect(Math.hypot(...(await page.evaluate(() => [window.__game.live.pos[0] - 43, window.__game.live.pos[2] - 37])) as [number, number])).toBeLessThan(0.2)
   await page.screenshot({ path: 'test-results/lift-arrival-2.png' })

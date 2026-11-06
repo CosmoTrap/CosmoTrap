@@ -32,6 +32,7 @@ export type ItemId =
   | 'wrench'
   | 'cell'
   | 'rope'
+  | 'plank'
   | 'carBattery'
   | 'antenna'
   | 'manual'
@@ -133,5 +134,5 @@ export interface GridMap {
   spawn: { tile: [number, number]; yaw: number }
   /** direction du soleil (vers le soleil) */
   sun: [number, number, number]
-  exterior: 'moon' | 'asteroids' | 'earthrise'
+  exterior: 'moon' | 'earthrise'
 }

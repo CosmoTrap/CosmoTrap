@@ -11,6 +11,8 @@
     "test:e2e": "playwright test",
     "audio": "tsx scripts/generate-audio.ts",
     "local": "node scripts/local.mjs",
+    "deploy": "node scripts/deploy.mjs",
+    "zip": "npm run build && rm -f cosmotrap-site.zip && cd dist && zip -qr ../cosmotrap-site.zip . -x '*.DS_Store'",
     "assets": "node scripts/fetch-assets.mjs && python3 -I scripts/prepare-textures.py && node scripts/decimate-trees.mjs && node scripts/fetch-interior-models.mjs"
   },
   "dependencies": {
