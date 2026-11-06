@@ -13,7 +13,7 @@ function addOutlineGlow(material: THREE.MeshStandardMaterial) {
       '#include <emissivemap_fragment>',
       `#include <emissivemap_fragment>
       float pickupEdge = pow(1.0 - saturate(dot(normalize(normal), normalize(vViewPosition))), 2.2);
-      totalEmissiveRadiance += vec3(1.0, 0.78, 0.36) * (0.5 + pickupEdge * 3.2) * uPickupPulse;`,
+      totalEmissiveRadiance += vec3(1.0, 0.78, 0.36) * (0.36 + pickupEdge * 2.4) * uPickupPulse;`,
     )
   }
   material.customProgramCacheKey = () => 'pickup-outline'
@@ -24,7 +24,7 @@ function addOutlineGlow(material: THREE.MeshStandardMaterial) {
 export function highlightPickups(root: THREE.Group) {
   const changed = new Map<THREE.Mesh, { original: THREE.Material | THREE.Material[]; highlighted: THREE.Material | THREE.Material[] }>()
   const copies = new Map<THREE.Material, THREE.Material>()
-  const tint = new THREE.Color('#c5e7ef').multiplyScalar(0.10)
+  const tint = new THREE.Color('#c5e7ef').multiplyScalar(0.07)
   const highlight = (source: THREE.Material) => {
     if (!(source as THREE.MeshStandardMaterial).isMeshStandardMaterial || source.transparent) return source
     let copy = copies.get(source)

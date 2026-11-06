@@ -32,6 +32,8 @@ Une partie du mobilier et le feuillage restent procéduraux ; les modèles compl
 
 `public/menu/starfield.jpg` : image fournie par l'équipe, générée avec Gemini (Google).
 
+`public/menu/lunar-surface.jpg` (fond du plan de la base lunaire dans la tablette) : image fournie par l'équipe, générée avec Gemini (Google).
+
 ### Combinaisons spatiales et hologramme
 
 Modèle **Z2 Spacesuit** de **[NASA 3D Resources](https://github.com/nasa/NASA-3D-Resources)**, importé par `scripts/fetch-interior-models.mjs` puis compressé. Crédit : NASA.

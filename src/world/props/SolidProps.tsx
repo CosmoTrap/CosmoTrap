@@ -46,13 +46,19 @@ const BOUNDS: Record<string, Bounds[]> = {
   // Interactive furniture has physics independently of its raycast hitbox.
   locker: [box([0.8, 2, 0.56], [0, 1, 0.28])],
   dispenser: [box([0.45, 1.45, 0.52], [0, 0.725, 0.26])],
-  terminal: [box([1.4, 0.96, 0.65], [0, 0.48, 0.325]), box([1, 0.65, 0.12], [0, 1.45, 0.12])],
+  terminal: [box([1.42, 0.98, 0.62], [0, 0.49, 0.3]), box([1.12, 0.72, 0.16], [0, 1.55, 0.12])],
+  batteryGauge: [box([0.72, 2.1, 0.42], [0, 1.05, 0.21])],
+  serverRack: [box([0.62, 2.05, 0.8], [0, 1.025, 0.4])],
+  o2Column: [box([0.76, 2.2, 0.76], [0, 1.1, 0.42])],
+  suitBench: [box([2.2, 0.5, 0.46], [0, 0.25, 0])],
+  hatchRail: [box([0.36, 2.5, 0.3], [0, 1.25, 0.15])],
   pilotConsole: [box([5.6, 1.12, 1], [0, 0.56, 0.5])],
   breaker: [box([1.3, 1.5, 0.32], [0, 0, 0.16])],
   engineSlot: [box([1, 1.2, 0.38], [0, 0, 0.19])],
 }
 
 export function PropColliders({ model }: { model: string }) {
+  if (model === 'turbine') return <CylinderCollider args={[1.0, 1.0]} position={[0, 1.0, 0]} />
   if (model === 'reactor') {
     return <CylinderCollider args={[1.35, 1.05]} position={[0, 1.35, 0]} />
   }
@@ -65,6 +71,6 @@ export function PropColliders({ model }: { model: string }) {
 }
 
 export function SolidProp({ model }: { model: string }) {
-  if (!BOUNDS[model] && model !== 'reactor') return null
+  if (!BOUNDS[model] && model !== 'reactor' && model !== 'turbine') return null
   return <RigidBody type="fixed" colliders={false}><PropColliders model={model} /></RigidBody>
 }

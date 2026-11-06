@@ -89,7 +89,7 @@ export function CineDirector() {
       return
     }
     if (cine === 'lunarLaunch') {
-      live.camOverride = { pos: [ROCKET[0] - 12, 5 + t * 1.2, ROCKET[1] - 16], look: [ROCKET[0], 4 + Math.max(0, t - 3) ** 2 * 1.3, ROCKET[1]], fov: 62 }
+      live.camOverride = { pos: [ROCKET[0] + 22, 4 + t * 1.4, ROCKET[1] + 26], look: [ROCKET[0], 8 + Math.max(0, t - 3) ** 2 * 1.4, ROCKET[1]], fov: 58 }
       live.countdown = t < 3 ? String(3 - Math.floor(t)) : null
       once('ignition', () => { audio.sfx('airlock'); audio.playMusic('hermes') })
       if (t > 9) once('lunar-finish', finishLunar)

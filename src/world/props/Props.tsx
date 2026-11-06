@@ -26,7 +26,8 @@ const STATIC = new Set(['bunk', 'photos', 'sockets', 'personalLocker', 'holoProj
   'kettle', 'foodBox', 'foodCans', 'thermos', 'cuttingBoard', 'toolbox', 'crateSmall', 'containerLow', 'jerrycan',
   'plasticCan', 'gasBottle', 'elecBox', 'clipboard', 'binder', 'stationery', 'circuit', 'multimeter', 'pliers',
   'screwdrivers', 'spanner', 'bunsen', 'broom', 'dustpan', 'trashBag', 'fireAlarm', 'handTruck', 'storageCart',
-  'drillPress', 'weldCart', 'hvac', 'crutches', 'metalStool', 'chemSet', 'gasTank', 'shelfUnit'])
+  'drillPress', 'weldCart', 'hvac', 'crutches', 'metalStool', 'chemSet', 'gasTank', 'shelfUnit',
+  'turbine', 'breakerRow', 'batteryGauge', 'serverRack', 'wallDisplays', 'o2Column', 'suitBench', 'hatchMarking', 'hatchRail'])
 
 export const Props = memo(function Props({ map }: { map: GridMap }) {
   // Quest flags must not reconstruct every fixed prop and its render batches.
