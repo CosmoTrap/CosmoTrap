@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { maxAniso } from '../world/quality'
 
 // First-person arms, rebuilt from each avatar's picture in public/skins: same silhouette,
 // and the surfaces are the picture's own pixels. Coordinates below are pixels of that picture.
@@ -90,7 +91,7 @@ function picture(id: string) {
       const img = new Image()
       img.onload = () => resolve(img)
       img.onerror = reject
-      img.src = `/skins/${id}.png`
+      img.src = `/skins/${id}.webp`
     })
     pictures.set(id, p)
   }
@@ -136,7 +137,7 @@ export function stripMaterial(id: string, strip: Strip, base: string, spec: ArmS
   map.colorSpace = THREE.SRGBColorSpace
   map.wrapS = THREE.MirroredRepeatWrapping
   map.repeat.set(2, 1)
-  map.anisotropy = 8
+  map.anisotropy = maxAniso()
   const material = pictureMaterial(map, spec.roughness)
   materials.set(key, material)
   void picture(id).then((img) => {
@@ -237,7 +238,7 @@ async function buildHand(id: string, spec: ArmSpec, grip: boolean): Promise<Hand
   geometry.computeVertexNormals()
   const map = new THREE.CanvasTexture(c)
   map.colorSpace = THREE.SRGBColorSpace
-  map.anisotropy = 8
+  map.anisotropy = maxAniso()
   const material = pictureMaterial(map, spec.roughness)
   material.alphaTest = 0.5 // The outline comes from the picture, not from the grid.
   return { geometry, material }

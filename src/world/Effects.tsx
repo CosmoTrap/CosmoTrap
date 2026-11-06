@@ -135,6 +135,15 @@ export function Effects() {
     return () => { gl.shadowMap.autoUpdate = previous; gl.shadowMap.needsUpdate = true }
   }, [gl])
   useFrame(() => { gl.shadowMap.needsUpdate = true }, 0.9)
+  // Soft shadow filtering samples many more texels per light and pixel: only on the higher presets.
+  const soft = QUALITY[useGame((s) => s.settings.quality)].softShadows
+  const scene = useThree((s) => s.scene)
+  useEffect(() => {
+    const type = soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap
+    if (gl.shadowMap.type === type) return
+    gl.shadowMap.type = type
+    scene.traverse((o) => { const m = (o as THREE.Mesh).material; for (const x of m ? (Array.isArray(m) ? m : [m]) : []) x.needsUpdate = true })
+  }, [soft, gl, scene])
   const dpr = useThree((s) => s.viewport.dpr)
   const size = useThree((s) => s.size)
   const quality = useGame((s) => s.settings.quality)

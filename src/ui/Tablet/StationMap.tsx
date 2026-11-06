@@ -10,7 +10,7 @@ import { levelName, tabletText } from './copy'
 import { Lock, ModuleArt, roomCode, roomStatus } from './moduleArt'
 import { roomPowerCut } from '../../world/roomPower'
 import { SOLAR_ARRAYS, SOLAR_CELL, SOLAR_GAP } from '../../game/maps/solarArrays'
-import { Compartment, HermesHull, ROCKET_BOUNDS, RocketHud } from './RocketMap'
+import { Compartment, CompartmentLabel, HermesHull, OrbitBackdrop, ROCKET_BOUNDS } from './RocketMap'
 
 const DOT = { key: '#ff885c', res: '#75cfff', surv: '#45d7a2', exam: '#edc86e', exit: '#bfacff' }
 const square = (x: number, z: number, w = TILE, h = TILE) => `M${x},${z}h${w}v${h}h${-w}Z`
@@ -97,7 +97,7 @@ export function StationMap({ zone, selected, onSelect, mode = 'plan' }: { zone: 
       </defs>
       {map ? <>
         {(SOLAR_ARRAYS[zone] ?? []).map((a, i) => <SolarArray key={i} {...a} />)}
-        {zone === 3 && <HermesHull />}
+        {zone === 3 && <><OrbitBackdrop /><HermesHull /></>}
         {zone === 2 && <g pointerEvents="none" data-testid="map-rocket">
           <rect x="-7.6" y="31.6" width="15.6" height="8.8" rx="1" fill="#0d1224" fillOpacity=".75" stroke="#ecc24a" strokeWidth=".14" strokeDasharray=".6 .4" />
           <path d="M-6.2,36l2-1.5h8.6v3h-8.6z" fill="#e9ecf0" /><path d="M-5.2,36l1.6-.9h7.6v1.8h-7.6z" fill="#e8772e" />
@@ -155,6 +155,7 @@ export function StationMap({ zone, selected, onSelect, mode = 'plan' }: { zone: 
             {zone !== 3 && <text x={labelX} y={labelZ} textAnchor={rightAligned ? 'end' : 'start'} fontSize=".95" fill="#e1e6f7" fontFamily="monospace" letterSpacing=".04" pointerEvents="none">{name}</text>}
           </g>
         })}
+        {zone === 3 && map.rooms.map((room) => <CompartmentLabel key={room.id} room={room} />)}
         <path d={layout.windows} fill="#8fc8e2" opacity=".85" pointerEvents="none" />
         {map.doors.map((d) => {
           const x = d.tile[0] * TILE + 1, z = d.tile[1] * TILE + 1
@@ -184,7 +185,6 @@ export function StationMap({ zone, selected, onSelect, mode = 'plan' }: { zone: 
       <div>{'ACEGIKMOQS'.split('').map((c) => <span key={c}>{c}</span>)}</div>
       <div>{['01', '03', '05', '07', '09', '11', '13'].map((n) => <span key={n}>{n}</span>)}</div>
     </div>
-    {zone === 3 && <RocketHud />}
     <div className="nav-map-tools"><button onClick={() => setZoom((v) => Math.min(3.5, v * 1.3))} aria-label={t.zoomIn}>+</button><button onClick={() => setZoom((v) => Math.max(1, v / 1.3))} aria-label={t.zoomOut}>−</button><button onClick={fit}>{Math.round(zoom * 100)}%</button>{currentZone === zone && <button onClick={center} data-testid="map-center">◎ {t.locate}</button>}</div>
     <div className="nav-map-position">{currentZone === zone ? `${t.location} · ${location ? fr.rooms[location.name] : levelName(zone)} / X ${position.x.toFixed(1)} · Z ${position.z.toFixed(1)}` : t.otherLevel}</div>
   </div>

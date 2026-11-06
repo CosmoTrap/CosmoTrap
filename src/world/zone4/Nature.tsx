@@ -1,5 +1,5 @@
 import { useFrame } from '@react-three/fiber'
-import { useLayoutEffect, useMemo, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 
 import { BRIDGE_X, RIVER_HALF, WATER_Y, riverCenter, terrainHeight } from '../../game/maps/zone4'
@@ -7,7 +7,8 @@ import { live } from '../../game/state'
 import { NOISE } from '../Exterior/glsl'
 import { rockGeometry } from '../Exterior/Asteroids'
 import { photoSurface } from '../photomaterials'
-import { makeTreeGeometry, foliageMaterial } from './foliage'
+import { VEHICLES } from '../cine/Rescue'
+import { foliageMaterial, makeTreeGeometry } from './foliage'
 import { spatialBatches } from './spatialBatches'
 
 export const SUN4 = new THREE.Vector3(-0.55, 0.13, -0.82).normalize()
@@ -95,58 +96,7 @@ export function Mountains() {
   )
 }
 
-// ——— herbe instanciée, ondulant au vent ———
-const grassVert = /* glsl */ `
-attribute vec3 aOffset;
-attribute vec2 aScale; // hauteur, angle
-uniform float uTime;
-varying float vH;
-varying vec3 vW;
-varying float vRnd;
-#include <fog_pars_vertex>
-void main(){
-  vec3 p = position;
-  float h = aScale.x;
-  float t = p.y; // 0..1
-  vH = t;
-  vRnd = fract(aOffset.x * 13.7 + aOffset.z * 7.1);
-  float c = cos(aScale.y), s = sin(aScale.y);
-  p.xz = mat2(c, -s, s, c) * p.xz;
-  p.y *= h;
-  vec3 w = aOffset + p;
-  float wind = sin(uTime * 1.6 + aOffset.x * 0.35 + aOffset.z * 0.22) * 0.5 + sin(uTime * 2.7 + aOffset.x * 1.3) * 0.2;
-  float gust = smoothstep(0.3, 1.0, sin(uTime * 0.35 + aOffset.x * 0.05 - aOffset.z * 0.03));
-  float bend = (wind * (0.25 + gust * 0.45) + 0.12) * t * t * h;
-  w.x += bend * 0.8;
-  w.z += bend * 0.5;
-  w.y -= abs(bend) * 0.25 * t;
-  vW = w;
-  vec4 mvPosition = viewMatrix * vec4(w, 1.0);
-  gl_Position = projectionMatrix * mvPosition;
-  #include <fog_vertex>
-}`
-const grassFrag = /* glsl */ `
-uniform vec3 uSun;
-uniform vec3 uSunCol;
-uniform vec3 uSky;
-varying float vH;
-varying vec3 vW;
-varying float vRnd;
-#include <fog_pars_fragment>
-void main(){
-  vec3 base = mix(vec3(0.025, 0.045, 0.012), vec3(0.055, 0.075, 0.025), vRnd);
-  vec3 tip = mix(vec3(0.12, 0.2, 0.055), vec3(0.23, 0.25, 0.1), vRnd);
-  vec3 alb = mix(base, tip, smoothstep(0.0, 1.0, vH));
-  vec3 V = normalize(cameraPosition - vW);
-  float back = pow(max(dot(-V, normalize(uSun)), 0.0), 4.0);
-  vec3 col = alb * (uSunCol * (0.55 + 0.35 * vH) + uSky * 0.35) * (0.35 + 0.65 * vH);
-  col += uSunCol * alb * back * 0.5 * vH;
-  gl_FragColor = vec4(col, 1.0);
-  #include <tonemapping_fragment>
-  #include <colorspace_fragment>
-  #include <fog_fragment>
-}`
-
+// ——— sol découvert : là où poussent arbres et rochers ———
 function grassOK(x: number, z: number) {
   if (Math.abs(z - riverCenter(x)) < RIVER_HALF + 0.4) return false
   if (Math.hypot(x - 6, z + 60) < 6.6) return false
@@ -155,76 +105,59 @@ function grassOK(x: number, z: number) {
   return true
 }
 
-export function Grass({ count }: { count: number }) {
-  const { geometries, mat } = useMemo(() => {
-    const blade = new THREE.BufferGeometry()
-    const w = 0.022
-    // Six curved blades per tuft, instead of isolated luminous sticks.
-    const v: number[] = [], indices: number[] = []
-    for (let i = 0; i < 6; i++) {
-      const angle = i * 2.399, h = 0.65 + (i % 3) * 0.16
-      const c = Math.cos(angle), s = Math.sin(angle), offset = i * 5
-      for (const [x, y, z] of [[-w, 0, 0], [w, 0, 0], [-w * 0.65, h * 0.45, 0.06], [w * 0.65, h * 0.45, 0.06], [0, h, 0.17]]) {
-        v.push(x * c + z * s + c * 0.07, y, -x * s + z * c + s * 0.07)
-      }
-      indices.push(...[0, 1, 2, 2, 1, 3, 2, 3, 4].map((index) => offset + index))
-    }
-    blade.setAttribute('position', new THREE.Float32BufferAttribute(v, 3))
-    blade.setIndex(indices)
-    const off = new Float32Array(count * 3)
-    const sc = new Float32Array(count * 2)
-    let n = 0
-    let tries = 0
-    while (n < count && tries < count * 3) {
-      tries++
-      // plus dense près du joueur : distribution concentrée sur la zone jouable
-      const x = (Math.random() * 2 - 1) * 46
-      const z = 24 - Math.random() * 104
-      if (!grassOK(x, z)) continue
-      const clump = Math.sin(x * 0.3) * Math.cos(z * 0.27)
-      if (clump < -0.6 && Math.random() < 0.7) continue
-      off.set([x, terrainHeight(x, z) - 0.02, z], n * 3)
-      sc.set([0.25 + Math.random() * 0.55 + Math.max(0, clump) * 0.35, Math.random() * Math.PI * 2], n * 2)
-      n++
-    }
-    const cells = spatialBatches(Array.from({ length: n }, (_, i) => ({ i, x: off[i * 3], z: off[i * 3 + 2] })), 16)
-    const geometries = cells.map(cell => {
-      const g = new THREE.InstancedBufferGeometry()
-      g.index = blade.index
-      g.attributes.position = blade.attributes.position
-      const offsets = new Float32Array(cell.length * 3), scales = new Float32Array(cell.length * 2)
-      const bounds = new THREE.Box3(), point = new THREE.Vector3()
-      cell.forEach(({ i }, j) => {
-        offsets.set(off.subarray(i * 3, i * 3 + 3), j * 3)
-        scales.set(sc.subarray(i * 2, i * 2 + 2), j * 2)
-        bounds.expandByPoint(point.fromArray(off, i * 3))
-      })
-      g.setAttribute('aOffset', new THREE.InstancedBufferAttribute(offsets, 3))
-      g.setAttribute('aScale', new THREE.InstancedBufferAttribute(scales, 2))
-      g.instanceCount = cell.length
-      // Shader offsets are world-space. Include the full blade height and the
-      // maximum gust displacement, so no blade disappears at the screen edge.
-      g.boundingBox = bounds.expandByScalar(1.5)
-      g.boundingSphere = g.boundingBox.getBoundingSphere(new THREE.Sphere())
-      return g
-    })
-    const mat = new THREE.ShaderMaterial({
-      vertexShader: grassVert,
-      fragmentShader: grassFrag,
-      side: THREE.DoubleSide,
-      fog: true,
-      uniforms: THREE.UniformsUtils.merge([
-        THREE.UniformsLib.fog,
-        { uTime: { value: 0 }, uSun: { value: SUN4.clone() }, uSunCol: { value: SUN4_COLOR.clone().multiplyScalar(2.2) }, uSky: { value: SKY4.clone() } },
-      ]),
-    })
-    return { geometries, mat }
-  }, [count])
-  useFrame(({ clock }) => (mat.uniforms.uTime.value = clock.elapsedTime))
-  return <group>{geometries.map((geo, i) => <mesh key={i} geometry={geo} material={mat} />)}</group>
+// ——— arbres ———
+export interface TreeInst {
+  x: number
+  z: number
+  s: number
+  r: number
+  kind: 'pine' | 'fir' | 'oak'
 }
 
-// ——— arbres ———
+/** Distance from (x, z) to a polyline. */
+function toRoute(x: number, z: number, route: readonly (readonly [number, number])[]) {
+  let best = Infinity
+  for (let i = 0; i + 1 < route.length; i++) {
+    const [ax, az] = route[i], [bx, bz] = route[i + 1]
+    const dx = bx - ax, dz = bz - az
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz)))
+    best = Math.min(best, Math.hypot(x - ax - dx * t, z - az - dz * t))
+  }
+  return best
+}
+
+/** The rescue cinematic's camera positions and what they look at: no trunk or crown in front of the lens. */
+const SIGHTLINES: (readonly (readonly [number, number])[])[] = [
+  [[14, -50], [12, -48], [6, -60]], [[36, -49], [6, -60]], [[-14, -38], [-10, -42], [10, -62]], [[22, -40], [34, -30]], [[22, -40], [12, -62]],
+]
+
+/** Same forest every game (seeded), clear of the paths, key places and every rescue vehicle's road and parking spot. */
+export function placeTrees(count: number): TreeInst[] {
+  let seed = 7919
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646
+  const out: TreeInst[] = []
+  let tries = 0
+  while (out.length < count && tries < count * 30) {
+    tries++
+    const x = (rnd() * 2 - 1) * 70
+    const z = 40 - rnd() * 130
+    const keep = rnd(), size = rnd(), turn = rnd(), species = rnd()
+    if (!grassOK(x, z)) continue
+    if (VEHICLES.some((v) => toRoute(x, z, v.route) < 6)) continue
+    if (SIGHTLINES.some((line) => toRoute(x, z, line) < 5)) continue
+    const inPlay = Math.abs(x) < 34 && z > -68 && z < 16
+    if (inPlay) {
+      if (Math.abs(x - BRIDGE_X + 4) < 6) continue
+      if (Math.hypot(x - 15, z + 35) < 5 || Math.hypot(x + 15, z + 44) < 5 || Math.hypot(x + 17, z + 5) < 3) continue
+      if (Math.hypot(x, z) < 9 || Math.hypot(x - 6, z + 60) < 11) continue
+      if (keep < 0.55) continue
+    }
+    if (out.some((t) => Math.hypot(t.x - x, t.z - z) < 3)) continue
+    out.push({ x, z, s: 0.8 + size * 0.5, r: turn * 6.28, kind: species < 0.4 ? 'pine' : species < 0.7 ? 'fir' : 'oak' })
+  }
+  return out
+}
+
 function windMaterial(base: THREE.MeshStandardMaterial) {
   base.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = { value: 0 }
@@ -234,7 +167,7 @@ function windMaterial(base: THREE.MeshStandardMaterial) {
       .replace(
         '#include <begin_vertex>',
         `#include <begin_vertex>
-        float sway = max(0.0, position.y - 1.5) * 0.035;
+        float sway = max(0.0, position.y - 1.5) * 0.03;
         vec4 ip = instanceMatrix * vec4(0.0,0.0,0.0,1.0);
         transformed.x += sin(uTime * 1.3 + ip.x * 0.2) * sway;
         transformed.z += cos(uTime * 1.1 + ip.z * 0.2) * sway * 0.6;`,
@@ -243,38 +176,9 @@ function windMaterial(base: THREE.MeshStandardMaterial) {
   return base
 }
 
-export interface TreeInst {
-  x: number
-  z: number
-  s: number
-  r: number
-  kind: 'pine' | 'oak'
-}
-
-export function placeTrees(count: number): TreeInst[] {
-  const out: TreeInst[] = []
-  let tries = 0
-  while (out.length < count && tries < count * 20) {
-    tries++
-    const x = (Math.random() * 2 - 1) * 70
-    const z = 40 - Math.random() * 130
-    if (!grassOK(x, z)) continue
-    // dégager le sentier central et les lieux clés
-    const inPlay = Math.abs(x) < 34 && z > -68 && z < 16
-    if (inPlay) {
-      if (Math.abs(x - BRIDGE_X + 4) < 6) continue
-      if (Math.hypot(x - 15, z + 35) < 5 || Math.hypot(x + 15, z + 44) < 5 || Math.hypot(x + 17, z + 5) < 3) continue
-      if (Math.hypot(x, z) < 9 || Math.hypot(x - 6, z + 60) < 9) continue
-      if (Math.random() < 0.55) continue
-    }
-    if (out.some((t) => Math.hypot(t.x - x, t.z - z) < 2.5)) continue
-    out.push({ x, z, s: 0.8 + Math.random() * 0.7, r: Math.random() * 6.28, kind: Math.random() < 0.6 ? 'pine' : 'oak' })
-  }
-  return out
-}
-
+/** One spatial cell of conifers: trunks and crowns, each a single instanced draw. */
 function TreeCell({ items, wood, leaves, bark, foliage }: {
-  items: TreeInst[]; wood: THREE.BufferGeometry; leaves: THREE.BufferGeometry;
+  items: TreeInst[]; wood: THREE.BufferGeometry; leaves: THREE.BufferGeometry
   bark: THREE.Material; foliage: THREE.Material
 }) {
   const trunk = useRef<THREE.InstancedMesh>(null)
@@ -286,16 +190,12 @@ function TreeCell({ items, wood, leaves, bark, foliage }: {
       if (!im) continue
       items.forEach((t, i) => {
         q.setFromAxisAngle(up, t.r)
-        matrix.compose(position.set(t.x, terrainHeight(t.x, t.z) - 0.1, t.z), q, scale.setScalar(t.s))
-        im.setMatrixAt(i, matrix)
+        im.setMatrixAt(i, matrix.compose(position.set(t.x, terrainHeight(t.x, t.z) - 0.1, t.z), q, scale.setScalar(t.s)))
       })
       im.instanceMatrix.needsUpdate = true
       im.computeBoundingSphere()
-      if (im === crown.current) {
-        leaves.computeBoundingBox()
-        const sway = Math.max(0, leaves.boundingBox!.max.y - 1.5) * 0.035
-        im.boundingSphere!.radius += sway * Math.hypot(1, 0.6) * Math.max(...items.map(t => t.s))
-      }
+      // The crowns sway: widen their bounds so they are never culled while still on screen.
+      if (im === crown.current) im.boundingSphere!.radius += 0.5 * Math.max(...items.map((t) => t.s))
     }
   }, [items, leaves])
   return <group>
@@ -304,26 +204,31 @@ function TreeCell({ items, wood, leaves, bark, foliage }: {
   </group>
 }
 
+/**
+ * Built in code, three species: pines and firs (whorls of drooping branches covered in fronds) and broadleaf
+ * trees. One instanced draw for trunks and one for crowns per species and 24 m cell, so offscreen ones are culled.
+ */
 export function Trees({ trees }: { trees: TreeInst[] }) {
-  const { pine, oak, pineMat, oakMat, bark } = useMemo(() => {
+  const kit = useMemo(() => {
     const bark = new THREE.MeshStandardMaterial({ ...photoSurface('bark', 2), roughness: 1, normalScale: new THREE.Vector2(0.7, 0.7) })
-    return { pine: makeTreeGeometry('pine'), oak: makeTreeGeometry('oak'),
-      pineMat: windMaterial(foliageMaterial('pine')), oakMat: windMaterial(foliageMaterial('oak')), bark }
-  }, [])
-  const pines = useMemo(() => spatialBatches(trees.filter(t => t.kind === 'pine')), [trees])
-  const oaks = useMemo(() => spatialBatches(trees.filter(t => t.kind === 'oak')), [trees])
-  useFrame(({ clock }) => {
-    for (const mat of [pineMat, oakMat]) {
-      const sh = mat.userData.shader
-      if (sh) sh.uniforms.uTime.value = clock.elapsedTime
+    return {
+      bark,
+      needles: windMaterial(foliageMaterial('pine')), leaves: windMaterial(foliageMaterial('oak')),
+      pine: makeTreeGeometry('pine'), fir: makeTreeGeometry('fir'), oak: makeTreeGeometry('oak'),
     }
+  }, [])
+  useEffect(() => () => {
+    for (const m of [kit.bark, kit.needles, kit.leaves]) { m.map?.dispose(); m.dispose() }
+    for (const k of [kit.pine, kit.fir, kit.oak]) { k.wood.dispose(); k.leaves.dispose() }
+  }, [kit])
+  const cells = useMemo(() => (['pine', 'fir', 'oak'] as const).map((kind) => ({ kind, cells: spatialBatches(trees.filter((t) => t.kind === kind)) })), [trees])
+  useFrame(({ clock }) => {
+    for (const m of [kit.needles, kit.leaves]) { const sh = m.userData.shader; if (sh) sh.uniforms.uTime.value = clock.elapsedTime }
   })
-  return (
-    <group>
-      {pines.map((items, i) => <TreeCell key={`pine-${i}`} items={items} wood={pine.wood} leaves={pine.leaves} bark={bark} foliage={pineMat} />)}
-      {oaks.map((items, i) => <TreeCell key={`oak-${i}`} items={items} wood={oak.wood} leaves={oak.leaves} bark={bark} foliage={oakMat} />)}
-    </group>
-  )
+  return <group name="trees">
+    {cells.flatMap(({ kind, cells }) => cells.map((items, i) =>
+      <TreeCell key={`${kind}-${i}`} items={items} wood={kit[kind].wood} leaves={kit[kind].leaves} bark={kit.bark} foliage={kind === 'oak' ? kit.leaves : kit.needles} />))}
+  </group>
 }
 
 // ——— rochers ———
@@ -488,9 +393,10 @@ export function CloudLayer() {
 }
 
 /** l'ombre portée suit le joueur */
-export function SunLight({ size }: { size: number }) {
+export function SunLight({ size, every = 1 }: { size: number; every?: number }) {
   const ref = useRef<THREE.DirectionalLight>(null)
   const target = useMemo(() => new THREE.Object3D(), [])
+  const last = useRef({ x: NaN, z: NaN, frame: 0 })
   useFrame(() => {
     const l = ref.current
     if (!l) return
@@ -499,6 +405,12 @@ export function SunLight({ size }: { size: number }) {
     target.position.set(px, 0, pz)
     l.position.set(px + SUN4.x * 80, SUN4.y * 80 + 10, pz + SUN4.z * 80)
     target.updateMatrixWorld()
+    // Redraw the valley's shadow map when it follows the player to a new spot; otherwise only every few
+    // frames, for the trees swaying in the wind and the capsule's hatch.
+    const k = last.current, moved = px !== k.x || pz !== k.z
+    l.shadow.autoUpdate = false
+    l.shadow.needsUpdate = moved || ++k.frame % every === 0
+    k.x = px; k.z = pz
   })
   return (
     <>

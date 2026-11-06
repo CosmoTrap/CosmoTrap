@@ -54,9 +54,11 @@ export const zone3: GridMap = {
     { model: 'screen', tile: [7, 2], wall: 'E', y: 1.5 },
     { model: 'screen', tile: [1, 2], wall: 'W', y: 1.5 },
     { model: 'dockHatch', tile: [4, 8], wall: 'S', y: 1.2 },
-    { model: 'crewSeats', tile: [2, 6], wall: 'W' },
-    { model: 'crewSeats', tile: [6, 6], wall: 'E' },
+    // Mess table with its four chairs pulled up to it, launch couches against the walls behind.
     { model: 'table', tile: [4, 6], off: [0, 0.5] },
+    ...([[-0.45, -0.72, 0], [0.45, -0.72, 0], [-0.45, 0.72, Math.PI], [0.45, 0.72, Math.PI]] as const).map(([dx, dz, rot]) => ({ model: 'chair', pos: [9 + dx, 0, 13.5 + dz] as [number, number, number], rot })),
+    { model: 'crewSeats', tile: [1, 7], wall: 'W' },
+    { model: 'crewSeats', tile: [7, 7], wall: 'E' },
     { model: 'photos', tile: [3, 5], wall: 'N', y: 1.6 },
     { model: 'toy', tile: [5, 7], y: 1.7 },
     { model: 'crates', tile: [1, 11] },

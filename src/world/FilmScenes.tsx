@@ -7,7 +7,7 @@ import { terrainHeight } from '../game/maps/zone4'
 import { entById } from '../game/logic'
 import { G, live, useGame } from '../game/state'
 import { fr } from '../i18n/fr'
-import { Astronaut, type AstronautHandle } from './Astronaut'
+import { RealModel } from './props/RealModel'
 
 // Cinématiques « film » à l'entrée de chaque zone : plans découpés (travellings, plans serrés,
 // contre-plongées), acteur à la 3e personne, et le crash de la capsule Hermès sur Terre.
@@ -120,7 +120,7 @@ function crashShots(): Shot[] {
   const L: V3 = [0, terrainHeight(0, 2.2), 2.2]
   const sp = spawnOf(4).pos
   const me: V3 = [sp[0], terrainHeight(sp[0], sp[2]), sp[2]]
-  const cam: V3 = [-7, terrainHeight(-7, -15) + 1.35, -15]
+  const cam: V3 = above(-7, -15, 1.35)
   const IMPACT = 6.6
   return [
     {
@@ -153,8 +153,9 @@ function crashShots(): Shot[] {
     },
     {
       d: 5,
-      from: [add(L, 4.8, 0.45, 5.2), add(L, 0, 1.3, 0)],
-      to: [add(L, 3.9, 0.6, 4.3), add(L, 0, 1.6, 0)],
+      // Heights from the ground under the camera itself: the slope round the capsule would otherwise bury it.
+      from: [above(L[0] + 4.8, L[2] + 5.2, 1.05), add(L, 0, 1.3, 0)],
+      to: [above(L[0] + 3.9, L[2] + 4.3, 1.25), add(L, 0, 1.6, 0)],
       fov: 36,
       line: 0,
       run: () => {
@@ -185,8 +186,13 @@ function crashShots(): Shot[] {
 export function capsulePos(k: number): V3 {
   const L: V3 = [0, terrainHeight(0, 2.2) + 2.2, 2.2]
   const a = 1 - k
-  return [L[0] + 150 * a + Math.sin(a * 2) * 10, L[1] + 190 * a * a + 30 * a, L[2] + 210 * a]
+  const x = L[0] + 150 * a + Math.sin(a * 2) * 10, z = L[2] + 210 * a
+  // Never through a hill on the way in: always a few metres over the ground below, down to the impact point.
+  const floor = terrainHeight(x, z) + 2.2 + 6 * Math.min(1, a * 5)
+  return [x, Math.max(L[1] + 190 * a * a + 30 * a, floor), z]
 }
+/** A point at a given height above the ground right under it. */
+const above = (x: number, z: number, h: number): V3 => [x, terrainHeight(x, z) + h, z]
 
 let onceFlags: Record<string, boolean> = {}
 function once(k: string, fn: () => void) {
@@ -273,10 +279,8 @@ export function endScene() {
 }
 
 export function CineActor() {
-  const character = useGame((s) => s.character)
   const g = useRef<THREE.Group>(null)
   const body = useRef<THREE.Group>(null)
-  const ref = useRef<AstronautHandle>(null)
   useFrame(({ clock }) => {
     if (!g.current || !body.current) return
     g.current.visible = actor.visible && G().cine === 'tour'
@@ -287,17 +291,14 @@ export function CineActor() {
     // allongé sur le dos → assis → debout
     body.current.rotation.x = -actor.lie * 1.45
     body.current.position.y = actor.lie * 0.25
-    const a = ref.current
-    if (a?.armR && a.armL) {
-      a.armR.rotation.x = Math.sin(t * 4.2) * 0.45 * actor.walk - actor.lie * 0.6
-      a.armL.rotation.x = -Math.sin(t * 4.2) * 0.45 * actor.walk - actor.lie * 0.3
-    }
-    if (a?.head) a.head.rotation.x = actor.lie * 0.5 - 0.05
+    // A slight sway from side to side while walking, the suit being one rigid piece.
+    body.current.rotation.z = Math.sin(t * 4.2) * 0.035 * actor.walk
   })
   return (
     <group ref={g} visible={false}>
       <group ref={body}>
-        <Astronaut ref={ref} skin={character} accent={fr.characters[character]?.color ?? '#d9673a'} />
+        {/* The station's own EVA suit (NASA Z-2), as on the airlock racks. */}
+        <RealModel id="z2_spacesuit" height={1.85} />
       </group>
     </group>
   )

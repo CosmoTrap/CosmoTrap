@@ -18,6 +18,7 @@ import { MainMenu } from './ui/Screens/Menu'
 import { SettingsPage } from './ui/Screens/SettingsPage'
 import { Tablet } from './ui/Tablet/Tablet'
 import { Scene } from './world/Scene'
+import { QUALITY } from './world/quality'
 import { SceneLoading } from './ui/SceneLoading'
 
 /** si le rendu 3D plante, on affiche un message clair plutôt qu'un écran noir */
@@ -98,7 +99,7 @@ export default function App() {
     <>
       <CrashGuard>
       <Canvas
-        shadows={{ type: THREE.PCFSoftShadowMap }}
+        shadows={{ type: QUALITY[useGame.getState().settings.quality].softShadows ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap }}
         dpr={1}
         frameloop={playing || screen === 'prologue' ? 'always' : 'demand'}
         gl={{ antialias: false, powerPreference: 'high-performance', stencil: false, preserveDrawingBuffer: false }}

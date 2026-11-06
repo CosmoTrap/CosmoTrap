@@ -7,7 +7,7 @@ import { GRID_MAPS, spawnOf } from '../game/maps'
 import { riverCenter, terrainHeight } from '../game/maps/zone4'
 import { AUTOSAVE_EVERY, G, closeFinishedRun, live, saveGame, useGame } from '../game/state'
 import { fr } from '../i18n/fr'
-import { Astronaut, type AstronautHandle } from './Astronaut'
+import { RealModel } from './props/RealModel'
 import { endScene, runScene } from './FilmScenes'
 import { heli } from './zone4/Zone4'
 import { input } from '../player/input'
@@ -387,8 +387,6 @@ export function skipCine() {
 export function EndAvatar() {
   const cine = useGame((s) => s.cine)
   const t0 = useGame((s) => s.cineT0)
-  const character = useGame((s) => s.character)
-  const ref = useRef<AstronautHandle>(null)
   const g = useRef<THREE.Group>(null)
   useFrame(() => {
     if (!g.current) return
@@ -402,17 +400,11 @@ export function EndAvatar() {
     const towardsHeli = Math.atan2(heli.x - live.pos[0], heli.z - live.pos[2])
     const turn = Math.atan2(Math.sin(towardsHeli - towardsFlare), Math.cos(towardsHeli - towardsFlare))
     g.current.rotation.y = towardsFlare + turn * sm(t, 6, 8)
-    const a = ref.current
-    if (a?.armR) {
-      const k = Math.max(sm(t, 9, 10.5), sm(t, 0, 0.35) * (1 - sm(t, 1.6, 2.4)))
-      a.armR.rotation.x = -k * 2.7 + Math.sin(t * 5) * 0.15 * k
-      a.armR.rotation.z = k * 0.3
-    }
-    if (a?.head) a.head.rotation.x = -0.25 * sm(t, 9, 11)
   })
+  // The crew wear the station's own EVA suits (NASA Z-2), the ones on the airlock racks.
   return (
     <group ref={g} visible={false}>
-      <Astronaut ref={ref} skin={character} accent={fr.characters[character]?.color ?? '#d9673a'} />
+      <RealModel id="z2_spacesuit" height={1.85} />
     </group>
   )
 }

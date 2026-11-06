@@ -241,7 +241,7 @@ function Game() {
       </Row>
       <div className="x-section">{S.display}</div>
       <Row title={S.quality} desc={S.qualityDesc}>
-        <Seg value={s.quality} options={(['low', 'medium', 'high', 'ultra'] as Quality[]).map((q) => [q, S.qualities[q]] as [Quality, string])} onChange={(v) => update({ quality: v })} />
+        <Seg value={s.quality} options={(['low', 'medium', 'high', 'ultra'] as Quality[]).map((q) => [q, S.qualities[q]] as [Quality, string])} onChange={(v) => update({ quality: v, qualityLocked: true })} />
       </Row>
       <Row title={S.brightness} desc={S.brightnessDesc}>
         <Range value={s.brightness} min={0.4} max={1.4} step={0.02} onChange={(v) => update({ brightness: v })} />

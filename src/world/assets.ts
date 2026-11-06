@@ -2,6 +2,7 @@ import { useGLTF } from '@react-three/drei'
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
+import { maxAniso } from './quality'
 
 // Ressources photoréalistes (Poly Haven CC0, cartes planétaires d'après la NASA) servies depuis /assets.
 
@@ -15,7 +16,7 @@ export function tex(url: string, srgb = true, repeat: [number, number] = [1, 1])
     t = loader.load(url)
     t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace
     t.wrapS = t.wrapT = THREE.RepeatWrapping
-    t.anisotropy = 8
+    t.anisotropy = maxAniso()
     t.repeat.set(repeat[0], repeat[1])
     texCache.set(key, t)
   }
@@ -145,7 +146,6 @@ export const STATION_MODELS = [
   'alarm_clock_01',
   'metal_stool_01',
 ]
-export const EARTH_MODELS = ['pine_tree_01', 'fir_tree_01', 'island_tree_02', 'shrub_01', 'shrub_02', 'fern_02', 'grass_medium_01', 'rock_moss_set_01', 'namaqualand_boulder_02', 'boulder_01', 'dead_tree_trunk', 'wooden_military_crate', 'vintage_radio_transceiver']
 export const MOON_MODELS = ['moon_rock_01', 'moon_rock_02', 'moon_rock_03', 'moon_rock_05']
 
 /** taille d'un modèle (mètres) une fois chargé */

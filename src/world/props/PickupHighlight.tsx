@@ -5,57 +5,58 @@ import * as THREE from 'three'
 /** The rhythm shared by every pickup, so they all breathe together. */
 const pulse = { value: 1 }
 
-/** A slow golden swell, brightest along the object's outline: bright enough to read in a lit room, unlike a glow. */
-function addOutlineGlow(material: THREE.MeshStandardMaterial) {
-  material.onBeforeCompile = (shader) => {
-    shader.uniforms.uPickupPulse = pulse
-    shader.fragmentShader = `uniform float uPickupPulse;\n${shader.fragmentShader}`.replace(
-      '#include <emissivemap_fragment>',
-      `#include <emissivemap_fragment>
-      float pickupEdge = pow(1.0 - saturate(dot(normalize(normal), normalize(vViewPosition))), 2.2);
-      totalEmissiveRadiance += vec3(1.0, 0.78, 0.36) * (0.36 + pickupEdge * 2.4) * uPickupPulse;`,
-    )
-  }
-  material.customProgramCacheKey = () => 'pickup-outline'
+/**
+ * A thin golden line round the object's silhouette, and nothing on its surface: the object keeps its own
+ * materials and textures. Each vertex is pushed out from the mesh's centre by a constant on-screen width,
+ * and only the back faces are drawn, so the line shows just beyond the visible outline (an "inverted hull").
+ * Pushing from the centre rather than along the normals keeps the hull closed at hard corners.
+ */
+const COLOR = { value: new THREE.Color('#ffc35a') }, WIDTH = { value: 0.0058 }
+const VERTEX = `
+  uniform float uWidth;
+  uniform vec3 uCentre;
+  void main() {
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    vec3 away = (modelViewMatrix * vec4(position - uCentre, 0.0)).xyz;
+    float len = length(away);
+    if (len > 1e-5) mv.xyz += away / len * uWidth * max(-mv.z, 0.3);
+    gl_Position = projectionMatrix * mv;
+  }`
+const FRAGMENT = `
+  uniform vec3 uColor;
+  uniform float uPulse;
+  void main() { gl_FragColor = vec4(uColor * (0.75 + 0.6 * uPulse), 1.0); }`
+/** One material per outlined mesh (its own centre); all share one compiled program and the pulse. */
+function outlineMaterial(centre: THREE.Vector3) {
+  const m = new THREE.ShaderMaterial({ uniforms: { uPulse: pulse, uColor: COLOR, uWidth: WIDTH, uCentre: { value: centre } }, vertexShader: VERTEX, fragmentShader: FRAGMENT, side: THREE.BackSide })
+  m.userData.pickupHighlight = true
+  return m
 }
 
-/** A self-lit contribution on the item itself. No extra light or draw pass;
- * cloned materials keep shared furniture and the equipped item unchanged. */
+/** Outlines every mesh of a pickup with the shared line. Its own materials are never touched. */
 export function highlightPickups(root: THREE.Group) {
-  const changed = new Map<THREE.Mesh, { original: THREE.Material | THREE.Material[]; highlighted: THREE.Material | THREE.Material[] }>()
-  const copies = new Map<THREE.Material, THREE.Material>()
-  const tint = new THREE.Color('#c5e7ef').multiplyScalar(0.07)
-  const highlight = (source: THREE.Material) => {
-    if (!(source as THREE.MeshStandardMaterial).isMeshStandardMaterial || source.transparent) return source
-    let copy = copies.get(source)
-    if (!copy) {
-      const material = (source as THREE.MeshStandardMaterial).clone()
-      material.emissive.multiplyScalar(material.emissiveIntensity).add(tint)
-      material.emissiveIntensity = 1
-      material.userData.pickupHighlight = true
-      addOutlineGlow(material)
-      copy = material
-      copies.set(source, copy)
-    }
-    return copy
-  }
+  const outlines = new Map<THREE.Mesh, THREE.Mesh>()
   return {
     refresh() {
       root.traverseVisible(object => {
         const mesh = object as THREE.Mesh
-        if (!mesh.isMesh || changed.has(mesh)) return
-        const original = mesh.material
-        const highlighted = Array.isArray(original) ? original.map(highlight) : highlight(original)
-        if (highlighted !== original) {
-          changed.set(mesh, { original, highlighted })
-          mesh.material = highlighted
-        }
+        if (!mesh.isMesh || outlines.has(mesh) || mesh.userData.pickupOutline || (mesh as THREE.InstancedMesh).isInstancedMesh || (mesh as THREE.SkinnedMesh).isSkinnedMesh) return
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+        if (materials.every(m => m.transparent)) return
+        const geometry = mesh.geometry
+        geometry.computeBoundingBox()
+        const line = new THREE.Mesh(geometry, outlineMaterial(geometry.boundingBox!.getCenter(new THREE.Vector3())))
+        line.name = 'pickup-outline'
+        line.userData.pickupOutline = true
+        line.raycast = () => {}
+        line.renderOrder = mesh.renderOrder
+        mesh.add(line)
+        outlines.set(mesh, line)
       })
     },
     dispose() {
-      changed.forEach(({ original, highlighted }, mesh) => { if (mesh.material === highlighted) mesh.material = original })
-      copies.forEach(material => material.dispose())
-      changed.clear(); copies.clear()
+      outlines.forEach(line => { line.removeFromParent(); (line.material as THREE.Material).dispose() })
+      outlines.clear()
     },
   }
 }

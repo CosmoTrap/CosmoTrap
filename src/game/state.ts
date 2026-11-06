@@ -38,6 +38,8 @@ export const AUTOSAVE_EVERY = 30
 
 export interface Settings {
   quality: Quality
+  /** Chosen by the player: the adaptive quality then never lowers it. */
+  qualityLocked?: boolean
   sensitivity: number
   invertY: boolean
   /** volume général (multiplie musique, effets et voix) */
@@ -317,6 +319,9 @@ export function detectQuality(): Quality {
     // CPU thread count is not a measure of integrated graphics performance.
     if (/uhd|intel.*hd graphics|mali|adreno/.test(r)) return 'low'
     if (/intel|iris/.test(r)) return 'medium'
+    // A hidden or generic renderer string ("WebKit WebGL", "ANGLE (Unknown)…") says nothing about the GPU:
+    // the CPU's thread count does not either, so start in the middle and let the adaptive quality decide.
+    if (!ext || /webkit webgl|unknown|generic|angle \(\)/.test(r)) return 'medium'
     return cores >= 8 ? 'high' : 'medium'
   } catch {
     return 'medium'

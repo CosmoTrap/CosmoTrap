@@ -11,6 +11,7 @@ export const ITEM_KIND: Record<ItemId, ItemKind> = {
   wrench: 'key',
   cell: 'key',
   rope: 'key',
+  plank: 'key',
   carBattery: 'key',
   antenna: 'key',
   manual: 'key',

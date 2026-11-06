@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { maxAniso } from './quality'
 
 // Textures PBR procédurales (albédo, normal, rugosité, métal) générées au chargement.
 // Pas de dépendance réseau : tout est dessiné sur canvas puis converti.
@@ -102,7 +103,7 @@ function tex(c: HTMLCanvasElement, srgb: boolean, repeat = true) {
   const t = new THREE.CanvasTexture(c)
   t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace
   if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping
-  t.anisotropy = 8
+  t.anisotropy = maxAniso()
   t.generateMipmaps = true
   t.minFilter = THREE.LinearMipmapLinearFilter
   t.needsUpdate = true

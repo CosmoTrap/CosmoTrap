@@ -7,6 +7,7 @@ import type { GridMap, RoomDef } from '../../game/types'
 import { WIN_R, WIN_Y } from '../Level'
 import { hullMaterial } from '../materials'
 import { drawTexture } from '../textures'
+import { maxAniso } from '../quality'
 
 // The station seen from outside, inspired by the ISS: white pressurized modules, a main truss, radiators
 // and solar arrays. It stands around the rooms and never replaces them. Each floor is played on its own, so
@@ -508,7 +509,7 @@ export function Station({ map, full = false, rocket = true }: { map: GridMap; fu
   const { meshes, view, dispose } = useMemo(() => {
     const { parts, view } = buildParts(map, full, rocket)
     const solarMap = solarTexture()
-    solarMap.anisotropy = 8
+    solarMap.anisotropy = maxAniso()
     const foilMap = foilTexture()
     const tileMap = heatTileTexture()
     const labelMap = hermesLabelTexture()

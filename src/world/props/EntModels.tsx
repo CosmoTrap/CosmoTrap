@@ -12,7 +12,7 @@ import { live, useGame } from '../../game/state'
 import type { Ent, ZoneId } from '../../game/types'
 import { RoomCtx, useMats } from '../materials'
 import { textTexture } from '../textures'
-import { Box, BoxExact, Cyl, DockHatch, Flashlight, Lathe, Screen } from './models'
+import { Box, BoxExact, Cyl, DeskScreen, DockHatch, Flashlight, Keyboard, Lathe, Screen } from './models'
 import { useModel } from '../assets'
 import { RealModel } from './RealModel'
 import { ZONE4_ENT_MODELS } from '../zone4/Zone4Ents'
@@ -632,9 +632,13 @@ function PilotConsole() {
   return (
     <group>
       <Box s={[5.6, 0.95, 0.9]} p={[0, 0.475, 0.45]} m={m.painted('#2c2f33', 0.5, 0.6)} />
-      <Box s={[5.6, 0.08, 1.0]} p={[0, 1.0, 0.5]} r={[0.3, 0, 0]} m={m.plastic('#15171a', 0.3)} />
-      <Screen w={0.9} h={0.5} p={[-1.6, 1.12, 0.45]} lines={['TRAJECTOIRE', 'TLI → TERRE', 'T-0 : en attente']} fg="#ffb38a" />
-      <Screen w={0.9} h={0.5} p={[1.6, 1.12, 0.45]} lines={['MOTEUR', engine ? 'CELLULE OK' : 'SANS ÉNERGIE', engine ? 'PRÊT' : '—']} fg={engine ? '#7fffb0' : '#ff7a6b'} />
+      {/* Sloped desk: a monitor on its stand at the back of each pilot's place, a keyboard in front of it. */}
+      <group position={[0, 1.0, 0.5]} rotation={[0.3, 0, 0]}>
+        <Box s={[5.6, 0.08, 1.0]} m={m.plastic('#15171a', 0.3)} />
+        <DeskScreen w={0.9} h={0.5} p={[-1.6, 0.04, -0.3]} lines={['TRAJECTOIRE', 'TLI → TERRE', 'T-0 : en attente']} fg="#ffb38a" />
+        <DeskScreen w={0.9} h={0.5} p={[1.6, 0.04, -0.3]} lines={['MOTEUR', engine ? 'CELLULE OK' : 'SANS ÉNERGIE', engine ? 'PRÊT' : '—']} fg={engine ? '#7fffb0' : '#ff7a6b'} />
+        {[-1.6, 1.6].map((x) => <Keyboard key={x} p={[x, 0.04, 0.2]} w={0.5} />)}
+      </group>
       {cols.map((c, i) => (
         <group key={i} position={[-0.45 + i * 0.3, 1.07, 0.62]} rotation={[0.3, 0, 0]}>
           <Cyl a={[0.08, 0.09, 0.05]} m={m.metal('#2a2c30')} />
@@ -646,21 +650,30 @@ function PilotConsole() {
   )
 }
 
+/** The engine's power socket: empty and red until the cell is in, then the cell sits locked in it, glowing. */
 function EngineSlot() {
   const m = useMats()
   const engine = useGame((s) => s.flags.engine)
+  const steel = m.metal('#9aa3a8', 0.3)
+  const label = useMemo(() => new THREE.MeshStandardMaterial({ map: textTexture([engine ? 'CELLULE ENGAGÉE' : 'INSÉRER LA CELLULE'], { w: 512, h: 80, bg: engine ? '#123d2a' : '#3d1512', fg: engine ? '#7fffb0' : '#ff9a8a', size: 34, pad: 14 }), roughness: 0.5 }), [engine])
+  useEffect(() => () => { label.map?.dispose(); label.dispose() }, [label])
   return (
     <group>
       <Box s={[1.0, 1.2, 0.35]} p={[0, 0, 0.17]} m={m.painted('#3c4046', 0.5, 0.7)} />
-      <Cyl a={[0.12, 0.12, 0.2]} p={[0, 0.1, 0.36]} r={[Math.PI / 2, 0, 0]} m={m.metal('#1b1d20', 0.5)} />
-      {engine && (
-        <mesh position={[0, 0.1, 0.42]} rotation={[Math.PI / 2, 0, 0]} material={m.glow('#3ad7ff', 5)}>
-          <cylinderGeometry args={[0.07, 0.07, 0.16, 16]} />
-        </mesh>
-      )}
-      <mesh position={[0, 0.45, 0.352]} material={m.glow(engine ? '#38ff7a' : '#ff2a1a', 3)}>
-        <planeGeometry args={[0.5, 0.05]} />
-      </mesh>
+      {/* Socket: a collar round a dark well. */}
+      <Cyl a={[0.17, 0.17, 0.06]} p={[0, 0.05, 0.37]} r={[Math.PI / 2, 0, 0]} m={steel} seg={28} />
+      <Cyl a={[0.12, 0.12, 0.07]} p={[0, 0.05, 0.38]} r={[Math.PI / 2, 0, 0]} m={m.metal('#111316', 0.6)} seg={24} />
+      {engine && <group position={[0, 0.05, 0.4]}>
+        {/* The cell, pushed home: its end cap, a lit band and the locking handle turned across. */}
+        <Cyl a={[0.1, 0.1, 0.14]} p={[0, 0, 0.05]} r={[Math.PI / 2, 0, 0]} m={m.painted('#d9dde0', 0.35, 0.4)} seg={20} />
+        <Cyl a={[0.103, 0.103, 0.035]} p={[0, 0, 0.06]} r={[Math.PI / 2, 0, 0]} m={m.glow('#3ad7ff', 4)} seg={20} />
+        <Box s={[0.26, 0.04, 0.04]} p={[0, 0, 0.14]} r={[0, 0, Math.PI / 4]} m={m.plastic('#ffb020', 0.4)} />
+      </group>}
+      {/* Charge bar: empty and red, then full and green. */}
+      {[0, 1, 2, 3, 4, 5].map((i) => <mesh key={i} position={[-0.25 + i * 0.1, -0.3, 0.352]} material={m.glow(engine ? '#38ff7a' : i === 0 ? '#ff2a1a' : '#2a1110', engine ? 2.4 : i === 0 ? 3 : 0.2)}>
+        <planeGeometry args={[0.08, 0.06]} />
+      </mesh>)}
+      <mesh position={[0, 0.45, 0.352]} material={label}><planeGeometry args={[0.8, 0.125]} /></mesh>
     </group>
   )
 }
@@ -791,7 +804,7 @@ function EntNode({ e, zone }: { e: Ent; zone: ZoneId }) {
   // L'étagère fait partie du nœud ramassable : elle doit rester quand l'objet part.
   const shelf = !!(e.item && e.wall && (e.y ?? 0) > 0.3 && WALL_BRACKET.has(e.model))
   // Une fois fermée, la vanne reste en place : seule son interaction disparaît.
-  const staysVisible = e.model === 'steamValve'
+  const staysVisible = e.model === 'steamValve' || e.model === 'engineSlot'
   if (!active && !keepWhenDone && !shelf) return null
   return (
     <RoomCtx.Provider value={{ id: room?.id ?? '', dark: !!room?.dark }}>

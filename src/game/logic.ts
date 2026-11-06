@@ -398,7 +398,13 @@ export function act(id: string) {
         toast(M.needRope, 'bad')
         return false
       }
+      if ((G().inv.plank ?? 0) < 3) {
+        audio.sfx('error')
+        toast(M.needPlanks(G().inv.plank ?? 0), 'bad')
+        return false
+      }
       removeItem('rope')
+      removeItem('plank', 3)
       setFlag('bridge')
       celebrate('p_bridge')
       audio.sfx('rope')
