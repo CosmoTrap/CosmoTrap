@@ -71,7 +71,9 @@ export function PickupHighlight({ children }: { children: ReactNode }) {
     effect.current = highlight
     highlight.refresh()
     return () => { effect.current = null; highlight.dispose() }
-  }, [children])
+    // Once per pickup: re-rendering the parent (any game flag change) used to dispose and rebuild every
+    // outline, recompiling shaders mid-game. Models arriving later are caught by the periodic refresh.
+  }, [])
   useFrame(({ clock }) => {
     pulse.value = 0.45 + 0.55 * Math.pow(0.5 + 0.5 * Math.sin(clock.elapsedTime * 2.4), 2)
     // A GLTF may appear later inside its own Suspense boundary. Check twice per

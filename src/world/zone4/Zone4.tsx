@@ -9,6 +9,7 @@ import { G, live, toast, useGame } from '../../game/state'
 import { fr } from '../../i18n/fr'
 import { QUALITY } from '../quality'
 import { EntModels } from '../props/EntModels'
+import { PickupHighlight } from '../props/PickupHighlight'
 import { Box, Cyl } from '../props/models'
 import { RoomCtx, useMats } from '../materials'
 import { concreteSet, drawTexture } from '../textures'
@@ -85,8 +86,9 @@ function Capsule() {
     const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.65, metalness: 0.35 })
     return { geo, mat }
   }, [])
+  // Swung open on its dark interior until searched, then shut: the crew took what was inside.
   useFrame((_, dt) => {
-    if (hatch.current) hatch.current.rotation.y = THREE.MathUtils.damp(hatch.current.rotation.y, open ? 1.6 : 0, 2, dt)
+    if (hatch.current) hatch.current.rotation.y = THREE.MathUtils.damp(hatch.current.rotation.y, open ? 0 : 1.6, 2, dt)
   })
   return (
     <group rotation={[0.12, 0, -0.06]}>
@@ -97,7 +99,9 @@ function Capsule() {
           <Box s={[0.76, 0.9, 0.06]} p={[0.38, 0, 0]} m={m.painted('#bdbab2', 0.5, 0.4)} />
           <Box s={[0.2, 0.06, 0.06]} p={[0.62, 0, 0.05]} m={m.metal('#55595e')} />
         </group>
-        <Box s={[0.7, 0.84, 0.02]} p={[0, 0, -0.04]} m={m.plastic('#0d0d0d', 0.8)} cast={false} />
+        {/* The black opening, outlined in gold like everything that can be used, until it has been searched. */}
+        {open ? <Box s={[0.7, 0.84, 0.02]} p={[0, 0, -0.04]} m={m.plastic('#0d0d0d', 0.8)} cast={false} />
+          : <PickupHighlight><Box s={[0.7, 0.84, 0.02]} p={[0, 0, -0.04]} m={m.plastic('#050505', 0.9)} cast={false} /></PickupHighlight>}
       </group>
       <mesh position={[0.9, 2.0, -0.55]} rotation={[0.3, -0.9, 0]} material={m.glass('#334455', 0.8)}>
         <circleGeometry args={[0.16, 20]} />

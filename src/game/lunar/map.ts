@@ -49,7 +49,7 @@ function note(room: string, id: string, face: Face, along: number): Ent {
     : face === 'left' ? [-w / 2 + off, along, Math.PI / 2] : [w / 2 - off, along, -Math.PI / 2]
   return { id: `ln_${id}`, model: 'lunarNote', pos: localPoint(room, x, 1.35, z), y: 1.35, rot: mod(room).angle + rot, dot: 'exam', hit: [0.65, 0.55, 0.24] }
 }
-const item = (room: string, id: string, type: NonNullable<Ent['item']>, x: number, z: number, y = 0.9): Ent => ({ id: `li_${['o2', 'water', 'battery'].includes(type) ? room + '_' : ''}${id}`, model: type, item: type, pos: localPoint(room, x, y, z), rot: mod(room).angle, dot: ['o2', 'water', 'battery'].includes(type) ? 'res' : 'key' })
+const item = (room: string, id: string, type: NonNullable<Ent['item']>, x: number, z: number, y = 0.9): Ent => ({ id: `li_${['o2', 'water', 'battery'].includes(type) ? room + '_' : ''}${id}`, model: type === 'antenna' ? 'antennaItem' : type, item: type, pos: localPoint(room, x, y, z), rot: mod(room).angle, dot: ['o2', 'water', 'battery'].includes(type) ? 'res' : 'key' })
 
 export const lunarHub: RoomDef = { id: 'l_hub', name: 'Nœud central', shape: 'round', rect: [17, 17, 23, 23], light: '#dfe9ff', intensity: 10,
   exits: MODULES.map(m => ({ angle: (m.angle + Math.PI * 2) % (Math.PI * 2), label: m.name.toUpperCase() })).sort((a, b) => a.angle - b.angle) }
