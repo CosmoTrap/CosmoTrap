@@ -1,7 +1,8 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import { maxAniso } from '../quality'
 
-type Kind = 'pine' | 'oak'
+type Kind = 'pine' | 'fir' | 'oak'
 function random(seed: number) {
   return () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646 }
 }
@@ -11,8 +12,8 @@ export function foliageMaterial(kind: Kind) {
   const c = document.createElement('canvas')
   c.width = c.height = 512
   const ctx = c.getContext('2d')!
-  const rnd = random(kind === 'pine' ? 813 : 1907)
-  if (kind === 'pine') {
+  const rnd = random(kind === 'oak' ? 1907 : 813)
+  if (kind !== 'oak') {
     for (let branch = 0; branch < 7; branch++) {
       const ox = 90 + branch * 49, oy = 375 - Math.abs(branch - 3) * 20
       ctx.strokeStyle = '#6b6046'
@@ -48,50 +49,62 @@ export function foliageMaterial(kind: Kind) {
   }
   const map = new THREE.CanvasTexture(c)
   map.colorSpace = THREE.SRGBColorSpace
-  map.anisotropy = 8
+  map.anisotropy = maxAniso()
   return new THREE.MeshStandardMaterial({ map, alphaTest: 0.4, side: THREE.DoubleSide,
     vertexColors: true, roughness: 0.92, metalness: 0, envMapIntensity: 0.6 })
 }
 
 export function makeTreeGeometry(kind: Kind) {
-  const rnd = random(kind === 'pine' ? 313 : 517)
+  const rnd = random(kind === 'pine' ? 313 : kind === 'fir' ? 421 : 517)
   const wood: THREE.BufferGeometry[] = [], leaves: THREE.BufferGeometry[] = []
   const up = new THREE.Vector3(0, 1, 0)
+  // Firs are bluer and darker than pines; each frond gets its own shade, lighter towards the sunlit top.
+  const tint = kind === 'fir' ? [0.82, 0.92, 0.95] : [1, 1, 0.92]
   function branch(a: THREE.Vector3, b: THREE.Vector3, radius: number) {
     const d = b.clone().sub(a)
-    const g = new THREE.CylinderGeometry(radius * 0.4, radius, d.length(), 8, 2).toNonIndexed()
+    const g = new THREE.CylinderGeometry(radius * 0.4, radius, d.length(), 7, 1).toNonIndexed()
     g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(up, d.clone().normalize()))
     g.translate(...a.clone().add(b).multiplyScalar(0.5).toArray())
     wood.push(g)
   }
-  function card(p: THREE.Vector3, width: number, height: number, a: number, tilt: number) {
+  function card(p: THREE.Vector3, width: number, height: number, a: number, tilt: number, light = 1) {
     const g = new THREE.PlaneGeometry(width, height, 2, 2).toNonIndexed()
     // Curve each frond slightly to avoid cardboard reflections.
     const pos = g.attributes.position
     for (let i = 0; i < pos.count; i++) pos.setZ(i, Math.abs(pos.getX(i)) * 0.16)
     g.rotateX(tilt); g.rotateY(a); g.translate(p.x, p.y, p.z)
     g.computeVertexNormals()
-    const shade = 0.75 + rnd() * 0.35
-    const colors = new Float32Array(pos.count * 3).fill(shade)
+    const shade = (0.7 + rnd() * 0.3) * light
+    const colors = new Float32Array(pos.count * 3)
+    for (let i = 0; i < pos.count; i++) colors.set([shade * tint[0], shade * tint[1], shade * tint[2]], i * 3)
     g.setAttribute('color', new THREE.BufferAttribute(colors, 3))
     leaves.push(g)
   }
-  branch(new THREE.Vector3(), new THREE.Vector3(0.08, kind === 'pine' ? 7 : 4.8, 0), 0.22)
-  if (kind === 'pine') {
-    for (let tier = 0; tier < 10; tier++) {
-      const y = 1.35 + tier * 0.55, spread = 1.75 * (1 - tier / 11)
-      for (let j = 0; j < 7; j++) {
-        const a = j / 7 * Math.PI * 2 + tier * 1.7 + rnd() * 0.25
-        const end = new THREE.Vector3(Math.cos(a) * spread, y - 0.16 + rnd() * 0.15, Math.sin(a) * spread)
-        branch(new THREE.Vector3(0, y + 0.15, 0), end, 0.028 * (1 - tier / 14))
-        for (let k = 0; k < 3; k++) {
-          const center = end.clone().multiplyScalar(0.45 + k * 0.25)
-          center.y = y + k * 0.08
-          card(center, 0.85 - tier * 0.035, 0.8, -a, -0.65 + rnd() * 0.3)
+  if (kind !== 'oak') {
+    // A conifer: whorls of drooping branches, wide at the bottom, tapering to a spire, fronds all along them.
+    const fir = kind === 'fir', height = fir ? 9 : 10, tiers = fir ? 17 : 14, base = fir ? 1.65 : 2.2
+    branch(new THREE.Vector3(), new THREE.Vector3(0.06, height, 0), fir ? 0.2 : 0.24)
+    for (let tier = 0; tier < tiers; tier++) {
+      const k = tier / tiers, y = (fir ? 1.0 : 1.8) + k * (height - (fir ? 1.6 : 2.4))
+      const spread = base * Math.pow(1 - k, 0.85) + 0.2
+      const count = fir ? 9 : 7
+      for (let j = 0; j < count; j++) {
+        const a = j / count * Math.PI * 2 + tier * 2.1 + rnd() * 0.35
+        const len = spread * (0.85 + rnd() * 0.3)
+        const end = new THREE.Vector3(Math.cos(a) * len, y - len * (fir ? 0.38 : 0.22) + rnd() * 0.1, Math.sin(a) * len)
+        branch(new THREE.Vector3(0, y + 0.1, 0), end, 0.032 * (1 - k * 0.7))
+        const cards = fir ? 4 : 3
+        for (let c = 0; c < cards; c++) {
+          const t = 0.3 + c / cards * 0.75
+          const center = new THREE.Vector3(0, y + 0.1, 0).lerp(end, t)
+          card(center, (fir ? 0.75 : 0.95) * (1 - k * 0.45), fir ? 0.7 : 0.85, -a, -0.75 + rnd() * 0.35, 0.85 + k * 0.3)
         }
       }
     }
+    // The leading shoot at the top.
+    for (let i = 0; i < 3; i++) card(new THREE.Vector3(0, height - 0.25, 0), 0.5, 0.9, i * 1.05, 0, 1.15)
   } else {
+    branch(new THREE.Vector3(), new THREE.Vector3(0.08, 4.8, 0), 0.22)
     for (let i = 0; i < 14; i++) {
       const a = i * 2.4, radius = 0.6 + rnd() * 1.35
       const end = new THREE.Vector3(Math.cos(a) * radius, 2.8 + rnd() * 1.7, Math.sin(a) * radius)

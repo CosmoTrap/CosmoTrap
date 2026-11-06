@@ -63,6 +63,12 @@ const PATHS: Record<string, JSX.Element> = {
       <path d="M19 12c1 3 2 5 3 6" />
     </g>
   ),
+  plank: (
+    <g {...S}>
+      <path d="M3 15 17 5l4 4L7 19z" />
+      <path d="M7 13l2 2M11 10l2 2M15 7l2 2" />
+    </g>
+  ),
   carBattery: (
     <g {...S}>
       <rect x="3" y="8" width="18" height="11" rx="1.5" />

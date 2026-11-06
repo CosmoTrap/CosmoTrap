@@ -349,3 +349,12 @@
 .nav-received .nav-message-list button { display: block; width: 100%; border-left-width: 1px; }
 .nav-received .nav-message-detail { padding: 10px 0 0; }
 .tablet-inventory { border: 0; padding: 0; background: none; box-shadow: none; }
+
+/* Hermès: flight data and on-board systems, in the side panel. */
+.rocket-flight .nav-rows dd.ok { color: #3fd6a0; } .rocket-flight .nav-rows dd.off { color: #ff8a7a; }
+.rocket-flight .nav-eyebrow { color: #ecc24a; }
+.rocket-steps { list-style: none; margin: 4px 0 0; padding: 0; }
+.rocket-steps li { display: flex; gap: 8px; align-items: center; padding: 3px 0; font-size: 10.5px; line-height: 1.3; color: #8d96bd; }
+.rocket-steps li i { flex: none; width: 10px; height: 10px; border-radius: 50%; border: 1px dashed #5b6690; }
+.rocket-steps li.done { color: #c1c8e0; } .rocket-steps li.done i { background: #3fd6a0; border: 0; }
+.rocket-steps li.current { color: #fff; } .rocket-steps li.current i { border: 2px solid #ff9a62; }

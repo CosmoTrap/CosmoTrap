@@ -32,6 +32,7 @@ export type ItemId =
   | 'wrench'
   | 'cell'
   | 'rope'
+  | 'plank'
   | 'carBattery'
   | 'antenna'
   | 'manual'

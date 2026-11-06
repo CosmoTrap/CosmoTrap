@@ -5,8 +5,8 @@
 | Code du jeu, shaders, textures procédurales, modèles 3D en code | Cosmo Team | Propriété de l'équipe |
 | Logo et planches de personnages (`public/logo`, `public/characters`, `assets/`) | mo Team | Propriété de l'équipe |
 | Musique et bruitages (synthèse Web Audio générée par le code, thèmes « orgue cosmique » originaux) | Cosmo Team | Propriété de l'équipe |
-| Textures PBR, HDRI et modèles 3D (`public/assets/tex`, `hdri`, `models`) — [Poly Haven](https://polyhaven.com) | Poly Haven et ses artistes | CC0 (domaine public) |
-| Cartes planétaires (Lune, Terre, Saturne, Voie lactée — `public/assets/planets`) — [Solar System Scope](https://www.solarsystemscope.com/textures/) | INOVE | CC BY 4.0 |
+| Textures PBR et modèles 3D (`public/assets/tex`, `models`) — [Poly Haven](https://polyhaven.com) | Poly Haven et ses artistes | CC0 (domaine public) |
+| Carte de la Lune (`public/assets/planets/moon.jpg` et sa version 2K `moon_2k.jpg`) — [Solar System Scope](https://www.solarsystemscope.com/textures/) | INOVE | CC BY 4.0 |
 | Photos affichées aux murs (`public/assets/photos`) : Earthrise (Apollo 8), Terre vue d'Apollo 17, Buzz Aldrin sur la Lune (Apollo 11), décollage d'Apollo 11 — [NASA](https://www.nasa.gov/nasa-brand-center/images-and-media/), via Wikimedia Commons | NASA | Domaine public |
 | Voix (répliques FR / EN) et bruitages réalistes (`public/audio`) — générés avec ElevenLabs (`npm run audio`) | Cosmo Team via ElevenLabs | Licence d'usage ElevenLabs (attribution requise sur le forfait gratuit : « Voix et sons : ElevenLabs ») |
 | Polices Outfit, Rajdhani, Inter, JetBrains Mono (Google Fonts) | Leurs auteurs | SIL Open Font License 1.1 |
@@ -24,7 +24,7 @@ Les textures PBR de `public/textures/` proviennent de **[Poly Haven](https://pol
 | Écorce | [Pine Bark](https://polyhaven.com/a/pine_bark) |
 
 Les fichiers 1K sont servis localement, sans appel à Poly Haven pendant une partie.
-`public/textures/sources.json` conserve les URL originales, tailles et empreintes SHA256.
+`public/textures/sources.json` conserve les URL originales et les empreintes SHA256 des fichiers téléchargés ; les fichiers servis ont depuis été recompressés (JPEG 82–90 %) pour alléger le chargement.
 Le script d'import hors ligne `scripts/fetch-materials.mjs` utilise l'API Poly Haven — Powered by Poly Haven.
 Une partie du mobilier et le feuillage restent procéduraux ; les modèles complémentaires et le fond lunaire utilisent aussi les ressources de `public/assets/`.
 

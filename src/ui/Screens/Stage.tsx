@@ -68,7 +68,7 @@ export function PageHead({ kicker, title, onBack }: { kicker: string; title: str
 export function Skin({ id, bust, className }: { id: string; bust?: boolean; className?: string }) {
   return (
     <span className={`x-skin ${bust ? 'bust' : ''} ${className ?? ''}`}>
-      <img src={`/skins/${id}.png`} alt={fr.characters[id]?.species ?? ''} draggable={false} />
+      <img src={`/skins/${id}.webp`} alt={fr.characters[id]?.species ?? ''} draggable={false} />
     </span>
   )
 }

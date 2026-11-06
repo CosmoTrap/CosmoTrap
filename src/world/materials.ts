@@ -4,6 +4,7 @@ import { G } from '../game/state'
 import { QUALITY } from './quality'
 import { ceilingSet, drawTexture, floorSet, paintedMetal, wallSet, type PBRSet, type WallTheme } from './textures'
 import { photoSurface } from './photomaterials'
+import { maxAniso } from './quality'
 
 // Matériaux partagés, mis en cache. Les pièces sombres ont leurs propres instances
 // (réflexions d'environnement quasi nulles) pour que la lampe torche compte vraiment.
@@ -19,6 +20,8 @@ const sets = new Map<string, PBRSet>()
 function texSize() {
   return QUALITY[G().settings.quality].tex
 }
+/** Whether the current preset affords the costlier material layers (clearcoat, sheen). */
+const rich = () => QUALITY[G().settings.quality].richMaterials
 
 function getSet(key: string, mk: () => PBRSet) {
   const k = `${key}@${texSize()}`
@@ -81,7 +84,7 @@ function exteriorSkin() {
       c.fillStyle = 'rgba(58,60,64,.8)'
       c.fillRect(0, 0, 512, 4); c.fillRect(0, 0, 4, 512); c.fillRect(254, 0, 4, 512); c.fillRect(0, 254, 512, 4)
     })
-    map.anisotropy = 8
+    map.anisotropy = maxAniso()
     const detail = photoSurface('metal')
     const material = new THREE.MeshStandardMaterial({ map, normalMap: detail.normalMap, normalScale: new THREE.Vector2(0.12, 0.12), roughnessMap: detail.roughnessMap, roughness: 0.75, metalness: 0.06, envMapIntensity: 0.35, emissive: '#c9cfd6', emissiveIntensity: 0.06, fog: false })
     material.name = 'station-exterior-skin'
@@ -109,11 +112,13 @@ export function useMats() {
   return {
     dark: d,
     painted: (color: string, rough = 0.55, metal = 0.25) =>
-      cached(`painted:${color}:${rough}:${metal}`, d, id, () => {
+      cached(`painted:${color}:${rough}:${metal}:${rich()}`, d, id, () => {
         const s = getSet(`pm:${color}`, () => paintedMetal(color, 256))
         const detail = photoSurface('metal')
-        return new THREE.MeshPhysicalMaterial({ map: s.map, normalMap: detail.normalMap, normalScale: new THREE.Vector2(0.16, 0.16), roughnessMap: detail.roughnessMap,
-          color: '#ffffff', roughness: Math.min(1, rough * 1.35), metalness: metal * 0.75, clearcoat: 0.18, clearcoatRoughness: 0.4 })
+        const base = { map: s.map, normalMap: detail.normalMap, normalScale: new THREE.Vector2(0.16, 0.16), roughnessMap: detail.roughnessMap,
+          color: '#ffffff', roughness: Math.min(1, rough * 1.35), metalness: metal * 0.75 }
+        // The thin varnish is a second BRDF per light and per pixel: only where the GPU has room for it.
+        return rich() ? new THREE.MeshPhysicalMaterial({ ...base, clearcoat: 0.18, clearcoatRoughness: 0.4 }) : new THREE.MeshStandardMaterial(base)
       }),
     metal: (color = '#9aa0a6', rough = 0.35) => cached(`metal:${color}:${rough}`, d, id, () => {
       const s = photoSurface('metal', 2)
@@ -122,17 +127,18 @@ export function useMats() {
     }),
     plastic: (color: string, rough = 0.45) => cached(`plastic:${color}:${rough}`, d, id, () => new THREE.MeshStandardMaterial({ color, metalness: 0, roughness: rough })),
     rubber: (color = '#1b1c1e') => cached(`rubber:${color}`, d, id, () => new THREE.MeshStandardMaterial({ color, metalness: 0, roughness: 0.9 })),
-    fabric: (color: string) => cached(`fabric:${color}`, d, id, () => {
+    fabric: (color: string) => cached(`fabric:${color}:${rich()}`, d, id, () => {
       const s = photoSurface('fabric', 3)
-      const m = new THREE.MeshPhysicalMaterial({ color, metalness: 0, roughness: 0.96, roughnessMap: s.roughnessMap,
-        normalMap: s.normalMap, normalScale: new THREE.Vector2(0.3, 0.3), sheen: 0.45, sheenColor: color, sheenRoughness: 0.8 })
+      const base = { color, metalness: 0, roughness: 0.96, roughnessMap: s.roughnessMap, normalMap: s.normalMap, normalScale: new THREE.Vector2(0.3, 0.3) }
+      // Sheen, like clearcoat, adds a BRDF per light: kept for the higher presets.
+      const m = rich() ? new THREE.MeshPhysicalMaterial({ ...base, sheen: 0.45, sheenColor: color, sheenRoughness: 0.8 }) : new THREE.MeshStandardMaterial(base)
       m.userData.fabric = true
       return m
     }),
     glow: (color: string, intensity = 3) =>
       cached(`glow:${color}:${intensity}`, false, '', () => new THREE.MeshStandardMaterial({ color: '#000000', emissive: color, emissiveIntensity: intensity, toneMapped: true })),
     glass: (tint = '#a8c6d8', opacity = 0.18) =>
-      cached(`glass:${tint}:${opacity}`, false, '', () => new THREE.MeshPhysicalMaterial({ color: tint, metalness: 0, roughness: 0.05, transparent: true, opacity, envMapIntensity: 1.2, clearcoat: 1, depthWrite: false })),
+      cached(`glass:${tint}:${opacity}:${rich()}`, false, '', () => new THREE.MeshPhysicalMaterial({ color: tint, metalness: 0, roughness: 0.05, transparent: true, opacity, envMapIntensity: 1.2, clearcoat: rich() ? 1 : 0, depthWrite: false })),
   }
 }
 

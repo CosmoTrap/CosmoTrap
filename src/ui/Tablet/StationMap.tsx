@@ -10,6 +10,7 @@ import { levelName, tabletText } from './copy'
 import { Lock, ModuleArt, roomCode, roomStatus } from './moduleArt'
 import { roomPowerCut } from '../../world/roomPower'
 import { SOLAR_ARRAYS, SOLAR_CELL, SOLAR_GAP } from '../../game/maps/solarArrays'
+import { Compartment, CompartmentLabel, HermesHull, OrbitBackdrop, ROCKET_BOUNDS } from './RocketMap'
 
 const DOT = { key: '#ff885c', res: '#75cfff', surv: '#45d7a2', exam: '#edc86e', exit: '#bfacff' }
 const square = (x: number, z: number, w = TILE, h = TILE) => `M${x},${z}h${w}v${h}h${-w}Z`
@@ -50,11 +51,13 @@ export function StationMap({ zone, selected, onSelect, mode = 'plan' }: { zone: 
       minZ = Math.min(minZ, z * TILE); maxZ = Math.max(maxZ, (z + 1) * TILE)
       const rounded = map.rooms.find((r) => r.shape === 'round' && x >= r.rect[0] && x <= r.rect[2] && z >= r.rect[1] && z <= r.rect[3])
       if (isFloor(c) && !rounded) floor += square(x * TILE, z * TILE)
-      if (c === 'W' || c === 'V') windows += square(x * TILE + 0.55, z * TILE + 0.55, 0.9, 0.9)
+      // The rocket's nose canopy is drawn with its hull.
+      if (c === 'W' || (c === 'V' && zone !== 3)) windows += square(x * TILE + 0.55, z * TILE + 0.55, 0.9, 0.9)
     }))
     if (!map) { minX = BOUNDS.x0; minZ = BOUNDS.z0; maxX = BOUNDS.x1; maxZ = BOUNDS.z1 }
     for (const { x: ax, z: az } of SOLAR_ARRAYS[zone] ?? []) { minX = Math.min(minX, ax); maxX = Math.max(maxX, ax + 15); minZ = Math.min(minZ, az); maxZ = Math.max(maxZ, az + 6) }
     if (zone === 2) minX = Math.min(minX, -8)
+    if (zone === 3) { minX = ROCKET_BOUNDS.minX; maxX = ROCKET_BOUNDS.maxX; minZ = ROCKET_BOUNDS.minZ; maxZ = ROCKET_BOUNDS.maxZ }
     return { floor, windows, minX: minX - 3, minZ: minZ - 6, w: maxX - minX + 6, h: maxZ - minZ + 11 }
   }, [map])
   const aspect = 1.45
@@ -94,6 +97,7 @@ export function StationMap({ zone, selected, onSelect, mode = 'plan' }: { zone: 
       </defs>
       {map ? <>
         {(SOLAR_ARRAYS[zone] ?? []).map((a, i) => <SolarArray key={i} {...a} />)}
+        {zone === 3 && <><OrbitBackdrop /><HermesHull /></>}
         {zone === 2 && <g pointerEvents="none" data-testid="map-rocket">
           <rect x="-7.6" y="31.6" width="15.6" height="8.8" rx="1" fill="#0d1224" fillOpacity=".75" stroke="#ecc24a" strokeWidth=".14" strokeDasharray=".6 .4" />
           <path d="M-6.2,36l2-1.5h8.6v3h-8.6z" fill="#e9ecf0" /><path d="M-5.2,36l1.6-.9h7.6v1.8h-7.6z" fill="#e8772e" />
@@ -131,7 +135,7 @@ export function StationMap({ zone, selected, onSelect, mode = 'plan' }: { zone: 
           const overlay = mode === 'energy' ? (cut ? '#ff5a5566' : '#3fd6a044') : mode === 'oxygen' ? (zone === 2 && useGame.getState().flags.pw_o2 ? '#4fb6ff55' : '#ffb02a3a') : null
           return <g key={room.id} data-room={room.id} data-testid={`map-room-${room.id}`} role="button" tabIndex={0} aria-label={fr.rooms[room.name] ?? room.name} aria-pressed={active} className={`nav-room ${active ? 'selected' : ''}`}
             onClick={() => onSelect(room)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(room) } }}>
-            {room.shape === 'round' ? <>
+            {zone === 3 ? <Compartment room={room} selected={active} /> : room.shape === 'round' ? <>
               <circle cx={cx} cy={cz} r={rw / 2} fill="url(#nav-node)" stroke={active ? '#ff865c' : '#f0f3f7'} strokeWidth={active ? '.24' : '.08'} />
               <circle cx={cx} cy={cz} r={rw / 2 - 2.1} fill="none" stroke="#7288ad" strokeWidth=".3" strokeDasharray="1.3 1" />
               {/* The lift at the centre, with its door facing east. */}
@@ -140,17 +144,18 @@ export function StationMap({ zone, selected, onSelect, mode = 'plan' }: { zone: 
               {zone === 1 && !useGame.getState().flags.pressurized && <Lock x={cx} z={cz} size={.8} />}
             </> : <ModuleArt zone={zone} room={room} status={status} selected={active} />}
             {overlay && !room.shape && <rect x={x0 * TILE} y={z0 * TILE} width={rw} height={rh} rx=".55" fill={overlay} pointerEvents="none" />}
-            {active && !room.shape && [[0, 0], [1, 0], [0, 1], [1, 1]].map(([kx, kz]) => {
+            {active && !room.shape && zone !== 3 && [[0, 0], [1, 0], [0, 1], [1, 1]].map(([kx, kz]) => {
               const x = x0 * TILE + kx * rw + (kx ? .9 : -.9), z = z0 * TILE + kz * rh + (kz ? .9 : -.9)
               return <path key={`${kx}${kz}`} d={`M${x + (kx ? -1.1 : 1.1)},${z}H${x}V${z + (kz ? -1.1 : 1.1)}`} fill="none" stroke="#ff865c" strokeWidth=".2" />
             })}
-            {tag && <g pointerEvents="none">
+            {tag && zone !== 3 && <g pointerEvents="none">
               <rect x={rightAligned ? labelX - tagW : labelX} y={labelZ - 2.5} width={tagW} height="1.3" rx=".26" fill={`${tag.color}22`} stroke={tag.color} strokeWidth=".08" />
               <text x={(rightAligned ? labelX - tagW : labelX) + .45} y={labelZ - 1.56} fontSize=".78" fill={tag.color} fontFamily="monospace" letterSpacing=".02">{tag.text}</text>
             </g>}
-            <text x={labelX} y={labelZ} textAnchor={rightAligned ? 'end' : 'start'} fontSize=".95" fill="#e1e6f7" fontFamily="monospace" letterSpacing=".04" pointerEvents="none">{name}</text>
+            {zone !== 3 && <text x={labelX} y={labelZ} textAnchor={rightAligned ? 'end' : 'start'} fontSize=".95" fill="#e1e6f7" fontFamily="monospace" letterSpacing=".04" pointerEvents="none">{name}</text>}
           </g>
         })}
+        {zone === 3 && map.rooms.map((room) => <CompartmentLabel key={room.id} room={room} />)}
         <path d={layout.windows} fill="#8fc8e2" opacity=".85" pointerEvents="none" />
         {map.doors.map((d) => {
           const x = d.tile[0] * TILE + 1, z = d.tile[1] * TILE + 1

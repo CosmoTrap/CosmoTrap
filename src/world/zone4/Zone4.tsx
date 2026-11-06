@@ -4,15 +4,16 @@ import { BallCollider, CuboidCollider, CylinderCollider, RigidBody, TrimeshColli
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { audio } from '../../game/audio/audio'
-import { BOUNDS, BRIDGE_X, RIVER_HALF, riverCenter, terrainHeight, zone4Props } from '../../game/maps/zone4'
-import { G, live, useGame } from '../../game/state'
+import { BOUNDS, BRIDGE_X, RIVER_HALF, WATER_Y, riverCenter, terrainHeight, zone4Props } from '../../game/maps/zone4'
+import { G, live, toast, useGame } from '../../game/state'
+import { fr } from '../../i18n/fr'
 import { QUALITY } from '../quality'
 import { EntModels } from '../props/EntModels'
 import { Box, Cyl } from '../props/models'
 import { RoomCtx, useMats } from '../materials'
 import { concreteSet, drawTexture } from '../textures'
 import { rockGeometry } from '../Exterior/Asteroids'
-import { CloudLayer, FOG4, Grass, Mountains, River, Rocks, SUN4, SunLight, Terrain, Trees, buildTerrain, placeTrees } from './Nature'
+import { CloudLayer, FOG4, Mountains, River, Rocks, SUN4, SunLight, Terrain, Trees, buildTerrain, placeTrees } from './Nature'
 import { woodMat } from './Zone4Ents'
 import { capsulePos, crash } from '../FilmScenes'
 import { photoSurface } from '../photomaterials'
@@ -421,9 +422,22 @@ function Ambience() {
       audio.stopLoop('amb_wind')
     }
   }, [])
-  useFrame(() => {
-    const d = Math.abs(live.pos[2] - riverCenter(live.pos[0]))
+  // Last spot on dry ground: whoever slips into the river is carried back there, never stuck between its banks.
+  const safe = useRef<[number, number, number] | null>(null)
+  const wet = useRef(0)
+  useFrame((_, dt) => {
+    const [x, y, z] = live.pos
+    const d = Math.abs(z - riverCenter(x))
     audio.setRiver(THREE.MathUtils.clamp(0.25 - d * 0.012, 0.02, 0.25))
+    if (G().cine) return
+    const onBridge = G().flags.bridge && Math.abs(x - BRIDGE_X) < 1.3
+    if (d > RIVER_HALF + 1.2 && !onBridge) safe.current = [x, y, z]
+    wet.current = d < RIVER_HALF + 0.3 && !onBridge && y < WATER_Y + 0.25 ? wet.current + dt : 0
+    if (wet.current > 0.8 && safe.current) {
+      wet.current = 0
+      useGame.setState({ tp: { pos: safe.current, yaw: live.yaw, n: Date.now() } })
+      toast(fr.msg.riverOut, 'info', 2600)
+    }
   })
   return null
 }
@@ -440,12 +454,11 @@ export function Zone4() {
         <Sky sunPosition={sunPos} turbidity={7} rayleigh={2.4} mieCoefficient={0.007} mieDirectionalG={0.86} />
       </Environment>
       <hemisphereLight args={['#a9c2e6', '#5a4a30', 0.5]} />
-      <SunLight size={q.sunShadow} />
+      <SunLight size={q.sunShadow} every={q.sunShadowEvery} />
       <Terrain />
       <Mountains />
       {q.clouds && <CloudLayer />}
       <River />
-      <Grass count={q.grass} />
       <Trees trees={trees} />
       <Rocks />
       <RoomCtx.Provider value={{ id: 'out', dark: false }}>

@@ -7,7 +7,8 @@ import { Suspense, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { audio } from '../game/audio/audio'
 import { gridMap } from '../game/maps'
-import { G, live, useGame } from '../game/state'
+import { G, live, saveSettings, toast, useGame } from '../game/state'
+import { fr } from '../i18n/fr'
 import type { GridMap } from '../game/types'
 import { Hands } from '../player/Hands'
 import { Player, useInputListeners } from '../player/Player'
@@ -26,7 +27,8 @@ import { stationPowerDown } from './roomPower'
 /** soleil pour les intérieurs : n'entre que par les hublots (ombres) */
 function InteriorSun({ map }: { map: GridMap }) {
   const light = useRef<THREE.DirectionalLight>(null)
-  const size = QUALITY[G().settings.quality].sunShadow
+  const { sunShadow: size, sunShadowEvery: every } = QUALITY[G().settings.quality]
+  const frame = useRef(0)
   const W = Math.max(...map.grid.map((r) => r.length)) * 2
   const H = map.grid.length * 2
   const sun = new THREE.Vector3(...map.sun).normalize()
@@ -44,8 +46,10 @@ function InteriorSun({ map }: { map: GridMap }) {
     sunLight.intensity = size && !stationPowerDown(map.zone) ? 6 : 0
     // Keep the light/shader layout stable, but do not redraw the entire station
     // into a shadow map whose light contributes nothing during the outage.
-    sunLight.shadow.autoUpdate = sunLight.intensity > 0
-    sunLight.shadow.needsUpdate = sunLight.shadow.map === null
+    // The sun is fixed and almost nothing it lights moves (doors, a pushed crate): redraw its map
+    // of the whole station only every few frames on the lighter presets.
+    sunLight.shadow.autoUpdate = false
+    sunLight.shadow.needsUpdate = sunLight.shadow.map === null || (sunLight.intensity > 0 && frame.current++ % every === 0)
   })
   return (
     <>
@@ -138,7 +142,7 @@ function PhysicsWorld() {
 function AdaptiveDpr() {
   const quality = useGame((s) => s.settings.quality)
   const resolution = useGame((s) => s.settings.resolution)
-  const acc = useRef({ t: 0, n: 0, dpr: 0 })
+  const acc = useRef({ t: 0, n: 0, dpr: 0, slow: 0 })
   useFrame(({ gl, size, setDpr }, dt) => {
     const a = acc.current
     a.t += dt
@@ -166,6 +170,20 @@ function AdaptiveDpr() {
       if (fps < 42 && a.dpr > lo + 0.01) a.dpr = Math.max(lo, a.dpr - 0.15)
       else if (fps > 58 && a.dpr < target - 0.01) a.dpr = Math.min(target, a.dpr + 0.1)
       if (Math.abs(gl.getPixelRatio() - a.dpr) > 0.01) setDpr(a.dpr)
+      // Already at the lowest resolution and still under 30 fps for about 6 s of play: one preset down,
+      // unless the player chose the quality themselves. Cinematics, pauses and the tablet do not count.
+      const s = G()
+      const playing = s.screen === 'playing' && s.loading === 1 && !s.cine && !s.paused && !s.tabletOpen
+      a.slow = playing && a.dpr <= lo + 0.01 && fps < 30 && !s.settings.qualityLocked ? a.slow + 1 : 0
+      const order = ['low', 'medium', 'high', 'ultra'] as const
+      const index = order.indexOf(quality)
+      if (a.slow >= 3 && index > 0) {
+        const settings = { ...s.settings, quality: order[index - 1] }
+        useGame.setState({ settings })
+        saveSettings(settings)
+        toast(fr.settings2.qualityLowered(fr.settings2.qualities[settings.quality]), 'info', 6000)
+        a.slow = 0
+      }
       a.t = 0
       a.n = 0
     }

@@ -78,6 +78,19 @@ function RadioBeacon() {
   )
 }
 
+/** A cargo plank thrown out at the crash: weathered boards, nails still in, lying in the grass. */
+function Plank() {
+  const m = useMats()
+  const wood = woodMat()
+  return (
+    <group rotation={[0.04, 0, 0.03]}>
+      <Box s={[1.25, 0.045, 0.22]} p={[0, 0.03, 0]} m={wood} />
+      <Box s={[0.9, 0.04, 0.2]} p={[0.12, 0.075, 0.02]} r={[0, 0.12, 0.02]} m={wood} />
+      {[-0.5, 0.5].map((x) => <Cyl key={x} a={[0.006, 0.006, 0.05]} p={[x, 0.06, 0]} m={m.metal('#5d5a55', 0.6)} seg={6} />)}
+    </group>
+  )
+}
+
 function FlareCrate() {
   const m = useMats()
   const taken = useGame((s) => s.taken.includes('4:flareGun'))
@@ -120,6 +133,7 @@ export const ZONE4_ENT_MODELS: Record<string, (e: Ent) => ReactNode> = {
   flareCrate: () => <FlareCrate />,
   mapItem: () => <MapItem />,
   helipadPanel: () => <HelipadPanel />,
+  plank: () => <Plank />,
 }
 
 let woodCache: THREE.MeshStandardMaterial | null = null

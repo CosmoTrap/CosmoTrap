@@ -8,6 +8,7 @@ import { useGame } from '../../game/state'
 import { useMats } from '../materials'
 import { RealModel } from './RealModel'
 import { drawTexture, textTexture, texRnd, texSeed } from '../textures'
+import { maxAniso } from '../quality'
 
 // Accessoires de décor modélisés en code. Convention : les objets muraux ont le dos en z = 0
 // et s'étendent vers +z (l'intérieur de la pièce) ; les objets au sol sont centrés.
@@ -291,7 +292,7 @@ function photoMap(name: string) {
   if (!t) {
     t = new THREE.TextureLoader().load(`/assets/photos/${name}.jpg`)
     t.colorSpace = THREE.SRGBColorSpace
-    t.anisotropy = 8
+    t.anisotropy = maxAniso()
     photoMaps.set(name, t)
   }
   return t
@@ -1510,12 +1511,49 @@ function Grating() {
   )
 }
 
+/** A monitor on a short stand, as on a desk: bezel, screen and foot. Origin under its foot, screen facing +z. */
+export function DeskScreen({ w, h, lines, fg, p = [0, 0, 0] }: { w: number; h: number; lines: string[]; fg?: string; p?: [number, number, number] }) {
+  const m = useMats()
+  const dark = m.plastic('#15171a', 0.35)
+  return <group position={p}>
+    <Box s={[0.26, 0.02, 0.18]} p={[0, 0.01, 0]} m={dark} />
+    <Box s={[0.05, 0.12, 0.04]} p={[0, 0.07, -0.03]} m={m.metal('#5d6268', 0.35)} />
+    <group position={[0, 0.13 + h / 2, -0.02]} rotation={[-0.12, 0, 0]}>
+      <Box s={[w + 0.05, h + 0.05, 0.035]} m={dark} />
+      <Screen w={w} h={h} p={[0, 0, 0.019]} lines={lines} fg={fg} />
+    </group>
+  </group>
+}
+
+/** A keyboard lying on a desk: one instanced draw for all its keys. Origin under its centre. */
+export function Keyboard({ p = [0, 0, 0], w = 0.46 }: { p?: [number, number, number]; w?: number }) {
+  const m = useMats()
+  const keys = useRef<THREE.InstancedMesh>(null)
+  const cols = Math.round(w / 0.031), rows = 4
+  useEffect(() => {
+    const mtx = new THREE.Matrix4()
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      mtx.makeTranslation((c - (cols - 1) / 2) * 0.031 + (r % 2) * 0.006, 0, (r - (rows - 1) / 2) * 0.031)
+      keys.current!.setMatrixAt(r * cols + c, mtx)
+    }
+    keys.current!.instanceMatrix.needsUpdate = true
+    keys.current!.computeBoundingSphere()
+  }, [cols])
+  return <group position={p}>
+    <Box s={[w + 0.03, 0.016, 0.15]} p={[0, 0.008, 0]} m={m.plastic('#1c1e22', 0.4)} />
+    <instancedMesh ref={keys} args={[undefined, undefined, cols * rows]} position={[0, 0.02, 0]} material={m.plastic('#2c3036', 0.5)}>
+      <boxGeometry args={[0.026, 0.01, 0.026]} />
+    </instancedMesh>
+  </group>
+}
+
 function PilotSeat() {
   const m = useMats()
   const shell = m.painted('#2f3237', 0.5, 0.6)
   const pad = m.fabric('#43362e')
+  // Backrest towards +z: the pilot faces -z, the console on the north wall.
   return (
-    <group rotation={[0, Math.PI, 0]}>
+    <group>
       <Cyl a={[0.08, 0.12, 0.45]} p={[0, 0.22, 0]} m={m.metal('#55595e')} />
       <Box s={[0.6, 0.12, 0.6]} p={[0, 0.5, 0]} m={shell} />
       <Box s={[0.54, 0.1, 0.54]} p={[0, 0.58, 0]} m={pad} />
@@ -1536,9 +1574,13 @@ function SideConsole() {
   return (
     <group>
       <Box s={[1.8, 1.0, 0.55]} p={[0, 0.5, 0.28]} m={m.painted('#2f3237', 0.5, 0.6)} />
-      <Box s={[1.8, 0.05, 0.6]} p={[0, 1.02, 0.3]} r={[0.25, 0, 0]} m={m.plastic('#16181a', 0.3)} />
-      <Screen w={0.5} h={0.3} p={[-0.45, 1.06, 0.3]} lines={['ALT 112 km', 'V 1.63 km/s']} fg="#ffb38a" />
-      <Screen w={0.5} h={0.3} p={[0.45, 1.06, 0.3]} lines={['CABINE OK', 'P 101 kPa']} />
+      {/* Sloped desk: two monitors at the back on their stands, a keyboard in front of each. */}
+      <group position={[0, 1.02, 0.3]} rotation={[0.25, 0, 0]}>
+        <Box s={[1.8, 0.05, 0.6]} m={m.plastic('#16181a', 0.3)} />
+        <DeskScreen w={0.5} h={0.3} p={[-0.45, 0.025, -0.16]} lines={['ALT 112 km', 'V 1.63 km/s']} fg="#ffb38a" />
+        <DeskScreen w={0.5} h={0.3} p={[0.45, 0.025, -0.16]} lines={['CABINE OK', 'P 101 kPa']} />
+        {[-0.45, 0.45].map((x) => <Keyboard key={x} p={[x, 0.025, 0.14]} w={0.42} />)}
+      </group>
     </group>
   )
 }

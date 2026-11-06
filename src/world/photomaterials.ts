@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import type { PBRSet } from './textures'
+import { maxAniso } from './quality'
 
 type Surface = 'metal' | 'fabric' | 'ground' | 'rock' | 'wood' | 'bark'
 const sets = new Map<string, PBRSet>()
@@ -15,7 +16,7 @@ export function photoSurface(name: Surface, repeat = 1): PBRSet {
     t.colorSpace = color ? THREE.SRGBColorSpace : THREE.NoColorSpace
     t.wrapS = t.wrapT = THREE.RepeatWrapping
     t.repeat.set(repeat, repeat)
-    t.anisotropy = 8
+    t.anisotropy = maxAniso()
     return t
   }
   const result = { map: load('albedo', true), normalMap: load('normal'), roughnessMap: load('roughness') }

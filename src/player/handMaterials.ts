@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { photoSurface } from '../world/photomaterials'
+import { maxAniso } from '../world/quality'
 
 const cache = new Map<string, THREE.MeshPhysicalMaterial>()
 
@@ -39,7 +40,7 @@ export function handFabric(color: string, leather = false) {
   const map = new THREE.CanvasTexture(c)
   map.colorSpace = THREE.SRGBColorSpace
   map.wrapS = map.wrapT = THREE.RepeatWrapping
-  map.anisotropy = 8
+  map.anisotropy = maxAniso()
   const detail = photoSurface('fabric', leather ? 1 : 2)
   const material = new THREE.MeshPhysicalMaterial({ map, normalMap: detail.normalMap,
     normalScale: new THREE.Vector2(0.5, 0.5), roughnessMap: detail.roughnessMap,
@@ -69,6 +70,6 @@ export function ropeBraid() {
   braid = new THREE.CanvasTexture(c)
   braid.colorSpace = THREE.SRGBColorSpace
   braid.wrapS = braid.wrapT = THREE.RepeatWrapping
-  braid.anisotropy = 8
+  braid.anisotropy = maxAniso()
   return braid
 }

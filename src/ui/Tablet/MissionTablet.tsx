@@ -14,6 +14,7 @@ import { ModuleArt, roomCode, roomStatus, roomSteps } from './moduleArt'
 import { elapsed, levelName, tabletText } from './copy'
 import './tablet.css'
 import { LunarPlan } from './LunarPlan'
+import { RocketFlightCard } from './RocketMap'
 import { missionNote } from '../../game/lunar/logic'
 
 const ZONES: ZoneId[] = [1, 2, 3, 4]
@@ -92,6 +93,7 @@ function Plan() {
           <div><dt>{t.hintsUsedLabel}</dt><dd>{hints}</dd></div>
         </dl>}
       </section>
+      {zone === 3 && <RocketFlightCard />}
     </aside>
   </div>
 }

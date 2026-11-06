@@ -17,30 +17,31 @@ async function start(page: Page) {
   })
 }
 
-test('la surbrillance garde les textures et épargne les matériaux partagés, même après un chargement tardif', () => {
+test('la surbrillance ne touche pas aux matériaux : un contour doré entoure l’objet, même chargé tardivement', () => {
   const root = new THREE.Group(), texture = new THREE.Texture()
   const source = new THREE.MeshStandardMaterial({ map: texture, color: '#996633', emissive: '#223344', emissiveIntensity: 0.3 })
-  const originalEmission = source.emissive.clone()
   const geometry = new THREE.BoxGeometry()
   const a = new THREE.Mesh(geometry, source), b = a.clone()
   root.add(a)
   const effect = highlightPickups(root)
   effect.refresh()
-  expect(a.material).not.toBe(source)
-  expect(a.material.map).toBe(texture)
-  expect(a.material.color.equals(source.color)).toBe(true)
-  expect(source.emissive.equals(originalEmission)).toBe(true)
+  // The object keeps its own material, texture and emission: only an outline is added.
+  expect(a.material).toBe(source)
+  expect(source.map).toBe(texture)
   expect(source.emissiveIntensity).toBe(0.3)
-  expect(a.material.emissive.r).toBeGreaterThan(source.emissive.r * 0.3)
+  const line = a.getObjectByName('pickup-outline') as THREE.Mesh
+  expect(line.geometry).toBe(geometry)
+  expect((line.material as THREE.ShaderMaterial).side).toBe(THREE.BackSide)
+  effect.refresh() // Idempotent: never an outline of an outline.
+  expect(a.children.filter(c => c.name === 'pickup-outline')).toHaveLength(1)
   root.add(b) // An asynchronously loaded model joins the same pickup later.
   effect.refresh()
-  expect(b.material).toBe(a.material)
+  expect(b.getObjectByName('pickup-outline')).toBeTruthy()
   let disposed = false, textureDisposed = false
-  a.material.addEventListener('dispose', () => { disposed = true })
+  ;(line.material as THREE.Material).addEventListener('dispose', () => { disposed = true })
   texture.addEventListener('dispose', () => { textureDisposed = true })
   effect.dispose()
-  expect(a.material).toBe(source)
-  expect(b.material).toBe(source)
+  expect(a.getObjectByName('pickup-outline')).toBeUndefined()
   expect(disposed).toBe(true)
   expect(textureDisposed).toBe(false)
   geometry.dispose(); source.dispose(); texture.dispose()
@@ -100,7 +101,7 @@ test('la plaque ne révèle 2041 qu’avec la torche et les objets brillent jusq
   })
   await page.waitForFunction(() => {
     let count = 0
-    // Le contour doré : les matériaux de l'objet sont remplacés par des copies en surbrillance.
+    // Le contour doré : un liseré ajouté autour de l'objet, ses matériaux restent intacts.
     ;(window as any).lightingScene.getObjectByName('ent:ration').traverse((o: any) => { if (o.material?.userData?.pickupHighlight) count++ })
     return count > 0
   })

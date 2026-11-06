@@ -498,6 +498,11 @@ export function Player() {
         if (!wall || wall.timeOfImpact >= h.distance - 0.35) aimed = id
       }
     }
+    // On Earth, the whole helipad is the place to fire the flare: anywhere on it, whatever the view.
+    if (!aimed && !frozen && s.zone === 4) {
+      const pad = entById('helipad')
+      if (pad?.pos && Math.hypot(nx - pad.pos[0], nz - pad.pos[2]) < 6.3) aimed = 'helipad'
+    }
     live.aimed = aimed
     const e = aimed ? entById(aimed) : null
     const label = e ? labelOf(e) : null

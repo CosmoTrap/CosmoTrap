@@ -77,10 +77,11 @@ export function rocketPose(t: number): RocketPose {
   const heading = earthAt().sub(docked).normalize()
   const quat = new THREE.Quaternion()
   const pos = docked.clone()
-  // Backing away gently, engines first, then a slower drift while turning round.
-  const back = 4 * ease(sm(t, LAUNCH.outside, LAUNCH.turn)) + 3 * sm(t, LAUNCH.turn, LAUNCH.ignition)
+  // Backing well clear first (the Hermès is 18 m long: its nose and tail sweep 10 m round when it turns),
+  // then still drifting away while it turns round, so it never comes near the station's modules.
+  const back = 16 * ease(sm(t, LAUNCH.outside, LAUNCH.turn + 0.6)) + 14 * sm(t, LAUNCH.turn, LAUNCH.ignition)
   pos.z -= back
-  const turn = ease(sm(t, LAUNCH.turn + 0.3, LAUNCH.ignition - 0.2))
+  const turn = ease(sm(t, LAUNCH.turn + 0.6, LAUNCH.ignition - 0.2))
   // A turn about the vertical, back kept up: a roll would leave it flying belly up.
   const side = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), heading).normalize()
   const up = new THREE.Vector3().crossVectors(heading, side)
@@ -104,8 +105,8 @@ export function launchCamera(t: number): { pos: [number, number, number]; look: 
   const v = (x: number, y: number, z: number) => D.clone().add(new THREE.Vector3(x, y, z))
   let pos: THREE.Vector3
   let fov = 42
-  if (t < LAUNCH.turn) pos = v(16, 3, -7).lerp(v(13, 4.5, -4), sm(t, LAUNCH.outside, LAUNCH.turn))
-  else if (t < LAUNCH.burn + 1) pos = v(-21, 12, -24).lerp(v(-17, 10, -21), sm(t, LAUNCH.turn, LAUNCH.burn + 1))
+  if (t < LAUNCH.turn) pos = v(18, 4, -12).lerp(v(17, 6, -20), sm(t, LAUNCH.outside, LAUNCH.turn))
+  else if (t < LAUNCH.burn + 1) pos = v(-30, 14, -46).lerp(v(-26, 11, -50), sm(t, LAUNCH.turn, LAUNCH.burn + 1))
   else if (t >= LAUNCH.burn + 1.5 && t < DESTRUCTION.last + 1.6) {
     // A fixed shot by the station as the meteor shower tears into it, the Hermès's flame leaving behind it.
     const side = new THREE.Vector3().crossVectors(r.heading, new THREE.Vector3(0, 1, 0)).normalize()
