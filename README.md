@@ -4,6 +4,10 @@ Cosmo Team · Cercle de projets 2026 · Institut G4 Marseille
 
 Deux missions indépendantes sont sélectionnables dans le menu : **Station spatiale** (quatre zones, jusqu’au retour sur Terre) et **Base lunaire Séléné-7** (cinq modules autour d’un nœud central, douze épreuves et une évacuation en fusée). Il faut gérer son oxygène, sa lampe et son eau, et s’échapper avant la fin du chronomètre, dont la durée dépend de la difficulté.
 
+> **État des missions**
+> - **Station spatiale : terminée.** C'est le produit complet, jouable du début jusqu'au retour sur Terre.
+> - **Base lunaire Séléné-7 : version bêta.** Elle n'est pas encore terminée : du contenu, des réglages et des corrections peuvent encore manquer.
+
 Guides : [solution de la station spatiale](#solution-station) · [plan et repères de la base lunaire](#base-lunaire) · [solution des douze épreuves lunaires](#solution-lunaire).
 
 Le jeu est en 3D à la première personne. Il se joue dans le navigateur, sans installation, sur ordinateur uniquement.
