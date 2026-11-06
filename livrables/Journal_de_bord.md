@@ -121,7 +121,7 @@ Le daily de 9 h 15 dure 15 min ; le responsable qualité le résume ici avant 9 
 
 | | |
 | --- | --- |
-| **Présents** | Volle Clément , Angot-Chabanol Ethan, Loïc Chauvelot, Orsal Kilian , Chaibrassou Hamza(retard)  |
+| **Présents** | Volle Clément , Angot-Chabanol Ethan, Loïc Chauvelot, Orsal Kilian , Chaibrassou Hamza |
 | **Absents (motif)** | Leplat Simon (Absent pour son travail) |
 
 ### Daily
@@ -150,8 +150,8 @@ Le daily de 9 h 15 dure 15 min ; le responsable qualité le résume ici avant 9 
 
 | | |
 | --- | --- |
-| **Présents** | |
-| **Absents (motif)** | |
+| **Présents** | Volle Clément , Angot-Chabanol Ethan, Loïc Chauvelot, Orsal Kilian , Chaibrassou Hamza |
+| **Absents (motif)** | Leplat Simon (Absent pour son travail) |
 
 ### Daily
 
