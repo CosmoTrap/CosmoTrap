@@ -1,4 +1,4 @@
-// Entrées clavier / souris / tactile, avec touches configurables.
+// Entrées clavier / souris / manette, avec touches configurables.
 // On utilise KeyboardEvent.code (position physique) : ZQSD sur AZERTY = WASD sur QWERTY.
 
 export type Action =
@@ -115,9 +115,6 @@ export const input = {
   down: new Set<string>(),
   jumpRequested: false,
   look: { dx: 0, dy: 0 },
-  // tactile
-  joy: { x: 0, y: 0 },
-  touchRun: false,
 }
 
 export function isDown(keys: KeyMap, a: Action) {

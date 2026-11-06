@@ -68,9 +68,10 @@ export function SceneGate({ children }: { children: ReactNode }) {
   return mounted ? children : null
 }
 
-/** Keep the loader until assets, physics and the first rendered frames are ready. */
+/** Keep the loader until assets, physics and every visible shader are ready. */
 export function SceneReady({ zone }: { zone: ZoneId }) {
   const active = useProgress((s) => s.active)
+  const assetProgress = useProgress((s) => s.progress)
   const { gl, scene, camera } = useThree()
   const ready = useRef({ compiling: false, compiled: false, done: false })
   const alive = useRef(true)
@@ -80,6 +81,7 @@ export function SceneReady({ zone }: { zone: ZoneId }) {
   const warmup = useRef({ frames: 0, programs: -1, stable: 0 })
   const culling = useRef(new Map<THREE.Object3D, boolean>())
   const unreveal = useRef<(() => void) | null>(null)
+  const boot = useRef(0)
   const restoreCulling = () => {
     culling.current.forEach((value, object) => { object.frustumCulled = value })
     culling.current.clear()
@@ -88,7 +90,17 @@ export function SceneReady({ zone }: { zone: ZoneId }) {
   useEffect(() => () => { restoreCulling(); unreveal.current?.() }, [])
   useFrame(() => {
     const r = ready.current
-    if (r.done || G().zone !== zone || live.playerZone !== zone) return
+    const publish = (pct: number) => {
+      if (r.done || G().loading >= 1 || G().zone !== zone) return
+      const next = Math.max(G().loadProgress, Math.min(99, Math.round(pct)))
+      if (next !== G().loadProgress) useGame.setState({ loadProgress: next })
+    }
+    if (r.done || G().zone !== zone) return
+    boot.current++
+    if (live.playerZone !== zone) {
+      publish(Math.min(12, boot.current))
+      return
+    }
     if (active) {
       if (uploads.current) {
         // An inner Suspense boundary may reveal another model while warming up.
@@ -98,6 +110,7 @@ export function SceneReady({ zone }: { zone: ZoneId }) {
         restoreCulling(); unreveal.current?.(); unreveal.current = null
         warmup.current = { frames: 0, programs: -1, stable: 0 }
       }
+      publish(12 + assetProgress * 0.28)
       return
     }
     // Textures outside the first view still need an upload before the player walks.
@@ -107,6 +120,7 @@ export function SceneReady({ zone }: { zone: ZoneId }) {
     while (uploaded.current < uploads.current.length && performance.now() < until) {
       gl.initTexture(uploads.current[uploaded.current++])
     }
+    const texTotal = Math.max(uploads.current.length, 1)
     if (!r.compiling) {
       r.compiling = true
       const version = generation.current
@@ -114,7 +128,10 @@ export function SceneReady({ zone }: { zone: ZoneId }) {
         if (alive.current && version === generation.current) r.compiled = true
       })
     }
-    if (uploaded.current < uploads.current.length || !r.compiled) return
+    if (uploaded.current < uploads.current.length || !r.compiled) {
+      publish(42 + (uploaded.current / texTotal) * 28)
+      return
+    }
     const w = warmup.current
     if (w.frames === 0) {
       // compileAsync does not upload geometry or warm shadow/AO variants. Draw
@@ -131,7 +148,10 @@ export function SceneReady({ zone }: { zone: ZoneId }) {
       scene.traverse(object => { const l = object as THREE.Light; if (l.isLight && l.castShadow && l.shadow) l.shadow.needsUpdate = true })
     }
     w.frames++
-    if (w.frames <= 2) return
+    if (w.frames <= 2) {
+      publish(72 + w.frames)
+      return
+    }
     restoreCulling()
     unreveal.current?.(); unreveal.current = null
     const programs = gl.info.programs ?? []
@@ -139,13 +159,20 @@ export function SceneReady({ zone }: { zone: ZoneId }) {
     // material. Poll every program before its first-use diagnostics/uniforms.
     const context = gl.getContext()
     const parallel = gl.extensions.get('KHR_parallel_shader_compile')
-    if (parallel && programs.some(p => !context.getProgramParameter(p.program, parallel.COMPLETION_STATUS_KHR))) return
+    const pending = parallel ? programs.filter(p => !context.getProgramParameter(p.program, parallel.COMPLETION_STATUS_KHR)).length : 0
+    if (pending) {
+      publish(78 + (1 - pending / Math.max(programs.length, 1)) * 16)
+      return
+    }
     for (const program of programs) { program.getUniforms(); program.getAttributes() }
     w.stable = programs.length === w.programs ? w.stable + 1 : 0
     w.programs = programs.length
-    if (w.stable < 2) return
+    if (w.stable < 2) {
+      publish(94 + w.stable)
+      return
+    }
     r.done = true
-    useGame.setState({ loading: 1, cineT0: G().cine ? performance.now() : G().cineT0 })
+    useGame.setState({ loading: 1, loadProgress: 100, cineT0: G().cine ? performance.now() : G().cineT0 })
   })
   return null
 }

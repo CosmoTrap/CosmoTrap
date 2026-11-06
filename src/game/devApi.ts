@@ -24,6 +24,7 @@ export function installDevApi() {
         zone: s.zone,
         playerZone: live.playerZone,
         loading: s.loading,
+        loadProgress: s.loadProgress,
         flags: { ...s.flags },
         inv: { ...s.inv },
         res: { ...s.res },
@@ -41,6 +42,7 @@ export function installDevApi() {
         playTime: s.playTime,
         choice: s.choice,
         planDone: s.planDone,
+        plan: [...s.plan],
         ending: s.ending,
         difficulty: s.difficulty,
         event: s.event,
@@ -91,7 +93,7 @@ export function installDevApi() {
       live.explored.clear()
       live.noEvents = !events
       const loading = G().screen === 'playing' && G().zone === 1 && G().map === map ? G().loading : 0
-      useGame.setState({ ...newGameData(character, difficulty, map), screen: 'playing', loading, tabletOpen: false, briefed: skipIntro, toured: map === 'base' ? [1] : [], cine: null, paused: false, puzzle: null, readNote: null })
+      useGame.setState({ ...newGameData(character, difficulty, map), screen: 'playing', loading, loadProgress: loading === 1 ? 100 : 0, tabletOpen: false, briefed: skipIntro, toured: map === 'base' ? [1] : [], cine: null, paused: false, puzzle: null, readNote: null })
       const sp = spawnOf(1)
       useGame.setState({ tp: { pos: sp.pos, yaw: sp.yaw, n: Date.now() } })
     },

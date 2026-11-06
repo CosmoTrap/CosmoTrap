@@ -17,8 +17,8 @@ export const fr = {
     start: 'Commencer la mission',
     clickToPlay: 'Clique pour reprendre la vue · Échap pour mettre en pause',
     loading: 'Chargement',
-    rotate: 'Tourne ton téléphone',
-    rotateSub: 'Cosmotrap se joue en mode paysage.',
+    loadingSlow: 'Le chargement de cette zone peut prendre un peu de temps.',
+    loadingProgress: (n: number) => `${n} % chargé`,
   },
   characters: {
     leo: { name: 'Léo', role: 'Pilote', color: '#F2643A', accent: '#F5C542', ability: 'Sprinteur', abilityDesc: 'Marche et court 20 % plus vite.', species: 'Félin de Kepler' },
@@ -386,7 +386,7 @@ export const fr = {
   },
   plan: {
     title: 'Planning pré-vol',
-    sub: 'Clique les opérations dans un ordre qui respecte leurs dépendances. Une opération lancée trop tôt coûte du temps.',
+    sub: (sec: number) => `Clique les opérations dans un ordre qui respecte leurs dépendances. Une opération lancée trop tôt annule la sélection et retire ${sec} secondes.`,
     tasks: {
       hatch: { name: 'Fermer l’écoutille d’amarrage', dep: [] as string[] },
       traj: { name: 'Charger la trajectoire de retour', dep: [] as string[] },
@@ -398,7 +398,7 @@ export const fr = {
       ignite: { name: 'Autoriser l’allumage', dep: ['undock', 'suits'] },
     } as Record<string, { name: string; dep: string[] }>,
     needs: 'Prérequis',
-    wrong: (n: string) => `« ${n} » ne peut pas encore commencer.`,
+    wrong: (n: string) => `« ${n} » est trop tôt. La sélection est annulée.`,
     ok: 'Planning validé. Fenêtre de tir respectée.',
   },
   dilemma: {
@@ -421,8 +421,8 @@ export const fr = {
   rules: {
     chrono: 'Temps restant',
     penalty: (s: number) => `−${s} s`,
-    hintLight: 'Indice léger (−30 s)',
-    hintStrong: 'Indice fort (−60 s)',
+    hintLight: 'Indice léger',
+    hintStrong: 'Indice fort',
     timeUp: 'Plus de temps : la station est perdue.',
     errors: 'Erreurs',
   },
@@ -523,7 +523,6 @@ export const fr = {
     matricule: 'Matricule attribué à la validation',
     backToLogin: 'Retour à la connexion',
     welcome: 'Bienvenue sur CosmoTrap',
-    google: 'Continuer avec Google',
     or: 'ou',
     email: 'E-mail',
     emailOrPseudo: 'E-mail ou pseudo',
@@ -550,7 +549,6 @@ export const fr = {
     mismatch: 'Les mots de passe ne correspondent pas.',
     offline: 'Serveur injoignable.',
     guest: 'Jouer hors ligne (sans classement)',
-    googleOff: 'Connexion Google non configurée (voir README).',
     logout: 'Se déconnecter',
     hello: (p: string) => `Connecté : ${p}`,
   },
@@ -855,7 +853,6 @@ export const fr = {
 
   controls: {
     desktop: 'ZQSD / WASD bouger · Souris regarder · Maj courir · E agir · F lampe · O oxygène · R piles · B boire · Tab tablette · Échap pause',
-    mobile: 'Joystick à gauche · Glisse à droite pour regarder',
   },
 }
 

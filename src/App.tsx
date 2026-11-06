@@ -4,12 +4,11 @@ import * as THREE from 'three'
 import { audio } from './game/audio/audio'
 import { toast, useGame } from './game/state'
 import { fr } from './i18n/fr'
-import { isTouch, requestLock } from './player/Player'
+import { requestLock } from './player/Player'
 import { detectPadType, startGamepadLoop } from './player/gamepad'
 import { setKeyLayout } from './player/input'
 import { Hud } from './ui/Hud'
-import { MobileControls } from './ui/Mobile'
-import { End, NoteReader, Pause, Prologue, PuzzleHost, RotatePhone, SkipCine } from './ui/Screens/Screens'
+import { End, NoteReader, Pause, Prologue, PuzzleHost, SkipCine } from './ui/Screens/Screens'
 import { Launch } from './ui/Screens/Launch'
 import { Achievements } from './ui/Screens/Achievements'
 import { Credits } from './ui/Screens/Credits'
@@ -93,7 +92,6 @@ export default function App() {
       window.removeEventListener('gamepadconnected', padOn)
     }
   }, [])
-  const touch = isTouch()
   const playing = screen === 'playing'
   return (
     <>
@@ -130,7 +128,6 @@ export default function App() {
         <>
           <Hud />
           <SceneLoading />
-          {touch && !paused && !tablet && !settingsOpen && !useGame.getState().puzzle && !useGame.getState().readNote && (!cine || cine === 'briefing') && <MobileControls />}
           {tablet && <Tablet />}
           <PuzzleHost />
           <NoteReader />
@@ -139,7 +136,6 @@ export default function App() {
           {settingsOpen && <SettingsPage overlay onClose={() => useGame.setState({ settingsOpen: false })} />}
         </>
       )}
-      <RotatePhone />
       </div>
     </>
   )
