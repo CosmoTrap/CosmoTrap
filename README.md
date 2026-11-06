@@ -81,6 +81,33 @@ Les textures de surface restent présentes dans tous les modes. Les modes
 et demandent une carte graphique plus puissante. Garder la résolution sur
 **Automatique** permet d'adapter aussi les effets à la charge de rendu.
 
+### Utiliser le GPU dédié du navigateur sous Windows
+
+Si ton ordinateur possède une carte graphique dédiée, tu peux demander à Windows de l’utiliser pour ton navigateur afin d’améliorer les performances du jeu.
+
+#### Via les paramètres de Windows
+
+1. Ouvre les **Paramètres de Windows**.
+2. Va dans **Système → Affichage → Graphiques** (ou **Paramètres graphiques**, selon la version).
+3. Clique sur **Parcourir** ou cherche ton navigateur dans la liste : **Chrome** (`chrome.exe`), **Edge** (`msedge.exe`) ou **Firefox** (`firefox.exe`).
+4. Une fois le navigateur ajouté, clique dessus, puis sur **Options**.
+5. Choisis **Haute performance (GPU dédié)**, puis **Enregistrer**.
+6. Ferme et rouvre le navigateur.
+
+#### Via le panneau NVIDIA
+
+Si tu disposes d’une carte NVIDIA et que cette option est disponible :
+
+1. Fais un clic droit sur le bureau, puis ouvre le **Panneau de configuration NVIDIA**.
+2. Va dans **Gérer les paramètres 3D**.
+3. Dans **Paramètres de programme**, sélectionne ton navigateur ou ajoute-le s’il est absent.
+4. Dans **Processeur graphique préféré**, choisis **Processeur NVIDIA haute performance**.
+5. Clique sur **Appliquer**, puis relance le navigateur.
+
+#### Avec une carte AMD
+
+Selon la version, ouvre **Radeon Settings / AMD Software**, puis la section graphique et attribue à ton navigateur le profil **Haute performance**, si cette option est proposée. Sinon, utilise les paramètres graphiques de Windows décrits ci-dessus. Relance ensuite le navigateur.
+
 ## Commandes
 
 | Action | Clavier (modifiable dans Réglages → Touches) | Mobile (paysage) |
