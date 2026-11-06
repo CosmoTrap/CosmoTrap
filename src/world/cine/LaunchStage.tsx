@@ -4,7 +4,9 @@ import * as THREE from 'three'
 import { GRID_MAPS } from '../../game/maps'
 import { G } from '../../game/state'
 import { ENGINES, HERMES, HermesModel } from './Hermes'
-import { DOCK, StationExterior } from './StationExterior'
+import { GRID_MAPS as MAPS } from '../../game/maps'
+import { FLOOR_GAP, HERMES as DOCKED, Station } from '../Exterior/Station'
+import { Meteors, type Strike } from './Meteors'
 
 // Departure, seen from outside, in the order real crews follow: the latches open, small thrusters push the
 // Hermès gently away from the station, it turns round, then the main engines light and it heads for Earth,
@@ -21,16 +23,57 @@ function skyCentre() {
   const m = GRID_MAPS[3]
   return new THREE.Vector3(Math.max(...m.grid.map((r) => r.length)), 0, m.grid.length)
 }
-/** The station, high above the Moon and well away from the rocket's interior. */
+/** Where the Hermès sits while docked: high above the Moon, well away from the rocket's interior. */
 export const stationAt = () => skyCentre().add(new THREE.Vector3(0, 400, 700))
+/**
+ * The real station, turned a quarter so that its docking bay faces -z: the Hermès, moored along the
+ * station's x axis, then has its nose towards +z, as the stage's rocket model is built.
+ */
+const STATION_TURN = -Math.PI / 2
+const stationOrigin = () => stationAt().sub(new THREE.Vector3(DOCKED.x, DOCKED.y, DOCKED.z).applyAxisAngle(new THREE.Vector3(0, 1, 0), STATION_TURN))
 /** The Earth, exactly where the zone 3 sky draws it. */
 const earthAt = () => skyCentre().add(new THREE.Vector3(120, 110, -2400))
 const EARTH_R = 240
 
+/** The station's centre, in its own coordinates (floor 2's): the lift's axis, between the two floors. */
+const hubOf = (m: (typeof GRID_MAPS)[1]) => {
+  const [x0, z0, x1, z1] = m.rooms.find((r) => r.id === 'couloir')!.rect
+  return new THREE.Vector3(x0 + x1 + 1, 0, z0 + z1 + 1)
+}
+const STATION_CENTRE = hubOf(GRID_MAPS[2]).setY(FLOOR_GAP / 2)
+const stationCentreWorld = () => STATION_CENTRE.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), STATION_TURN).add(stationOrigin())
+
+/**
+ * The meteor shower catching up with the station as the Hermès gets away: strikes on the modules of both floors,
+ * one after another, then a last one in the middle, on the hub. In the station's own coordinates.
+ */
+export const DESTRUCTION = { first: 15.2, last: 20.4 }
+const STRIKES: Strike[] = (() => {
+  const room = (m: (typeof GRID_MAPS)[1], id: string, upper: boolean) => {
+    const [x0, z0, x1, z1] = m.rooms.find((r) => r.id === id)!.rect
+    // Floor 1 sits on the same lift axis, FLOOR_GAP higher: its own coordinates are shifted onto floor 2's.
+    const shift = upper ? hubOf(GRID_MAPS[2]).sub(hubOf(GRID_MAPS[1])).setY(FLOOR_GAP) : new THREE.Vector3()
+    return new THREE.Vector3(x0 + x1 + 1, 3.6, z0 + z1 + 1).add(shift)
+  }
+  const targets: [THREE.Vector3, number][] = [
+    [room(GRID_MAPS[1], 'refectoire', true), 3.2], [room(GRID_MAPS[2], 'machinerie', false), 3.6],
+    [room(GRID_MAPS[1], 'infirmerie', true), 2.8], [room(GRID_MAPS[2], 'labo', false), 3],
+    [room(GRID_MAPS[1], 'dortoir', true), 3], [room(GRID_MAPS[2], 'disjoncteur', false), 2.8],
+    [room(GRID_MAPS[1], 'sas', true), 3.4], [room(GRID_MAPS[2], 'serre', false), 3],
+    [STATION_CENTRE.clone().setY(FLOOR_GAP + 2), 8],
+  ]
+  return targets.map(([to, size], i) => {
+    const at = i === targets.length - 1 ? DESTRUCTION.last : DESTRUCTION.first + i * 0.6
+    // From high up and to one side, each from a slightly different angle.
+    const from = to.clone().add(new THREE.Vector3(70 + (i % 3) * 25, 150, -40 + (i % 4) * 30))
+    return { from, to, at, size }
+  })
+})()
+
 export interface RocketPose { pos: THREE.Vector3; quat: THREE.Quaternion; engine: number; plasma: number; heading: THREE.Vector3 }
 
 export function rocketPose(t: number): RocketPose {
-  const docked = stationAt().add(DOCK)
+  const docked = stationAt()
   const heading = earthAt().sub(docked).normalize()
   const quat = new THREE.Quaternion()
   const pos = docked.clone()
@@ -56,14 +99,21 @@ export function rocketPose(t: number): RocketPose {
 
 /** The camera for the outside shots: alongside at the undocking, wide for the turn, then chasing the rocket. */
 export function launchCamera(t: number): { pos: [number, number, number]; look: [number, number, number]; fov: number } {
-  const S = stationAt()
+  const D = stationAt()
   const r = rocketPose(t)
-  const v = (x: number, y: number, z: number) => S.clone().add(new THREE.Vector3(x, y, z))
+  const v = (x: number, y: number, z: number) => D.clone().add(new THREE.Vector3(x, y, z))
   let pos: THREE.Vector3
   let fov = 42
-  if (t < LAUNCH.turn) pos = v(16, -6, -27).lerp(v(13, -4.5, -24), sm(t, LAUNCH.outside, LAUNCH.turn))
-  else if (t < LAUNCH.burn + 1) pos = v(-21, 3, -44).lerp(v(-17, 1, -41), sm(t, LAUNCH.turn, LAUNCH.burn + 1))
-  else {
+  if (t < LAUNCH.turn) pos = v(16, 3, -7).lerp(v(13, 4.5, -4), sm(t, LAUNCH.outside, LAUNCH.turn))
+  else if (t < LAUNCH.burn + 1) pos = v(-21, 12, -24).lerp(v(-17, 10, -21), sm(t, LAUNCH.turn, LAUNCH.burn + 1))
+  else if (t >= LAUNCH.burn + 1.5 && t < DESTRUCTION.last + 1.6) {
+    // A fixed shot by the station as the meteor shower tears into it, the Hermès's flame leaving behind it.
+    const side = new THREE.Vector3().crossVectors(r.heading, new THREE.Vector3(0, 1, 0)).normalize()
+    const c = stationCentreWorld()
+    const k = (t - LAUNCH.burn - 1.5) / (DESTRUCTION.last + 1.6 - LAUNCH.burn - 1.5)
+    pos = c.clone().addScaledVector(side, 78 + k * 10).addScaledVector(r.heading, -38).add(new THREE.Vector3(0, 30 + k * 6, 0))
+    return { pos: pos.toArray() as [number, number, number], look: c.toArray() as [number, number, number], fov: 52 }
+  } else {
     const side = new THREE.Vector3().crossVectors(r.heading, new THREE.Vector3(0, 1, 0)).normalize()
     const k = sm(t, LAUNCH.burn + 1, LAUNCH.burn + 5)
     pos = r.pos.clone().addScaledVector(r.heading, -(10 + 12 * k)).addScaledVector(side, 6 - 2 * k).add(new THREE.Vector3(0, 3 + k, 0))
@@ -103,6 +153,9 @@ function plumeTexture() {
 
 const PUFFS = 48
 
+/** Seconds since the launch began, or -1 outside it. */
+const launchTime = () => (G().cine === 'launch' ? (performance.now() - G().cineT0) / 1000 : -1)
+
 export function LaunchStage() {
   const stage = useRef<THREE.Group>(null)
   const rocket = useRef<THREE.Group>(null)
@@ -130,6 +183,7 @@ export function LaunchStage() {
     fx.puffs.forEach((p) => (p.material as THREE.SpriteMaterial).dispose())
   }, [fx])
   const next = useRef(0)
+  const station = useRef<THREE.Group>(null)
   const last = useRef(0)
   useFrame((_, rawDt) => {
     const s = G()
@@ -138,6 +192,12 @@ export function LaunchStage() {
     if (stage.current) stage.current.visible = on
     if (!on || !rocket.current) return
     const dt = Math.min(rawDt, 0.05)
+    if (station.current) {
+      // Each strike jolts it; after the last, the wrecked station tumbles slowly away.
+      const hit = STRIKES.reduce((a, s) => a + Math.max(0, 1 - Math.abs(t - s.at) * 3) * s.size * 0.012, 0)
+      const wreck = sm(t, DESTRUCTION.first, LAUNCH.land) * 0.35
+      station.current.rotation.set(wreck * 0.6 + (Math.random() - 0.5) * hit, STATION_TURN + wreck * 0.4, wreck + (Math.random() - 0.5) * hit)
+    }
     const r = rocketPose(t)
     rocket.current.position.copy(r.pos)
     rocket.current.quaternion.copy(r.quat)
@@ -185,11 +245,19 @@ export function LaunchStage() {
       m.opacity = 0.75 * (1 - k)
     }
   })
-  const S = stationAt()
+  const origin = stationOrigin()
   return (
     <group ref={stage} visible={false} name="launch-stage">
-      <group position={S}>
-        <StationExterior />
+      <group position={origin}>
+        {/* Turned about its own centre when it tumbles, not about the docking bay. */}
+        <group position={STATION_CENTRE.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), STATION_TURN)}>
+          <group ref={station} rotation={[0, STATION_TURN, 0]}>
+            <group position={STATION_CENTRE.clone().negate()}>
+              <Station map={MAPS[2]} full rocket={false} />
+              <Meteors strikes={STRIKES} time={launchTime} />
+            </group>
+          </group>
+        </group>
       </group>
       <group ref={rocket}>
         <HermesModel glow={1} />

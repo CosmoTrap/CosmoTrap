@@ -39,12 +39,12 @@ const BASE: Record<ThemeId, Theme> = {
 const COSMIC: Record<ThemeId, Theme[]> = {
   // A mineur, l'horloge bat au temps
   orion: [
-    { bpm: 60, root: 110, scale: [0, 2, 3, 5, 7, 8, 10], chords: [[0, 7, 12, 15], [-4, 3, 8, 15], [-2, 5, 10, 14], [-7, 0, 5, 12]], bars: 2, bells: 0.04, organ: true, tick: true, padCut: 2400 },
+    { bpm: 60, root: 110, scale: [0, 2, 3, 5, 7, 8, 10], chords: [[0, 7, 12, 15], [-4, 3, 8, 15], [-2, 5, 10, 14], [-7, 0, 5, 12]], bars: 2, bells: 0.04, organ: true, tick: false, padCut: 2400 },
     { bpm: 76, root: 123.47, scale: [0, 2, 3, 5, 7, 9, 10], chords: [[0, 7, 12, 15], [3, 10, 15, 19], [-2, 5, 10, 14], [5, 12, 17, 20]], bars: 2, bells: 0, organ: true, ost: [12, 19, 15, 19], padCut: 2000 },
   ],
-  title: [{ bpm: 56, root: 110, scale: [0, 2, 3, 5, 7, 8, 10], chords: [[0, 7, 12, 15, 19], [-4, 3, 8, 12, 15], [-7, 0, 5, 8, 12], [-5, 2, 7, 10, 14]], bars: 2, bells: 0.03, organ: true, tick: true, padCut: 2600 }],
+  title: [{ bpm: 56, root: 110, scale: [0, 2, 3, 5, 7, 8, 10], chords: [[0, 7, 12, 15, 19], [-4, 3, 8, 12, 15], [-7, 0, 5, 8, 12], [-5, 2, 7, 10, 14]], bars: 2, bells: 0.03, organ: true, tick: false, padCut: 2600 }],
   // F mineur, tic-tac sec et basse sourde
-  machinerie: [{ bpm: 80, root: 87.31, scale: [0, 2, 3, 5, 7, 8, 10], chords: [[0, 7, 12, 15], [1, 8, 13, 17], [-4, 3, 8, 12], [-2, 5, 10, 13]], bars: 2, bells: 0, organ: true, tick: true, sub: true, ost: [12, 15, 19, 15], padCut: 1500 }],
+  machinerie: [{ bpm: 80, root: 87.31, scale: [0, 2, 3, 5, 7, 8, 10], chords: [[0, 7, 12, 15], [1, 8, 13, 17], [-4, 3, 8, 12], [-2, 5, 10, 13]], bars: 2, bells: 0, organ: true, tick: false, sub: true, ost: [12, 15, 19, 15], padCut: 1500 }],
   // D lydien, ostinato lumineux pendant le vol
   hermes: [{ bpm: 88, root: 146.83, scale: [0, 2, 4, 6, 7, 9, 11], chords: [[0, 7, 16, 19], [2, 9, 14, 18], [-5, 2, 11, 14], [-1, 6, 11, 16]], bars: 2, bells: 0.05, organ: true, ost: [12, 16, 19, 23, 19, 16], padCut: 2600 }],
   // C majeur, orgue doux et harmoniques

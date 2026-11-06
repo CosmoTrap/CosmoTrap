@@ -17,41 +17,31 @@ async function start(page: Page) {
   })
 }
 
-test('le contour des objets à ramasser laisse leurs matériaux intacts, même après un chargement tardif', () => {
-  // Surbrillance actuelle : une fine coque lumineuse (« pickup-border ») autour de chaque mesh,
-  // sans toucher au matériau de l'objet (textures et matériaux partagés préservés).
+test('la surbrillance garde les textures et épargne les matériaux partagés, même après un chargement tardif', () => {
   const root = new THREE.Group(), texture = new THREE.Texture()
   const source = new THREE.MeshStandardMaterial({ map: texture, color: '#996633', emissive: '#223344', emissiveIntensity: 0.3 })
   const originalEmission = source.emissive.clone()
   const geometry = new THREE.BoxGeometry()
   const a = new THREE.Mesh(geometry, source), b = a.clone()
-  const glass = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ transparent: true, opacity: 0.4 }))
-  root.add(a, glass)
+  root.add(a)
   const effect = highlightPickups(root)
   effect.refresh()
-  const border = (m: THREE.Mesh) => m.children.find((c) => c.name === 'pickup-border') as THREE.Mesh | undefined
-  expect(a.material).toBe(source)
-  expect(source.map).toBe(texture)
+  expect(a.material).not.toBe(source)
+  expect(a.material.map).toBe(texture)
+  expect(a.material.color.equals(source.color)).toBe(true)
   expect(source.emissive.equals(originalEmission)).toBe(true)
   expect(source.emissiveIntensity).toBe(0.3)
-  const shell = border(a)!
-  expect(shell).toBeTruthy()
-  expect(shell.geometry).toBe(geometry)
-  expect((shell.material as THREE.Material).side).toBe(THREE.BackSide)
-  expect(shell.scale.x).toBeGreaterThan(1)
-  expect(border(glass)).toBeUndefined() // le verre transparent n'a pas de contour
-  effect.refresh() // pas de double contour
-  expect(a.children.filter((c) => c.name === 'pickup-border')).toHaveLength(1)
-  root.add(b) // un modèle chargé plus tard rejoint le même objet
+  expect(a.material.emissive.r).toBeGreaterThan(source.emissive.r * 0.3)
+  root.add(b) // An asynchronously loaded model joins the same pickup later.
   effect.refresh()
-  expect(border(b)).toBeTruthy()
-  expect(b.material).toBe(source)
-  let textureDisposed = false
+  expect(b.material).toBe(a.material)
+  let disposed = false, textureDisposed = false
+  a.material.addEventListener('dispose', () => { disposed = true })
   texture.addEventListener('dispose', () => { textureDisposed = true })
   effect.dispose()
-  expect(border(a)).toBeUndefined()
-  expect(border(b)).toBeUndefined()
   expect(a.material).toBe(source)
+  expect(b.material).toBe(source)
+  expect(disposed).toBe(true)
   expect(textureDisposed).toBe(false)
   geometry.dispose(); source.dispose(); texture.dispose()
 })
@@ -70,7 +60,8 @@ test('les trois zones retrouvent la lumière après une coupure de 20 à 30 seco
     // Floor 2 has no normal circuit until the player repairs its breaker.
     if (zone === 2) await page.evaluate(() => window.__game.set({ flags: { ...window.__game.state().flags, power: true } }))
     await page.evaluate(z => { window.__game.teleportXZ(z === 1 ? 44 : z === 2 ? 46 : 9, z === 1 ? 41 : z === 2 ? 37 : 15, 0) }, zone)
-    await page.waitForFunction(room => (window as any).lightingScene.getObjectByName(`room-light:${room}`)?.intensity > 10, room)
+    // In an alarm the white light is dimmed a little under the beacons' red.
+    await page.waitForFunction(room => (window as any).lightingScene.getObjectByName(`room-light:${room}`)?.intensity > 6, room)
     // Hors alarme : lumières allumées, gyrophares éteints.
     await page.evaluate(() => window.__game.set({ playTime: 0, flags: { ...window.__game.state().flags, pressurized: true, steamFixed: true, power: true } }))
     await page.waitForFunction(() => (window as any).lightingScene.getObjectByName('alert-beam:0').intensity === 0)
@@ -81,8 +72,11 @@ test('les trois zones retrouvent la lumière après une coupure de 20 à 30 seco
     })
     expect(duration).toBeGreaterThanOrEqual(20)
     expect(duration).toBeLessThanOrEqual(30)
-    // Coupure : les lampes s'éteignent, seuls les gyrophares restent.
-    await page.waitForFunction(room => (window as any).lightingScene.getObjectByName(`room-light:${room}`).intensity === 0, room)
+    // Coupure : les lampes s'éteignent ; restent les gyrophares et un faible rouge de secours.
+    await page.waitForFunction(room => {
+      const l = (window as any).lightingScene.getObjectByName(`room-light:${room}`)
+      return l.color.r > 0.9 && l.color.g < 0.2 && l.intensity < 8
+    }, room)
     await page.waitForFunction(() => (window as any).lightingScene.getObjectByName('alert-beam:0').intensity > 10)
     expect(await page.evaluate(room => (window as any).lightingScene.getObjectByName(`ceiling-light:${room}`).material.emissiveIntensity, room)).toBe(0)
     await page.screenshot({ path: `test-results/blackout-red-${zone}.png` })
@@ -106,7 +100,8 @@ test('la plaque ne révèle 2041 qu’avec la torche et les objets brillent jusq
   })
   await page.waitForFunction(() => {
     let count = 0
-    ;(window as any).lightingScene.getObjectByName('ent:ration').traverse((o: any) => { if (o.name === 'pickup-border') count++ })
+    // Le contour doré : les matériaux de l'objet sont remplacés par des copies en surbrillance.
+    ;(window as any).lightingScene.getObjectByName('ent:ration').traverse((o: any) => { if (o.material?.userData?.pickupHighlight) count++ })
     return count > 0
   })
   await page.evaluate(() => window.__game.teleport('lamp', 0.9))

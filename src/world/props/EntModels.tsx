@@ -44,42 +44,7 @@ function Hitbox({ e }: { e: Ent }) {
   )
 }
 
-/** petit reflet pulsé pour repérer les objets à ramasser */
-// petite étincelle douce (texture ronde, plus de carré visible)
-let sparkTex: THREE.Texture | null = null
-function sparkTexture() {
-  if (sparkTex) return sparkTex
-  const c = document.createElement('canvas')
-  c.width = c.height = 64
-  const g = c.getContext('2d')!
-  const r = g.createRadialGradient(32, 32, 0, 32, 32, 32)
-  r.addColorStop(0, 'rgba(255,255,255,1)')
-  r.addColorStop(0.15, 'rgba(255,255,255,0.6)')
-  r.addColorStop(1, 'rgba(255,255,255,0)')
-  g.fillStyle = r
-  g.fillRect(0, 0, 64, 64)
-  g.fillStyle = 'rgba(255,255,255,0.7)'
-  g.fillRect(31, 4, 2, 56)
-  g.fillRect(4, 31, 56, 2)
-  sparkTex = new THREE.CanvasTexture(c)
-  return sparkTex
-}
 
-function Glint({ resource }: { resource: boolean }) {
-  // Plain blending: added to a bright room, the light would vanish. Green for resources, gold for the rest.
-  const mat = useMemo(
-    () => new THREE.SpriteMaterial({ map: sparkTexture(), color: resource ? '#46e88a' : '#ffbf2e', transparent: true, depthWrite: false, toneMapped: false, opacity: 0.6 }),
-    [resource],
-  )
-  useEffect(() => () => mat.dispose(), [mat])
-  const sprite = useRef<THREE.Sprite>(null)
-  useFrame(({ clock }) => {
-    const k = 0.5 + 0.5 * Math.sin(clock.elapsedTime * 2.4)
-    mat.opacity = 0.55 + k * 0.4
-    sprite.current?.scale.setScalar(0.26 + k * 0.08)
-  })
-  return <sprite ref={sprite} position={[0, 0.14, 0.18]} scale={0.3} material={mat} renderOrder={5} />
-}
 
 function Bracket() {
   const m = useMats()
@@ -790,7 +755,6 @@ function EntNode({ e, zone }: { e: Ent; zone: ZoneId }) {
         {(active || staysVisible) && model ? (e.item ? <PickupHighlight>{model(e)}</PickupHighlight> : model(e)) : null}
         {!e.item && <SolidProp model={e.model} />}
         {shelf && <Bracket />}
-        {active && e.item && <Glint resource={ITEM_KIND[e.item] === 'resource'} />}
         {active && <Hitbox e={e} />}
       </group>
     </RoomCtx.Provider>

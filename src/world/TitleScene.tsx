@@ -1,4 +1,6 @@
 import { useFrame } from '@react-three/fiber'
+import { speechSeconds } from '../game/audio/audio'
+import { fr } from '../i18n/fr'
 import { live, useGame } from '../game/state'
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
@@ -6,7 +8,12 @@ import { Earth } from './Exterior/Earth'
 import { Moon } from './Exterior/Moon'
 import { MilkyWay, Stars, Sun } from './Exterior/Space'
 import { paintedMetal, drawTexture } from './textures'
-import { StationExterior } from './cine/StationExterior'
+import { Station as RealStation } from './Exterior/Station'
+import { Meteors } from './cine/Meteors'
+import { GRID_MAPS } from '../game/maps'
+
+/** The station is about 80 m across: scaled down to fit the title's and the prologue's camera paths. */
+const TITLE_SCALE = 0.55
 
 // Écran titre : la caméra tourne lentement autour de la station Selene-7, la Lune en fond.
 
@@ -125,12 +132,22 @@ export function Station() {
 
 /** temps de départ du prologue (fixé par l'écran Prologue) */
 export const prologue = { t0: 0 }
-export const IMPACT_T = 15
+/** The impact comes once the prologue's lines have all been said. */
+/** Seconds into the prologue, or -1 outside it. */
+const prologueTime = () => (useGame.getState().screen === 'prologue' ? (performance.now() - prologue.t0) / 1000 : -1)
+
+export const IMPACT_T = 0.6 + fr.story.prologue.reduce((a, l) => a + speechSeconds(l) + 0.35, 0) + 0.6
+
+/**
+ * The micrometeorite: out of the dark above, into the hub on top of the station (which stays put as the
+ * station slowly turns), in full view of the prologue's camera at the impact.
+ */
+const IMPACT_POINT = new THREE.Vector3(-2.5, 3.2, 0)
+const PROLOGUE_STRIKE = [{ from: IMPACT_POINT.clone().add(new THREE.Vector3(18, 34, 52)), to: IMPACT_POINT, at: IMPACT_T, size: 1.6, flight: 2.4 }]
 
 export function TitleScene() {
   const sun = useMemo(() => new THREE.Vector3(0.8, 0.18, -0.55).normalize(), [])
   const station = useRef<THREE.Group>(null)
-  const meteor = useRef<THREE.Mesh>(null)
   const screen = useGame((s) => s.screen)
   useFrame(({ camera, clock }) => {
     if (station.current) station.current.rotation.y = clock.elapsedTime * 0.01
@@ -138,16 +155,10 @@ export function TitleScene() {
       const t = (performance.now() - prologue.t0) / 1000
       // lent travelling vers la station, puis impact
       const a = 2.2 + t * 0.035
-      const d = 70 - Math.min(t, IMPACT_T) * 2.6
+      const d = 70 - (Math.min(t, IMPACT_T) / IMPACT_T) * 39
       const shake = t > IMPACT_T ? Math.max(0, 1 - (t - IMPACT_T) / 3) * 0.8 : 0
       camera.position.set(Math.cos(a) * d + (Math.random() - 0.5) * shake, 6 + t * 0.15 + (Math.random() - 0.5) * shake, Math.sin(a) * d)
       camera.lookAt(0, -1, 0)
-      const m = meteor.current
-      if (m) {
-        const k = (t - (IMPACT_T - 1.2)) / 1.2
-        m.visible = k > 0 && k < 1
-        m.position.set(-300 + 300 * k, 120 - 122 * k, 200 - 198 * k)
-      }
       live.flash = t > IMPACT_T && t < IMPACT_T + 1.5 ? Math.max(0, 1 - (t - IMPACT_T) / 1.5) : 0
       return
     }
@@ -164,13 +175,13 @@ export function TitleScene() {
       <hemisphereLight args={['#334466', '#111111', 0.15]} />
       {/* lumière renvoyée par la Lune */}
       <directionalLight position={[0, -100, 20]} intensity={1.1} color="#c9c4ba" />
-      <group ref={station} position={[0, 4, 0]}>
-        <StationExterior />
+      <group ref={station}>
+        {/* The real station, both floors, scaled to the old framing and centred on the lift. */}
+        <group scale={TITLE_SCALE} position={[-43 * TITLE_SCALE, -1, -37 * TITLE_SCALE]}>
+          <RealStation map={GRID_MAPS[2]} full />
+        </group>
+        <Meteors strikes={PROLOGUE_STRIKE} time={prologueTime} />
       </group>
-      <mesh ref={meteor} visible={false}>
-        <sphereGeometry args={[0.8, 10, 8]} />
-        <meshBasicMaterial color={new THREE.Color(12, 6, 3)} />
-      </mesh>
       <Moon radius={1500} position={[0, -1560, 0]} sun={sun} detail={3} />
       <Earth radius={80} position={[-1800, 300, -2600]} sun={sun} />
     </>

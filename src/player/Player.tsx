@@ -98,7 +98,13 @@ export function useInputListeners() {
         if (aim.id) act(aim.id)
       } else if (/^(Digit|Numpad)[1-9]$/.test(e.code)) useSlot(Number(e.code.slice(-1)) - 1)
     }
-    const up = (e: KeyboardEvent) => input.down.delete(e.code)
+    const up = (e: KeyboardEvent) => {
+      input.down.delete(e.code)
+      if (e.code === 'Escape' && lockAfterKeyUp) {
+        lockAfterKeyUp = false
+        if (wantsPointerLock()) requestLock()
+      }
+    }
     // Ctrl (s'accroupir) + W (avancer en QWERTY) ferme l'onglet : le navigateur demande confirmation en partie
     const guardLeave = (e: BeforeUnloadEvent) => {
       if (G().screen === 'playing' && input.down.has('ControlLeft')) e.preventDefault()
@@ -149,15 +155,22 @@ export function useInputListeners() {
       if (wantsPointerLock() && !G().cine) useGame.setState({ paused: true })
     }
     let wanted = false, releasingForOverlay = false, hadLock = !!document.pointerLockElement
+    // Escape closes the puzzle, hint or tablet. Taking the mouse back while that key is still down makes the
+    // browser cancel the capture at once, which used to read as "the player left" and paused the game.
+    let lockAfterKeyUp = false, closedAt = -1e9
     // Covers keyboard closes, delayed puzzle success, scene loading and cinematic skips.
     // Previously only a few close buttons recaptured the mouse.
     const syncCapture = () => {
       const next = wantsPointerLock()
       if (next === wanted) return
       wanted = next
+      // Read before the keys are cleared: the Escape that closed the window is still held.
+      const escapeHeld = input.down.has('Escape')
       input.look.dx = input.look.dy = 0
       input.down.clear(); input.jumpRequested = false
-      if (next) requestLock()
+      if (next) closedAt = performance.now()
+      if (next && escapeHeld) lockAfterKeyUp = true
+      else if (next) requestLock()
       else if (document.pointerLockElement) {
         releasingForOverlay = true
         document.exitPointerLock?.()
@@ -173,7 +186,7 @@ export function useInputListeners() {
       if (!locked && releasingForOverlay) {
         releasingForOverlay = false
         if (wantsPointerLock()) requestLock()
-      } else if (lost && wantsPointerLock() && !G().cine) {
+      } else if (lost && wantsPointerLock() && !G().cine && performance.now() - closedAt > 1200) {
         // Escape / browser focus loss must still allow the user to leave capture safely.
         useGame.setState({ paused: true })
       }
@@ -265,7 +278,8 @@ export function Player() {
 
   // lampe torche : le faisceau part de la main gauche et converge vers le centre de la vue
   const lamp = useMemo(() => {
-    const l = new THREE.SpotLight('#fff1dc', 0, 32, 0.5, 0.75, 1.4)
+    // A neutral LED white: a bright core with a soft edge; the wide halo and the bounce are separate lights.
+    const l = new THREE.SpotLight('#fff4e8', 0, 32, 0.44, 0.6, 1.4)
     l.map = lampCookie()
     // Always cast shadows, so the beam stops at corners and door frames instead of crossing them.
     l.castShadow = true
@@ -279,6 +293,9 @@ export function Player() {
     return l
   }, [q.lampShadow])
   const lampTarget = useMemo(() => new THREE.Object3D(), [])
+  // The faint wide spill around the beam, as from a real reflector, and the light the lit surface sends back.
+  const lampSpill = useMemo(() => new THREE.SpotLight('#ffe9d2', 0, 18, 1.0, 1, 1.6), [])
+  const lampBounce = useMemo(() => new THREE.PointLight('#ffe6cc', 0, 4.5, 2), [])
   useEffect(() => {
     lamp.target = lampTarget
   }, [lamp, lampTarget])
@@ -440,13 +457,19 @@ export function Player() {
     lampTarget.updateMatrixWorld()
     // Like a camera's exposure: power follows the distance of what the beam lands on, so a nearby
     // wall stays readable instead of burning white, while the far end of a room still lights up.
-    S.lampPower = THREE.MathUtils.damp(S.lampPower, THREE.MathUtils.clamp(6.5 * Math.pow(surface - reach, 1.4), 2, 110), 9, dt)
+    S.lampPower = THREE.MathUtils.damp(S.lampPower, THREE.MathUtils.clamp(12 * Math.pow(surface - reach, 1.4), 6, 200), 9, dt)
     let li = s.lampOn && s.res.lamp > 0 ? S.lampPower : 0
     if (li && s.res.lamp < 15) {
       S.flick = Math.random() < 0.08 ? Math.random() * 0.4 : THREE.MathUtils.damp(S.flick, 1, 10, dt)
       li *= S.flick * (0.5 + s.res.lamp / 30)
     }
     lamp.intensity = li
+    lampSpill.position.copy(lamp.position)
+    lampSpill.target = lampTarget
+    lampSpill.intensity = li * 0.24
+    // Placed just in front of what the beam touches: nearby walls and objects catch a little of it.
+    lampBounce.position.set(eye.x + ldir.x * Math.max(0.3, surface - 0.35), eye.y + ldir.y * Math.max(0.3, surface - 0.35), eye.z + ldir.z * Math.max(0.3, surface - 0.35))
+    lampBounce.intensity = li > 0 ? Math.min(1.6, li * 0.02) : 0
     lamp.shadow.autoUpdate = li > 0
 
     // son : écouteur
@@ -494,6 +517,8 @@ export function Player() {
       </RigidBody>
       <primitive object={lamp} />
       <primitive object={lampTarget} />
+      <primitive object={lampSpill} />
+      <primitive object={lampBounce} />
     </>
   )
 }

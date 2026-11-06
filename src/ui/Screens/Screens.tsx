@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { audio } from '../../game/audio/audio'
+import { audio, speechSeconds } from '../../game/audio/audio'
 import { live, recordMessage, useGame } from '../../game/state'
 import { skipCine } from '../../world/Cinematics'
 import { IMPACT_T, prologue } from '../../world/TitleScene'
@@ -99,12 +99,15 @@ export function Prologue() {
     prologue.t0 = performance.now()
     audio.playMusic('title')
     const L = fr.story.prologue
+    // Each line starts once the previous one has been said in full.
+    const starts = L.map((_, i) => 600 + L.slice(0, i).reduce((a, l) => a + speechSeconds(l) * 1000 + 350, 0))
     const timers = L.map((l, i) =>
       setTimeout(() => {
         setLine(l)
-        // The first line no longer gives the year (it is the locker's code): its recording would still say it.
-        audio.speak(l, { rate: 1.0, id: i === 0 ? undefined : `prologue_${i}` })
-      }, 600 + i * 3500),
+        // The first line, a place and an orbit, is a title on screen: its recording gives the year (the locker's
+        // code), and the browser's voice would not be the recorded one that says the rest.
+        if (i > 0) audio.speak(l, { rate: 1.0, id: `prologue_${i}` })
+      }, starts[i]),
     )
     timers.push(
       setTimeout(() => {
