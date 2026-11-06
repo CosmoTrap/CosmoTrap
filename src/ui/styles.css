@@ -407,6 +407,68 @@ button {
   font-size: 14px;
   margin: 0 0 18px;
 }
+.puzzle-frame {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(760px, calc(100vw - 16px));
+  max-height: calc(100dvh - 16px);
+  overflow: hidden;
+}
+.puzzle-frame .panel,
+.puzzle-frame .lunar-puzzle {
+  width: auto;
+  max-width: 100%;
+  max-height: none;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+}
+.puzzle-hints {
+  flex: none;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(9, 10, 18, 0.94);
+}
+.hint-block { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.hint-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.hint-actions button {
+  flex: 1 1 180px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #39437c;
+  border-radius: 9px;
+  background: #10163a;
+  color: #f2f3fb;
+  font-size: clamp(12px, 2.6vw, 14px);
+  font-weight: 600;
+  cursor: pointer;
+}
+.hint-actions button:not(:disabled):hover { border-color: #ff9a62; }
+.hint-actions button.used {
+  border-color: #3fd6a0;
+  color: #d9ffe9;
+  background: #143028;
+  cursor: default;
+}
+.hint-actions button:disabled:not(.used) { opacity: 0.5; cursor: default; }
+.hint-block blockquote,
+.nav-help-panel .hint-block blockquote {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #ffe0c9;
+  background: #ff9a6214;
+  border-left: 3px solid #ff9a62;
+  border-radius: 6px;
+}
+@media (max-width: 560px) {
+  .hint-actions button { flex-basis: 100%; }
+  .puzzle-frame { width: calc(100vw - 12px); gap: 8px; }
+  .puzzle-hints { padding: 8px; }
+}
 .btn {
   appearance: none;
   border: 1px solid var(--line);

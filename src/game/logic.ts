@@ -29,7 +29,7 @@ import { SURVIVAL_ITEMS } from './items'
 import type { FailCause } from './state'
 import { valveHint } from './valves'
 import { checkCartographer, checkCollector, unlock } from './achievements'
-import type { Ent, Flag, ItemId, ZoneId } from './types'
+import type { Ent, Flag, ItemId, PuzzleId, ZoneId } from './types'
 
 const L = fr.labels
 const M = fr.msg
@@ -596,6 +596,7 @@ export function pressPlan(task: string) {
   if (!t.dep.every((d) => s.plan.includes(d))) {
     audio.sfx('error')
     toast(fr.plan.wrong(t.name), 'bad')
+    useGame.setState({ plan: [] })
     penalize(20)
     return
   }
@@ -1013,7 +1014,7 @@ export function enterZone(z: ZoneId) {
   const viaLift = G().cine === 'lift' && z < 3
   if (G().zone !== z) {
     live.playerZone = null
-    useGame.setState({ loading: 0 })
+    useGame.setState({ loading: 0, loadProgress: 0 })
   }
   if (z === 3) checkCartographer([1, 2].map((zone) => ({ zone, grid: GRID_MAPS[zone as 1 | 2].grid })))
   pendingZone = null
@@ -1090,34 +1091,84 @@ const STEP_PUZZLE: Record<string, string> = {
   beacon: 'p_radio',
 }
 
-/** indice de l'étape courante : niveau 1 (léger, −30 s) ou 2 (fort, −60 s) */
-export function hintFor(level: 1 | 2) {
+export type HintTarget = { zone: ZoneId; step: string }
+
+/** énigme ouverte → même clé d'indice que l'étape correspondante sur la tablette */
+const PUZZLE_STEP: Record<Exclude<PuzzleId, 'lunar'>, HintTarget> = {
+  keypad: { zone: 1, step: 'locker' },
+  valves: { zone: 1, step: 'valves' },
+  power: { zone: 2, step: 'power' },
+  algo: { zone: 2, step: 'terminal' },
+  plan: { zone: 3, step: 'plan' },
+  dilemma: { zone: 3, step: 'choice' },
+  sequence: { zone: 3, step: 'launch' },
+  radio: { zone: 4, step: 'beacon' },
+}
+
+export function puzzleHintTarget(puzzle: PuzzleId, lunarStep?: string | null): HintTarget | null {
+  if (puzzle === 'lunar') return lunarStep ? { zone: 1, step: lunarStep } : null
+  return PUZZLE_STEP[puzzle]
+}
+
+function currentHintTarget(): HintTarget | null {
   const s = G()
   const cur = stepsState(s.zone).find((x) => x.status === 'current')
+  return cur ? { zone: s.zone, step: cur.id } : null
+}
+
+/** coût de base avant la difficulté : Recrue 0/30, Pilote 30/60, Commandant 60/120 */
+export function hintBase(level: 1 | 2) {
+  const help = G().settings.help
+  if (help === 'recrue') return level === 1 ? 0 : 30
+  if (help === 'commandant') return level === 1 ? 60 : 120
+  return level === 1 ? 30 : 60
+}
+
+/** secondes réellement retirées, après le multiplicateur de difficulté */
+export function hintCost(level: 1 | 2) {
+  const base = hintBase(level)
+  return base ? Math.round(base * diff().penalty) : 0
+}
+
+export function hintButtonLabel(level: 1 | 2, used = false) {
+  const name = level === 1 ? fr.rules.hintLight : fr.rules.hintStrong
+  const cost = hintCost(level)
+  const price = cost ? `−${cost} secondes` : 'gratuit'
+  return used ? `Consulté · ${name} (${price})` : `${name} (${price})`
+}
+
+/** indice d'une étape : niveau 1 léger, niveau 2 fort. Sans cible, c'est l'étape en cours. */
+export function hintFor(level: 1 | 2, target?: HintTarget | null) {
+  const s = G()
+  const aim = target ?? currentHintTarget()
+  if (!aim) return null
+  if (s.map === 'base') {
+    const step = lunarSteps().find((x) => x.id === aim.step)
+    if (!step) return null
+    return level === 1 ? step.hint : strongHint(step.id, s.lunar.seed)
+  }
+  const cur = fr.steps[aim.zone]?.find((st) => st.id === aim.step)
   if (!cur) return null
-  if (s.map === 'base') return level === 1 ? cur.hint : strongHint(cur.id, s.lunar.seed)
   const pz = fr.puzzleList.find((p) => p.id === STEP_PUZZLE[cur.id])
   if (level === 2 && pz?.id === 'p_valves') return valveHint(s.valves)
   return level === 1 ? cur.hint : pz?.hint2 ?? cur.hint
 }
 
-export function hintKey(level: 1 | 2) {
-  const s = G()
-  const cur = stepsState(s.zone).find((x) => x.status === 'current')
-  return cur ? `${s.zone}:${cur.id}:${level}` : null
+export function hintKey(level: 1 | 2, target?: HintTarget | null) {
+  const aim = target ?? currentHintTarget()
+  return aim ? `${aim.zone}:${aim.step}:${level}` : null
 }
 
-export function requestHint(level: 1 | 2 = 1) {
+export function requestHint(level: 1 | 2 = 1, target?: HintTarget | null) {
   const s = G()
-  const key = hintKey(level)
+  const key = hintKey(level, target)
   if (!key) return null
   if (!s.hintsShown.includes(key)) {
     useGame.setState({ hintsShown: [...s.hintsShown, key], hintsUsed: s.hintsUsed + 1 })
-    const help = s.settings.help
-    const cost = help === 'recrue' ? (level === 1 ? 0 : 30) : help === 'commandant' ? (level === 1 ? 60 : 120) : level === 1 ? 30 : 60
+    const cost = hintBase(level)
     if (cost) penalize(cost, false)
   }
-  const message = hintFor(level)
+  const message = hintFor(level, target)
   if (message) recordMessage(message)
   return message
 }

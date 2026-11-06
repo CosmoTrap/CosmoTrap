@@ -1,11 +1,11 @@
 .scene-loading { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; flex-direction: column; background: radial-gradient(ellipse at 50% 40%, #15222c, #070b10 75%); color: #eae6dd; text-align: center; padding: 24px; cursor: wait; }
 .scene-loading small { color: #c08764; font-size: 11px; letter-spacing: .3em; margin-top: 26px; }
 .scene-loading h2 { margin: 12px 0 8px; font-size: clamp(24px, 4vw, 36px); font-weight: 500; letter-spacing: .1em; }
-.scene-loading p { margin: 8px 0 26px; color: #a2b4bf; font-size: 14px; }
-.scene-loading > span { margin-top: 20px; max-width: 320px; color: #7e929f; font-size: 12px; }
+.scene-loading p { margin: 8px 0 22px; max-width: 420px; color: #a2b4bf; font-size: 15px; }
+.scene-loading > strong { margin-top: 14px; font-size: 18px; font-weight: 600; letter-spacing: .04em; color: #f2e6da; }
+.scene-loading > span { margin-top: 12px; max-width: 320px; color: #7e929f; font-size: 12px; }
 .scene-loading-mark { width: 48px; height: 48px; border: 1px solid #415563; border-radius: 50%; display: grid; place-items: center; }
 .scene-loading-mark i { width: 15px; height: 15px; border: 1px solid #dca47d; transform: rotate(45deg); }
-.scene-loading-track { width: min(250px, 70vw); height: 2px; background: #26343e; overflow: hidden; }
-.scene-loading-track i { display: block; width: 40%; height: 100%; background: #dca47d; animation: scene-load 1.6s ease-in-out infinite alternate; }
-@keyframes scene-load { from { transform: translateX(-100%); } to { transform: translateX(350%); } }
-@media (prefers-reduced-motion: reduce) { .scene-loading-track i { animation: none; width: 100%; opacity: .6; } }
+.scene-loading-track { width: min(320px, 78vw); height: 8px; background: #26343e; border-radius: 99px; overflow: hidden; }
+.scene-loading-track i { display: block; width: 0; height: 100%; background: linear-gradient(90deg, #8d5a3c, #dca47d); border-radius: inherit; transition: width .25s ease-out; }
+@media (prefers-reduced-motion: reduce) { .scene-loading-track i { transition: none; } }

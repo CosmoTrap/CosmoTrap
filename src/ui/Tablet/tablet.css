@@ -285,7 +285,8 @@
 .nav-base-messages li { padding: 11px 14px; font-size: 13px; line-height: 1.5; color: #e5e8f6; background: #1b2150; border-left: 3px solid #e8804f; border-radius: 6px; }
 .nav-help-panel h2 { font: 600 18px Outfit, Inter, sans-serif; margin: 0 0 8px; color: #f2f3fb; }
 .nav-help-panel p { font-size: 12px; color: #aeb6d2; margin: 0 0 12px; } .nav-help-panel p b { color: #eceef8; font-weight: 500; }
-.nav-help-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.nav-help-actions { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 10px; }
+.nav-help-actions .hint-actions { flex: 1 1 280px; }
 .nav-help-actions button { padding: 9px 15px; border: 1px solid #39437c; border-radius: 9px; background: #10163a; font-size: 12px; font-weight: 600; }
 .nav-help-actions button:not(:disabled):hover { border-color: #ff9a62; }
 .nav-help-actions small { font-size: 11px; color: #8d96bd; }
