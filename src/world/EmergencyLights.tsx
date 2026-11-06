@@ -47,6 +47,8 @@ const angle = (room: RoomDef) => beaconAngle() + room.rect[0] * 0.7
 const TILT = 0.5
 const BEAM_LEN = 4.2
 const BEAM_HALF = 0.34
+/** The beam's light starts this far under the ceiling. */
+const BEAM_DROP = 0.75
 
 /**
  * The visible shaft of light: an open cone, brightest at the lamp, fading along its length and towards its rim,
@@ -157,7 +159,7 @@ export function EmergencyLights({ map }: { map: GridMap }) {
   ] : map.rooms.filter((r) => !r.noDynLight || r.beacons).flatMap(beaconsFor), [map])
   const beams = useMemo(() => Array.from({ length: 2 }, (_, i) => {
     // A narrower beam with a very soft edge: a rotating beacon throws a glow that sweeps, not a hard-edged disc.
-    const light = map === lunarMap ? new THREE.SpotLight('#ff1408', 0, 25, 0.62, 0.8, 1.25) : new THREE.SpotLight('#ff4a30', 0, 16, 0.95, 1, 1)
+    const light = new THREE.SpotLight('#ff4a30', 0, 18, 0.95, 1, 1)
     light.name = `alert-beam:${i}`
     // The door leaves must occlude the rotating beam, including on lower presets.
     light.castShadow = map !== lunarMap
@@ -169,7 +171,7 @@ export function EmergencyLights({ map }: { map: GridMap }) {
     light.shadow.normalBias = 0.015
     light.shadow.camera.near = 0.1
     const spill = new THREE.PointLight('#ff1808', 0, 13, 1.1)
-    spill.distance = map === lunarMap ? 13 : 2.5 // Local glow around the station lens, never a second beam through a door.
+    spill.distance = 2.5 // Local glow around the lens, never a second beam through a door.
     return { light, spill, target: new THREE.Object3D() }
   }), [map])
   useEffect(() => {
@@ -180,27 +182,22 @@ export function EmergencyLights({ map }: { map: GridMap }) {
     const distance = (b: BeaconDef) => Math.hypot(b.pos[0] - live.pos[0], b.pos[2] - live.pos[2]) + (b.room.id === live.roomId ? 0 : 30)
     // These lights cast no shadows, so a beam from next door would shine straight through the wall.
     const active = beacons.filter(({ room }) => beaconsOn(room, map.zone) && (room.id === live.roomId || !live.roomId)).sort((a, b) => distance(a) - distance(b))
-    const station = map !== lunarMap
     beams.forEach(({ light, spill, target }, i) => {
-      // On the station, both beams come from the nearest beacon: its two reflectors, half a turn apart.
-      const entry = station ? active[0] : active[i]
+      // Both beams are the nearest beacon's two reflectors, half a turn apart.
+      const entry = active[0]
       // Warm maps under the loader, then render them only while the beacon is lit.
       light.shadow.needsUpdate = light.castShadow && (!!entry || G().loading < 1)
-      light.intensity = entry ? (station ? 14 : 48) : 0
-      if (!entry) { spill.intensity = 0; return }
+      light.intensity = entry ? 14 : 0
+      spill.intensity = entry ? 1.4 : 0
+      if (!entry) return
       const { room, pos } = entry
-      const a = angle(room) + (station ? i * Math.PI : 0)
-      light.position.set(...pos)
+      const a = angle(room) + i * Math.PI
       spill.position.set(...pos)
-      spill.intensity = station ? 1.4 : 2.6
-      // Along the visible shaft, so the patch on the wall or floor is where the beam lands.
-      const tilt = station ? TILT : 0.2
-      // From just under the neighbouring ceiling lamps: from the dome itself, their discs threw big dark arcs on the walls.
-      const drop = station ? 0.75 : 0.16
-      target.position.set(pos[0] + Math.sin(a) * Math.cos(tilt) * 6, pos[1] - drop - Math.sin(tilt) * 6, pos[2] + Math.cos(a) * Math.cos(tilt) * 6)
-      light.position.set(pos[0], pos[1] - drop, pos[2])
+      // From just under the neighbouring ceiling lamps (from the dome itself, their discs threw big dark arcs
+      // on the walls), aimed along the visible shaft so the patch lands where the beam does.
+      light.position.set(pos[0], pos[1] - BEAM_DROP, pos[2])
+      target.position.set(pos[0] + Math.sin(a) * Math.cos(TILT) * 6, pos[1] - BEAM_DROP - Math.sin(TILT) * 6, pos[2] + Math.cos(a) * Math.cos(TILT) * 6)
       target.updateMatrixWorld()
-      light.distance = 18
     })
   })
   return <group>

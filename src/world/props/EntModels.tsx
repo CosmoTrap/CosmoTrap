@@ -568,15 +568,59 @@ function Terminal() {
     const t = textTexture(lines, { w: 512, h: 320, fg: on ? '#7fe3ff' : '#331111', bg: on ? '#061820' : '#020202', scan: true, glow: on, size: 32 })
     return new THREE.MeshStandardMaterial({ map: t, emissiveMap: t, emissive: '#fff', emissiveIntensity: on ? 1.6 : 0 })
   }, [on, f.pw_sas, f.readTerminal])
+  return <TerminalBody screen={mat} lit={on} />
+}
+
+/** Diagnostic desk: steel cabinet, sloped keyboard deck with real keys, and a hooded screen on a column. */
+export function TerminalBody({ screen, lit, children }: { screen?: THREE.Material; lit: boolean; children?: ReactNode }) {
+  const m = useMats()
+  const keys = useRef<THREE.InstancedMesh>(null)
+  const COLS = 15, ROWS = 5
+  useEffect(() => {
+    const mtx = new THREE.Matrix4()
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      // The bottom row carries a long space bar in the middle.
+      const space = r === ROWS - 1 && c >= 5 && c <= 9
+      const sx = space ? (c === 7 ? 5.4 : 0) : 1
+      mtx.makeScale(sx, 1, 1).setPosition((c - (COLS - 1) / 2) * 0.046 + (r % 2) * 0.01, 0, (r - (ROWS - 1) / 2) * 0.046)
+      keys.current!.setMatrixAt(r * COLS + c, mtx)
+    }
+    keys.current!.instanceMatrix.needsUpdate = true
+    keys.current!.computeBoundingSphere()
+  }, [])
+  const body = m.painted('#3a4249', 0.45, 0.55), dark = m.plastic('#16181b', 0.35), steel = m.metal('#9aa3a8', 0.3)
   return (
     <group>
-      <Box s={[1.4, 0.9, 0.6]} p={[0, 0.45, 0.3]} m={m.painted('#3c4046', 0.5, 0.6)} />
-      <Box s={[1.4, 0.05, 0.65]} p={[0, 0.92, 0.32]} m={m.plastic('#1e2023', 0.35)} />
-      <Box s={[1.0, 0.65, 0.06]} p={[0, 1.45, 0.12]} r={[-0.1, 0, 0]} m={m.plastic('#1b1d20', 0.3)} />
-      <mesh position={[0, 1.45, 0.155]} rotation={[-0.1, 0, 0]} material={mat}>
-        <planeGeometry args={[0.92, 0.57]} />
-      </mesh>
-      <Box s={[0.6, 0.02, 0.2]} p={[0, 0.955, 0.4]} m={m.plastic('#2a2c30', 0.5)} />
+      {/* Cabinet with a recessed door, vents and a kick plate. */}
+      <Box s={[1.4, 0.86, 0.6]} p={[0, 0.47, 0.3]} m={body} />
+      <Box s={[1.42, 0.06, 0.62]} p={[0, 0.03, 0.3]} m={m.metal('#24282c', 0.5)} />
+      <Box s={[1.1, 0.56, 0.02]} p={[0, 0.46, 0.605]} m={m.painted('#2e353b', 0.5, 0.5)} />
+      {[0, 1, 2, 3, 4, 5].map((i) => <Box key={i} s={[0.5, 0.012, 0.012]} p={[-0.22, 0.62 - i * 0.045, 0.62]} m={dark} cast={false} />)}
+      <Box s={[0.06, 0.12, 0.03]} p={[0.42, 0.46, 0.625]} m={steel} />
+      <mesh position={[0.3, 0.68, 0.617]} material={m.glow(lit ? '#38ff7a' : '#ff3b2a', lit ? 2.2 : 1.4)}><circleGeometry args={[0.018, 12]} /></mesh>
+      {/* Sloped deck: wrist rest, keyboard, trackball and a row of toggles. */}
+      <group position={[0, 0.94, 0.36]} rotation={[0.2, 0, 0]}>
+        <Box s={[1.44, 0.05, 0.56]} m={m.metal('#5a646b', 0.4)} />
+        <Box s={[0.82, 0.02, 0.28]} p={[-0.12, 0.03, 0.04]} m={dark} />
+        <instancedMesh ref={keys} args={[undefined, undefined, COLS * ROWS]} position={[-0.12, 0.05, 0.04]} material={m.plastic('#2b2f34', 0.5)} castShadow>
+          <boxGeometry args={[0.038, 0.018, 0.038]} />
+        </instancedMesh>
+        <Box s={[1.3, 0.03, 0.08]} p={[0, 0.035, 0.23]} m={m.rubber('#202326')} />
+        <Cyl a={[0.06, 0.07, 0.03]} p={[0.48, 0.04, 0.06]} m={dark} seg={20} />
+        <mesh position={[0.48, 0.07, 0.06]} material={m.plastic('#7d8a95', 0.2)}><sphereGeometry args={[0.04, 16, 10]} /></mesh>
+        {[0, 1, 2, 3].map((i) => <group key={i} position={[0.36 + i * 0.075, 0.035, -0.16]}>
+          <Box s={[0.05, 0.02, 0.05]} m={dark} />
+          <Box s={[0.016, 0.05, 0.016]} p={[0, 0.03, 0]} r={[i % 2 ? 0.4 : -0.4, 0, 0]} m={steel} />
+        </group>)}
+      </group>
+      {/* Screen on a column, under a small hood. */}
+      <Box s={[0.12, 0.42, 0.08]} p={[0, 1.15, 0.06]} m={body} />
+      <group position={[0, 1.55, 0.12]} rotation={[-0.12, 0, 0]}>
+        <Box s={[1.06, 0.7, 0.08]} m={dark} />
+        <Box s={[1.12, 0.05, 0.16]} p={[0, 0.37, 0.04]} m={body} />
+        {[-1, 1].map((s) => <Box key={s} s={[0.04, 0.72, 0.16]} p={[s * 0.56, 0, 0.04]} m={body} />)}
+        {screen ? <mesh position={[0, 0, 0.042]} material={screen}><planeGeometry args={[0.94, 0.57]} /></mesh> : <group position={[0, 0, 0.042]}>{children}</group>}
+      </group>
     </group>
   )
 }

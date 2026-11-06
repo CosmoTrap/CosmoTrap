@@ -1,4 +1,5 @@
 import { useFrame } from '@react-three/fiber'
+import { BatteryGauge, BreakerRow, HatchMarking, HatchRail, O2Column, ServerRack, SuitBench, Turbine, WallDisplays } from './LunarDecor'
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
@@ -1804,4 +1805,13 @@ export const PROP_MODELS: Record<string, (p: { color?: string; scale?: number; m
   gasTank: () => <RealModel id="propane_tank" solid height={0.72} />,
   shelfUnit: () => <RealModel id="steel_frame_shelves_01" solid fit="wall" height={1.7} />,
   poster: () => <Poster />,
+  turbine: () => <Turbine />,
+  breakerRow: () => <BreakerRow />,
+  batteryGauge: () => <BatteryGauge />,
+  serverRack: () => <ServerRack />,
+  wallDisplays: () => <WallDisplays />,
+  o2Column: () => <O2Column />,
+  suitBench: () => <SuitBench />,
+  hatchMarking: () => <HatchMarking />,
+  hatchRail: () => <HatchRail />,
 }
