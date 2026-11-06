@@ -8,7 +8,7 @@ import { gridMap, placeOf, roomAt } from '../../game/maps'
 import { LunarNote, LunarTerminal } from './LunarModels'
 import { allEnts, canSeeInDark, entActive } from '../../game/logic'
 import { ITEM_KIND } from '../../game/items'
-import { live, useGame } from '../../game/state'
+import { G, live, useGame } from '../../game/state'
 import type { Ent, ZoneId } from '../../game/types'
 import { RoomCtx, useMats } from '../materials'
 import { textTexture } from '../textures'
@@ -793,6 +793,28 @@ export const ENT_MODELS: Record<string, (e: Ent) => ReactNode> = {
 
 const WALL_BRACKET = new Set(['battery', 'water', 'fuse', 'wrench', 'multitool', 'purifier', 'tape', 'compass', 'whistle', 'mirror'])
 
+/**
+ * Sets an object down by its base on the surface it is placed on (a counter, a cabinet): models are
+ * centred on their origin, so placed at the top of a counter they sank halfway into it. Measured from
+ * its real bounds, again for a few seconds in case a model arrives late.
+ */
+function Grounded({ children }: { children: ReactNode }) {
+  const outer = useRef<THREE.Group>(null), inner = useRef<THREE.Group>(null)
+  const next = useRef(0), until = useRef(-1)
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime
+    if (until.current < 0) until.current = t + 6
+    if (!outer.current || !inner.current || t > until.current || t < next.current) return
+    next.current = t + 0.25
+    const box = new THREE.Box3().setFromObject(inner.current)
+    if (box.isEmpty()) return
+    const base = outer.current.getWorldPosition(new THREE.Vector3()).y
+    const lift = base - box.min.y
+    if (Math.abs(lift) > 0.001) inner.current.position.y += lift
+  })
+  return <group ref={outer}><group ref={inner}>{children}</group></group>
+}
+
 function EntNode({ e, zone }: { e: Ent; zone: ZoneId }) {
   useGame((s) => s.taken.length + Object.values(s.flags).filter(Boolean).length)
   const active = entActive(e)
@@ -803,13 +825,17 @@ function EntNode({ e, zone }: { e: Ent; zone: ZoneId }) {
   const keepWhenDone = !e.item
   // L'étagère fait partie du nœud ramassable : elle doit rester quand l'objet part.
   const shelf = !!(e.item && e.wall && (e.y ?? 0) > 0.3 && WALL_BRACKET.has(e.model))
-  // Une fois fermée, la vanne reste en place : seule son interaction disparaît.
-  const staysVisible = e.model === 'steamValve' || e.model === 'engineSlot'
+  // Une fois fermée, la vanne reste en place : seule son interaction disparaît. Le jet de gaz aussi reste monté
+  // (il s'éteint en fondu) : retirer sa lumière changerait le nombre de lumières de la scène, ce qui oblige
+  // three.js à recompiler tous les matériaux visibles d'un coup — une saccade, très marquée sous Windows.
+  const staysVisible = e.model === 'steamValve' || e.model === 'engineSlot' || e.model === 'steam'
   if (!active && !keepWhenDone && !shelf) return null
   return (
     <RoomCtx.Provider value={{ id: room?.id ?? '', dark: !!room?.dark }}>
       <group name={`ent:${e.id}`} position={p} rotation={[0, r, 0]}>
-        {(active || staysVisible) && model ? (e.item ? <PickupHighlight>{model(e)}</PickupHighlight> : model(e)) : null}
+        {(active || staysVisible) && model ? (e.item
+          ? G().map === 'base' ? <Grounded><PickupHighlight>{model(e)}</PickupHighlight></Grounded> : <PickupHighlight>{model(e)}</PickupHighlight>
+          : model(e)) : null}
         {!e.item && <SolidProp model={e.model} />}
         {shelf && <Bracket />}
         {active && <Hitbox e={e} />}

@@ -169,6 +169,13 @@ export function Hands() {
       held.current.position.set(wide ? 0.12 : 0.23, -0.20 + sway - (1 - raise.current) * 0.18, wide ? -0.47 : -0.43)
       held.current.rotation.set((1 - raise.current) * 0.25, Math.sin(clock.elapsedTime * 1.1) * 0.009, sway * 1.4)
     }
+    // Under the loading screen, draw the torch hand and the tablet once: their shaders compile there, not the
+    // first time the torch is switched on or the tablet raised (a freeze, longest on Windows).
+    if (s.loading < 1) {
+      g.current.visible = true
+      if (torch.current) torch.current.visible = true
+      if (tablet.current) tablet.current.visible = true
+    }
   })
   const right: V3 = item === 'carBattery' ? [0.115, 0.015, 0] : item === 'badge' ? [0.042, 0.008, 0]
     : item === 'manual' || item === 'map' ? [0.075, 0.03, 0] : [0, 0, 0]

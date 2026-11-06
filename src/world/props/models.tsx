@@ -182,11 +182,16 @@ export function Flashlight({ on = false }: { on?: boolean }) {
       grip: std('#e8662a', 0, 0.8, 0.16),
       steel: std('#dfe4e7', 0.8, 0.22),
       reflector: std('#f2f4f5', 0.9, 0.12),
-      glass: new THREE.MeshStandardMaterial({ color: '#d9e6ec', metalness: 0.1, roughness: 0.08, transparent: true, opacity: 0.35 }),
-      lens: new THREE.MeshBasicMaterial({ color: '#fff3d6', toneMapped: false }),
-      beam: new THREE.MeshBasicMaterial({ map: beamTexture(), color: '#ffe9c2', transparent: true, opacity: 0.07, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }),
+      // The lens and switch light up through their emissive glow, and the beam fades in: switching the torch
+      // changes only values, never a material, so its first use compiles no new shader (a freeze on Windows).
+      lens: new THREE.MeshStandardMaterial({ color: '#d9e6ec', metalness: 0.1, roughness: 0.08, emissive: '#fff3d6', emissiveIntensity: 0 }),
+      switch: new THREE.MeshStandardMaterial({ color: '#e8662a', metalness: 0, roughness: 0.8, emissive: '#fff3d6', emissiveIntensity: 0 }),
+      beam: new THREE.MeshBasicMaterial({ map: beamTexture(), color: '#ffe9c2', transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }),
     }
   }, [])
+  mats.lens.emissiveIntensity = on ? 6 : 0
+  mats.switch.emissiveIntensity = on ? 6 : 0
+  mats.beam.opacity = on ? 0.07 : 0
   return (
     <group name="flashlight">
       {/* Tail cap, barrel and flared head, turned as one piece. */}
@@ -205,12 +210,12 @@ export function Flashlight({ on = false }: { on?: boolean }) {
       <mesh position={[0, 0.177, 0]} rotation={[Math.PI / 2, 0, 0]} material={mats.steel}><torusGeometry args={[0.0265, 0.0024, 8, 30]} /></mesh>
       {/* Reflector, then the lens: glass when off, lit when on. */}
       <Lathe m={mats.reflector} seg={28} profile={[[0.006, 0.152], [0.024, 0.175]]} />
-      <mesh position={[0, 0.175, 0]} rotation={[-Math.PI / 2, 0, 0]} material={on ? mats.lens : mats.glass}><circleGeometry args={[0.0245, 30]} /></mesh>
+      <mesh position={[0, 0.175, 0]} rotation={[-Math.PI / 2, 0, 0]} material={mats.lens}><circleGeometry args={[0.0245, 30]} /></mesh>
       {/* Switch on the barrel, under the thumb. */}
       <Box s={[0.011, 0.018, 0.005]} p={[0, 0.118, 0.0172]} m={mats.dark} />
-      <Box s={[0.007, 0.012, 0.003]} p={[0, 0.118, 0.0205]} m={on ? mats.lens : mats.grip} />
+      <Box s={[0.007, 0.012, 0.003]} p={[0, 0.118, 0.0205]} m={mats.switch} />
       {/* The beam, visible in the air when lit. */}
-      {on && <mesh position={[0, 0.176 + 0.25, 0]} material={mats.beam}><cylinderGeometry args={[0.12, 0.024, 0.5, 24, 1, true]} /></mesh>}
+      <mesh position={[0, 0.176 + 0.25, 0]} material={mats.beam}><cylinderGeometry args={[0.12, 0.024, 0.5, 24, 1, true]} /></mesh>
     </group>
   )
 }

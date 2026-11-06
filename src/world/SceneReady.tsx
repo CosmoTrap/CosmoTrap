@@ -26,12 +26,36 @@ function sceneTextures(scene: THREE.Scene) {
  * preserve instancing/skinning variants without reparenting the live objects. */
 function drawables(scene: THREE.Scene) {
   const group = new THREE.Group()
-  scene.traverseVisible(object => {
+  // Every drawable, hidden ones included (rooms culled behind a door, things that appear when the power or
+  // an alarm comes back): compiling them only when they first show froze the game for a moment, worst on
+  // Windows, where each shader is translated to Direct3D. Batching sources stay out: their batch is drawn.
+  scene.traverse(object => {
+    if (object.userData.staticBatchSource) return
     if (object instanceof THREE.Mesh || object instanceof THREE.Points || object instanceof THREE.Line || object instanceof THREE.Sprite) {
       group.add(object.clone(false))
     }
   })
   return group
+}
+
+/** Shows hidden drawables, and asks every shadow-casting light for its map (even switched off, like the torch),
+ * for the warm-up frames drawn under the loader. Returns how to put everything back. */
+function revealForWarmup(scene: THREE.Scene) {
+  const hidden: THREE.Object3D[] = [], lights: { light: THREE.Light; intensity: number }[] = []
+  scene.traverse(object => {
+    if (object.userData.staticBatchSource) return
+    if (!object.visible && (object instanceof THREE.Mesh || object instanceof THREE.Points)) { hidden.push(object); object.visible = true }
+    const light = object as THREE.Light
+    if (light.isLight && light.castShadow && light.shadow) {
+      lights.push({ light, intensity: light.intensity })
+      if (light.intensity === 0) light.intensity = 1e-4
+      light.shadow.needsUpdate = true
+    }
+  })
+  return () => {
+    hidden.forEach(object => { object.visible = false })
+    lights.forEach(({ light, intensity }) => { if (light.intensity === 1e-4) light.intensity = intensity })
+  }
 }
 
 /** Give the DOM a paint before constructing a new level on the main thread. */
@@ -56,13 +80,14 @@ export function SceneReady({ zone }: { zone: ZoneId }) {
   const generation = useRef(0)
   const warmup = useRef({ frames: 0, programs: -1, stable: 0 })
   const culling = useRef(new Map<THREE.Object3D, boolean>())
+  const unreveal = useRef<(() => void) | null>(null)
   const boot = useRef(0)
   const restoreCulling = () => {
     culling.current.forEach((value, object) => { object.frustumCulled = value })
     culling.current.clear()
   }
   useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
-  useEffect(() => () => restoreCulling(), [])
+  useEffect(() => () => { restoreCulling(); unreveal.current?.() }, [])
   useFrame(() => {
     const r = ready.current
     const publish = (pct: number) => {
@@ -82,7 +107,7 @@ export function SceneReady({ zone }: { zone: ZoneId }) {
         generation.current++
         uploads.current = null; uploaded.current = 0
         r.compiling = r.compiled = false
-        restoreCulling()
+        restoreCulling(); unreveal.current?.(); unreveal.current = null
         warmup.current = { frames: 0, programs: -1, stable: 0 }
       }
       publish(12 + assetProgress * 0.28)
@@ -117,6 +142,10 @@ export function SceneReady({ zone }: { zone: ZoneId }) {
         culling.current.set(object, object.frustumCulled)
         object.frustumCulled = false
       })
+      unreveal.current = revealForWarmup(scene)
+    } else if (w.frames <= 2) {
+      // The shadow pass keeps drawing every light's map for both warm-up frames.
+      scene.traverse(object => { const l = object as THREE.Light; if (l.isLight && l.castShadow && l.shadow) l.shadow.needsUpdate = true })
     }
     w.frames++
     if (w.frames <= 2) {
@@ -124,6 +153,7 @@ export function SceneReady({ zone }: { zone: ZoneId }) {
       return
     }
     restoreCulling()
+    unreveal.current?.(); unreveal.current = null
     const programs = gl.info.programs ?? []
     // Three's async compile only waits for the last variant of a shared
     // material. Poll every program before its first-use diagnostics/uniforms.
