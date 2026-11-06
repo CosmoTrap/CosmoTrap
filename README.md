@@ -575,7 +575,7 @@ Les comptes existants restent alors dans l'ancienne base SQLite : il faut change
 - l'en-tête `Authorization` (jeton de session) est transmis à PHP ;
 - `config.php`, `config.local.php` et `db.php` ne sont jamais servis.
 
-**Connexion Google (optionnelle).** Créer un identifiant OAuth « Application Web » dans Google Cloud. Le mettre dans `config.local.php` (`'google_client_id' => '…'`) et dans `.env` (`VITE_GOOGLE_CLIENT_ID=…`) avant le build. Sans cette configuration, le bouton Google affiche un message et la connexion par e-mail reste disponible.
+**Connexion.** Les comptes utilisent une adresse e-mail et un mot de passe. La connexion accepte aussi le pseudo. Aucune configuration OAuth Google n’est nécessaire.
 
 **Mot de passe oublié.** L'e-mail part avec la fonction PHP `mail()`. Sur le domaine temporaire `hostingersite.com`, il peut arriver en spam ou ne pas partir. Avec un vrai nom de domaine, créer une adresse e-mail dans hPanel.
 

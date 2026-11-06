@@ -3,7 +3,6 @@
 # (toutes les 5 min) lance api/deploy.php, qui installe la nouvelle version dans public_html.
 # Aucun secret n'est nécessaire. Facultatif :
 #   DEPLOY_TOKEN           contenu de .deploy-token → installation immédiate au lieu d'attendre le Cron
-#   VITE_GOOGLE_CLIENT_ID  identifiant OAuth pour le bouton Google
 name: Mise en ligne
 
 on:
@@ -35,8 +34,6 @@ jobs:
 
       - name: Build (vérification des types + Vite)
         run: npm run build
-        env:
-          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
 
       - name: Contrôle du build
         run: |
