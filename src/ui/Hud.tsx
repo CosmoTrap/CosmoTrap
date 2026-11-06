@@ -3,7 +3,7 @@ import { fr } from '../i18n/fr'
 import { stepsState } from '../game/logic'
 import { Hotbar } from './Inventory'
 import { timeLimit, live, useGame } from '../game/state'
-import { isTouch, requestLock } from '../player/Player'
+import { requestLock } from '../player/Player'
 import { keyName, padButtonName } from '../player/input'
 import { GaugeIcon } from './Icons'
 import { fmtTime } from '../game/api'
@@ -198,7 +198,6 @@ export function Hud() {
   const briefer = character === 'ines' ? 'kenji' : 'ines'
   const showChrono = useGame((s) => s.settings.showChrono)
   const subsOn = useGame((s) => s.settings.subtitles)
-  const touch = isTouch()
   const showUi = !cine || cine === 'briefing'
   return (
     <div className="layer" style={{ pointerEvents: 'none' }}>
@@ -217,7 +216,7 @@ export function Hud() {
               <div className={`reticle ${label ? 'on' : ''}`} />
               {label && (
                 <div className="prompt">
-                  <span className={`key ${padActive ? 'pad-a' : ''}`}>{padActive ? padButtonName(padType, padAct) : touch ? fr.hud.act : keyName(keys.act[0])}</span>
+                  <span className={`key ${padActive ? 'pad-a' : ''}`}>{padActive ? padButtonName(padType, padAct) : keyName(keys.act[0])}</span>
                   {label}
                 </div>
               )}
@@ -243,7 +242,7 @@ export function Hud() {
       <HurtFlash />
       <Banner />
       <CineOverlay />
-      {!touch && !locked && !overlay && !cine && <LockHint />}
+      {!locked && !overlay && !cine && <LockHint />}
       <Fps />
     </div>
   )

@@ -61,7 +61,7 @@ export interface User {
   character?: string
 }
 
-export async function me(): Promise<{ user: User | null; google: boolean }> {
+export async function me(): Promise<{ user: User | null }> {
   return req('auth.php?action=me')
 }
 
@@ -74,7 +74,6 @@ function signedIn(r: { token: string; user: User }) {
 export const login = async (email: string, password: string) => signedIn(await req('auth.php?action=login', { method: 'POST', body: JSON.stringify({ email, password }) }))
 export const register = async (email: string, pseudo: string, password: string) =>
   signedIn(await req('auth.php?action=register', { method: 'POST', body: JSON.stringify({ email, pseudo, password }) }))
-export const googleLogin = async (credential: string) => signedIn(await req('auth.php?action=google', { method: 'POST', body: JSON.stringify({ credential }) }))
 
 export async function updateProfile(p: { pseudo?: string; email?: string; character?: string }) {
   const r = await req<{ user: User }>('auth.php?action=profile', { method: 'POST', body: JSON.stringify(p) })

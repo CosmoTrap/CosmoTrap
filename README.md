@@ -6,7 +6,7 @@ Deux missions indépendantes sont sélectionnables dans le menu : **Station spat
 
 Guides : [solution de la station spatiale](#solution-station) · [plan et repères de la base lunaire](#base-lunaire) · [solution des douze épreuves lunaires](#solution-lunaire).
 
-Le jeu est en 3D à la première personne. Il se joue dans le navigateur, sans installation, sur ordinateur et sur mobile en mode paysage.
+Le jeu est en 3D à la première personne. Il se joue dans le navigateur, sans installation, sur ordinateur uniquement.
 
 ## Lancer le jeu
 
@@ -81,25 +81,52 @@ Les textures de surface restent présentes dans tous les modes. Les modes
 et demandent une carte graphique plus puissante. Garder la résolution sur
 **Automatique** permet d'adapter aussi les effets à la charge de rendu.
 
+### Utiliser le GPU dédié du navigateur sous Windows
+
+Si ton ordinateur possède une carte graphique dédiée, tu peux demander à Windows de l’utiliser pour ton navigateur afin d’améliorer les performances du jeu.
+
+#### Via les paramètres de Windows
+
+1. Ouvre les **Paramètres de Windows**.
+2. Va dans **Système → Affichage → Graphiques** (ou **Paramètres graphiques**, selon la version).
+3. Clique sur **Parcourir** ou cherche ton navigateur dans la liste : **Chrome** (`chrome.exe`), **Edge** (`msedge.exe`) ou **Firefox** (`firefox.exe`).
+4. Une fois le navigateur ajouté, clique dessus, puis sur **Options**.
+5. Choisis **Haute performance (GPU dédié)**, puis **Enregistrer**.
+6. Ferme et rouvre le navigateur.
+
+#### Via le panneau NVIDIA
+
+Si tu disposes d’une carte NVIDIA et que cette option est disponible :
+
+1. Fais un clic droit sur le bureau, puis ouvre le **Panneau de configuration NVIDIA**.
+2. Va dans **Gérer les paramètres 3D**.
+3. Dans **Paramètres de programme**, sélectionne ton navigateur ou ajoute-le s’il est absent.
+4. Dans **Processeur graphique préféré**, choisis **Processeur NVIDIA haute performance**.
+5. Clique sur **Appliquer**, puis relance le navigateur.
+
+#### Avec une carte AMD
+
+Selon la version, ouvre **Radeon Settings / AMD Software**, puis la section graphique et attribue à ton navigateur le profil **Haute performance**, si cette option est proposée. Sinon, utilise les paramètres graphiques de Windows décrits ci-dessus. Relance ensuite le navigateur.
+
 ## Commandes
 
-| Action | Clavier (modifiable dans Réglages → Touches) | Mobile (paysage) |
-|---|---|---|
-| Se déplacer | ZQSD / WASD ou flèches (position physique : AZERTY et QWERTY marchent) | Joystick à gauche |
-| Regarder | Souris | Glisser à droite |
-| Courir | Maj | Pousser le joystick à fond |
-| Sauter | Espace | — |
-| S’accroupir | Ctrl | — |
-| Agir | E | Bouton « Agir » |
-| Lampe | F | Bouton « Lampe » |
-| Oxygène, piles, boire | O, R, B | Tablette → Inventaire |
-| Tablette → Inventaire | I (ou touche personnalisée), I / Échap pour fermer | Bouton Inventaire |
-| Sélection d’objet | Molette ou 1 à 9, sans consommer | Toucher une case / flèches de la barre |
-| Utiliser la sélection | X, ou bouton dans l’inventaire | Bouton d’utilisation |
-| Tablette → Plan | Tab | Bouton « Tablette » |
-| Tablette → Journal et indices | H | Onglet « Journal » |
-| Pause | P ou Échap | Bouton « Pause » |
-| Passer une cinématique | Entrée ou bouton « Passer » | Bouton « Passer » |
+| Action | Clavier (modifiable dans Réglages → Touches) |
+|---|---|
+| Se déplacer | ZQSD / WASD ou flèches (position physique : AZERTY et QWERTY marchent) |
+| Regarder | Souris |
+| Courir | Maj |
+| Sauter | Espace |
+| S’accroupir | Ctrl |
+| Agir | E |
+| Lampe | F |
+| Oxygène, piles, boire | O, R, B |
+| Tablette → Inventaire | I (ou touche personnalisée), I / Échap pour fermer |
+| Sélection d’objet | Molette ou 1 à 9, sans consommer |
+| Utiliser la sélection | X, ou bouton dans l’inventaire |
+| Tablette → Plan | Tab |
+| Tablette → Journal et indices | H |
+| Pause | P ou Échap |
+| Passer une cinématique | Entrée ou bouton « Passer » |
 
 **Regard.** La souris reste verrouillée dans la vue pendant le jeu. Elle se libère pour les interfaces (tablette, documents, énigmes, pause), puis est reprise à leur fermeture. Si le navigateur exige une nouvelle interaction, cliquer dans la vue pour la reprendre. Échap permet toujours de mettre en pause. Le geste Alt + glisser à deux doigts sur le pavé tactile reste disponible (réglage activé par défaut).
 
@@ -548,7 +575,7 @@ Les comptes existants restent alors dans l'ancienne base SQLite : il faut change
 - l'en-tête `Authorization` (jeton de session) est transmis à PHP ;
 - `config.php`, `config.local.php` et `db.php` ne sont jamais servis.
 
-**Connexion Google (optionnelle).** Créer un identifiant OAuth « Application Web » dans Google Cloud. Le mettre dans `config.local.php` (`'google_client_id' => '…'`) et dans `.env` (`VITE_GOOGLE_CLIENT_ID=…`) avant le build. Sans cette configuration, le bouton Google affiche un message et la connexion par e-mail reste disponible.
+**Connexion.** Les comptes utilisent une adresse e-mail et un mot de passe. La connexion accepte aussi le pseudo. Aucune configuration OAuth Google n’est nécessaire.
 
 **Mot de passe oublié.** L'e-mail part avec la fonction PHP `mail()`. Sur le domaine temporaire `hostingersite.com`, il peut arriver en spam ou ne pas partir. Avec un vrai nom de domaine, créer une adresse e-mail dans hPanel.
 

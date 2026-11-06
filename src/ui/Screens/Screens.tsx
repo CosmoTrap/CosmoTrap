@@ -170,18 +170,6 @@ function finish(skip = false) {
   requestLock()
 }
 
-export function RotatePhone() {
-  return (
-    <div className="rotate">
-      <div>
-        <div className="phone" />
-        <h2 style={{ fontFamily: 'Rajdhani', letterSpacing: '0.15em' }}>{M.rotate}</h2>
-        <p style={{ color: 'var(--muted)' }}>{M.rotateSub}</p>
-      </div>
-    </div>
-  )
-}
-
 export { update as updateSettings }
 
 export { End, Pause } from './Report'

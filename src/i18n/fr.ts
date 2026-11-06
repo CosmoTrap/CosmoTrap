@@ -19,8 +19,6 @@ export const fr = {
     loading: 'Chargement',
     loadingSlow: 'Le chargement de cette zone peut prendre un peu de temps.',
     loadingProgress: (n: number) => `${n} % chargé`,
-    rotate: 'Tourne ton téléphone',
-    rotateSub: 'Cosmotrap se joue en mode paysage.',
   },
   characters: {
     leo: { name: 'Léo', role: 'Pilote', color: '#F2643A', accent: '#F5C542', ability: 'Sprinteur', abilityDesc: 'Marche et court 20 % plus vite.', species: 'Félin de Kepler' },
@@ -525,7 +523,6 @@ export const fr = {
     matricule: 'Matricule attribué à la validation',
     backToLogin: 'Retour à la connexion',
     welcome: 'Bienvenue sur CosmoTrap',
-    google: 'Continuer avec Google',
     or: 'ou',
     email: 'E-mail',
     emailOrPseudo: 'E-mail ou pseudo',
@@ -552,7 +549,6 @@ export const fr = {
     mismatch: 'Les mots de passe ne correspondent pas.',
     offline: 'Serveur injoignable.',
     guest: 'Jouer hors ligne (sans classement)',
-    googleOff: 'Connexion Google non configurée (voir README).',
     logout: 'Se déconnecter',
     hello: (p: string) => `Connecté : ${p}`,
   },
@@ -857,7 +853,6 @@ export const fr = {
 
   controls: {
     desktop: 'ZQSD / WASD bouger · Souris regarder · Maj courir · E agir · F lampe · O oxygène · R piles · B boire · Tab tablette · Échap pause',
-    mobile: 'Joystick à gauche · Glisse à droite pour regarder',
   },
 }
 
