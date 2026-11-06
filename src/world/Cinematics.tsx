@@ -350,8 +350,6 @@ function resetCineView() {
   input.down.clear()
   input.jumpRequested = false
   input.look.dx = input.look.dy = 0
-  input.joy.x = input.joy.y = 0
-  input.touchRun = false
 }
 
 function resumePlaying(briefed = G().briefed) {

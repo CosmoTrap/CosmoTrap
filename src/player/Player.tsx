@@ -26,7 +26,7 @@ function overlayOpen() {
 
 function wantsPointerLock() {
   const s = G()
-  return s.screen === 'playing' && !overlayOpen() && (!s.cine || s.cine === 'lift') && !isTouch()
+  return s.screen === 'playing' && !overlayOpen() && (!s.cine || s.cine === 'lift')
 }
 
 /** écoute clavier / souris (une seule fois) */
@@ -214,7 +214,6 @@ export function useInputListeners() {
   }, [])
 }
 
-export const isTouch = () => window.matchMedia?.('(pointer: coarse)').matches
 
 export function openTablet(tab: TabletTab = 0) {
   const s = G()
@@ -223,8 +222,6 @@ export function openTablet(tab: TabletTab = 0) {
   useGame.setState({ tabletOpen: true, tabletReady: false, tabletOpenedAt: performance.now(), tab })
   input.down.clear()
   input.jumpRequested = false
-  input.joy.x = input.joy.y = 0
-  input.touchRun = false
   input.look.dx = input.look.dy = 0
   audio.sfx('tablet_open')
   document.exitPointerLock?.()
@@ -355,15 +352,15 @@ export function Player() {
       if (isDown(keys, 'back')) iz += 1
       if (isDown(keys, 'left')) ix -= 1
       if (isDown(keys, 'right')) ix += 1
-      ix += input.joy.x + pad.x
-      iz += input.joy.y + pad.y
+      ix += pad.x
+      iz += pad.y
     }
     const len = Math.hypot(ix, iz)
     if (len > 1) {
       ix /= len
       iz /= len
     }
-    const running = !frozen && (isDown(keys, 'run') || input.touchRun || pad.run || Math.hypot(input.joy.x, input.joy.y) > 0.95)
+    const running = !frozen && (isDown(keys, 'run') || pad.run)
     // s'accroupir : vue abaissée et marche lente (la capsule de collision ne change pas)
     const crouching = !frozen && (isDown(keys, 'crouch') || pad.crouch)
     S.crouch = THREE.MathUtils.damp(S.crouch, crouching ? 1 : 0, 10, dt)

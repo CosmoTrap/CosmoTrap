@@ -17,8 +17,6 @@ export const fr = {
     start: 'Commencer la mission',
     clickToPlay: 'Clique pour reprendre la vue · Échap pour mettre en pause',
     loading: 'Chargement',
-    rotate: 'Tourne ton téléphone',
-    rotateSub: 'Cosmotrap se joue en mode paysage.',
   },
   characters: {
     leo: { name: 'Léo', role: 'Pilote', color: '#F2643A', accent: '#F5C542', ability: 'Sprinteur', abilityDesc: 'Marche et court 20 % plus vite.', species: 'Félin de Kepler' },
@@ -853,7 +851,6 @@ export const fr = {
 
   controls: {
     desktop: 'ZQSD / WASD bouger · Souris regarder · Maj courir · E agir · F lampe · O oxygène · R piles · B boire · Tab tablette · Échap pause',
-    mobile: 'Joystick à gauche · Glisse à droite pour regarder',
   },
 }
 

@@ -299,13 +299,8 @@ export interface GameState extends GameData {
 
 const SETTINGS_KEY = 'cosmotrap.settings.v1'
 
-export function isMobile() {
-  return typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches
-}
-
 /** estimation de la puissance graphique pour choisir la qualité par défaut */
 export function detectQuality(): Quality {
-  if (isMobile()) return 'low'
   try {
     const c = document.createElement('canvas')
     const gl = c.getContext('webgl2') as WebGL2RenderingContext | null
@@ -612,7 +607,7 @@ export function clearSave() {
   }
 }
 
-/** plein écran (avec repli Safari) ; sur mobile, verrouille aussi le paysage */
+/** plein écran (avec repli Safari) */
 export async function toggleFullscreen() {
   const d = document as any
   const el = document.documentElement as any
@@ -621,7 +616,6 @@ export async function toggleFullscreen() {
       await (document.exitFullscreen?.() ?? d.webkitExitFullscreen?.())
     } else {
       await (el.requestFullscreen?.({ navigationUI: 'hide' }) ?? el.webkitRequestFullscreen?.())
-      await (screen.orientation as any)?.lock?.('landscape').catch?.(() => {})
     }
   } catch {
     /* refusé par le navigateur */
