@@ -199,11 +199,9 @@ export function RoundHub({ room, shadows, zone }: { room: RoomDef; shadows: bool
     <mesh position={[0, CEIL - 0.04, 0]} rotation={[Math.PI / 2, 0, 0]} material={frame}>
       <torusGeometry args={[3.8, 0.05, 8, 96]} />
     </mesh>
-    </StaticBatch>
     {/* Where the curved wall meets each corridor: a full post, so no gap can open on space. */}
-    {angles.flatMap((a, i) => [-1, 1].map((side) => (
-      <Box key={`${i}:${side}`} s={[0.16, CEIL, 0.16]} p={[Math.sin(a) * radius + Math.cos(a) * side, CEIL / 2, Math.cos(a) * radius - Math.sin(a) * side]} r={[0, a, 0]} m={frame} />
-    )))}
+    {angles.flatMap((a, i) => [-1, 1].map((side) => <Box key={`post:${i}:${side}`} s={[0.16, CEIL, 0.16]} p={[Math.sin(a) * radius + Math.cos(a) * side, CEIL / 2, Math.cos(a) * radius - Math.sin(a) * side]} r={[0, a, 0]} m={frame} />))}
+    </StaticBatch>
     {!room.exits && <Elevator zone={zone} cx={cx} cz={cz} />}
     <RigidBody type="fixed" colliders={false}>
       {built.colliders.map((c, i) => <CuboidCollider key={i} position={[c.x, CEIL / 2, c.z]} rotation={[0, c.angle, 0]} args={[c.half, CEIL / 2, 0.07]} />)}

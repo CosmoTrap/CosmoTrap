@@ -9,7 +9,6 @@ import { CEIL } from '../game/maps'
 import { G, live, useGame } from '../game/state'
 import { useMats } from './materials'
 import { Box, Cyl, Screen } from './props/models'
-import { stationPowerDown } from './roomPower'
 
 /** Fixed glass wall of the shaft, and the cab's own glass wall inside it. */
 const SHAFT_R = 1.7
