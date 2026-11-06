@@ -157,16 +157,16 @@ Le daily de 9 h 15 dure 15 min ; le responsable qualité le résume ici avant 9 
 
 | Membre | Fait hier | Prévu aujourd’hui | Blocage (étape de déblocage atteinte) |
 | --- | --- | --- | --- |
-| | | | |
-| | | | |
-| | | | |
-| | | | |
-| | | | |
+| Volle Clément | Remplir la L3 et aider les développeurs à corriger les bugs et à améliorer les énigmes | Remplir les documents avec l'équipe et aider les développeurs à corriger les bugs et à améliorer les énigmes | |
+| Chaibrassou Hamza | Remplir les documents, tester le jeu avec Loïc et vérifier la L3 avec Loïc  | Remplir les documents, tester le jeu avec Loïc et vérifier les bugs avec Loïc | |
+| Angot-Chabanol Ethan | Développer et corriger les animations des personnages et de leurs mains, puis finir de créer les fonds d’écran de victoire et de défaite | Développer et améliorer les animations des personnages et de leurs mains, corriger les problèmes d'animation et finaliser la résolution des bugs du jeu afin d'assurer son bon fonctionnement | |
+| Loïc Chauvelot | Remplir les documents + journaldebord , tester le jeu avec Hamza et vérifier la L3 avec Hamza | Remplir les documents + journaldebord , tester le jeu avec Hamza et vérifier les bugs avec Hamza | |
+| Orsal Kilian | Développer la map et corriger les bugs de lumière et de textures | corriger les bugs de lumière et de textures et les bugs de crash et l'opti du jeu  | |
 
 ### Bilan
 
 | | |
 | --- | --- |
-| **Décisions prises** | |
-| **Fin de journée : fait, reste à faire** | |
-| **Avancement du sprint (%)** | |
+| **Décisions prises** | Optimisation des performances du jeu et correction des derniers bugs majeurs afin d'améliorer sa stabilité et sa fluidité |
+| **Fin de journée : fait, reste à faire** | Optimisation du jeu et correction des bugs restants afin d’améliorer ses performances et sa stabilité |
+| **Avancement du sprint (%)** | 100% |
