@@ -425,14 +425,14 @@ export const fr = {
   },
   story: {
     prologue: [
-      '2041. Station Selene-7, orbite lunaire basse.',
+      'Station Selene-7, orbite lunaire basse.',
       'Six semaines de mission. Six astronautes. Une seule station au-dessus de la Lune.',
       'Le labo de Maya vient de trouver de l’eau sous le pôle Sud. Tout le monde dort.',
       'Puis la station se met à hurler.',
     ],
     impact: 'Impact. Micro-météorite. Dépressurisation du module S-4.',
     tours: {
-      1: ['L’alarme. Encore l’alarme… Combien de temps ai-je perdu connaissance ?', 'Le casque a encaissé le choc. Mes jambes tiennent. Debout.', 'Le module est vide. Les autres ont évacué sans moi. Il faut que je sorte d’ici.'],
+      1: ['Selene-7. Deux niveaux, reliés par un ascenseur central.', 'Ses coursives, son réfectoire, son infirmerie…', 'Et l’ascenseur, au cœur de la station, qui relie les deux étages.', 'Le dortoir. C’est là que tout commence.'],
       2: ['Le niveau inférieur. Ça sent le métal brûlé et l’ozone.', 'Une conduite a cédé. Tant que le gaz fuit, rien ne repartira.'],
       3: ['L’Hermès. Mon seul billet de retour.', 'Pas de cellule d’énergie, pas de moteur. Et la Terre, là, derrière le hublot.'],
       4: ['Les parachutes n’ont pas tous tenu… Mais l’Hermès est en un seul morceau.', 'En vie. Sur Terre. Maintenant, il faut qu’on me trouve avant la nuit.'],
@@ -455,6 +455,21 @@ export const fr = {
     liftoff: 'Décollage',
     reentry: 'Rentrée atmosphérique',
     heli: 'Hélicoptère en approche',
+    undock: 'Désarrimage. Les verrous s’ouvrent, les propulseurs écartent l’Hermès de la station.',
+    turn: 'Manœuvre de retournement. Cap sur la Terre.',
+    burn: 'Allumage des moteurs principaux.',
+    flare: 'Fusée de détresse tirée.',
+    heliRadio: 'Signal reçu sur 121,5. Hélicoptère en route.',
+    convoy: 'Police, ambulance, pompiers… et la presse est déjà là.',
+    company: 'CosmoTrap à l’équipage de Selene-7 : bienvenue sur Terre.',
+    gameOver: 'GAME OVER',
+    deathCause: {
+      o2: 'Asphyxie : il n’y avait plus d’oxygène.',
+      hp: 'Tes blessures ont été fatales.',
+      water: 'Déshydratation : ton corps a lâché.',
+      time: 'La pluie de météorites a frappé la base.',
+      night: 'La nuit est tombée avant l’arrivée des secours.',
+    } as Record<string, string>,
   },
 
   end: {

@@ -384,7 +384,7 @@ export const SFX: Record<SfxName, (s: SynthCtx, t: number) => number> = {
 /** fréquence cardiaque du joueur (battements / min) */
 export const heart = { bpm: 62 }
 
-export type LoopName = 'steam' | 'heartbeat' | 'amb_station' | 'amb_wind' | 'reentry' | 'rotor' | 'static'
+export type LoopName = 'steam' | 'heartbeat' | 'amb_station' | 'amb_wind' | 'reentry' | 'rotor' | 'static' | 'siren'
 
 export function startLoop(s: SynthCtx, name: LoopName): { stop: () => void; out: GainNode } {
   const ctx = s.ctx
@@ -516,6 +516,25 @@ export function startLoop(s: SynthCtx, name: LoopName): { stop: () => void; out:
     const am = gain(0.3)
     n.connect(lp).connect(am).connect(out)
     lfo(17, 0.3, am.gain)
+  } else if (name === 'siren') {
+    // French two-tone emergency sirens, several vehicles slightly out of step, softened by distance.
+    const lp = filt('lowpass', 1800, 0.7)
+    lp.connect(gain(0.18)).connect(out)
+    const oscs = [0, 1].map((i) => {
+      const o = ctx.createOscillator()
+      o.type = 'square'
+      o.frequency.value = 435
+      o.connect(gain(i ? 0.35 : 0.5)).connect(lp)
+      o.start()
+      nodes.push(o)
+      return o
+    })
+    let hi = false
+    timer = window.setInterval(() => {
+      hi = !hi
+      oscs[0].frequency.setTargetAtTime(hi ? 580 : 435, ctx.currentTime, 0.02)
+      oscs[1].frequency.setTargetAtTime(hi ? 435 * 1.04 : 580 * 1.04, ctx.currentTime, 0.02)
+    }, 560)
   } else if (name === 'static') {
     const n = nsrc()
     n.connect(filt('bandpass', 2000, 0.5)).connect(gain(0.15)).connect(out)

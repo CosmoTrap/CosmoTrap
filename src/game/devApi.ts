@@ -29,6 +29,7 @@ export function installDevApi() {
         notes: [...s.notes],
         puzzle: s.puzzle,
         cine: s.cine,
+        toured: [...s.toured],
         ended: s.ended,
         o2Critical: s.o2Critical,
         failCause: s.failCause,

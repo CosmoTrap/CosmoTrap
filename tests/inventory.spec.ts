@@ -168,6 +168,8 @@ test('sur Terre, la couverture de survie évite le malus de vitesse sans jamais 
 })
 
 test('vie : le gaz brûle, les trousses soignent, le froid blesse sur Terre sans couverture', async ({ page }) => {
+  // This scenario loads three worlds; allow their existing 120 s load waits to complete.
+  test.setTimeout(240000)
   await start(page)
   await page.evaluate(() => { window.__game.goto(2); window.__game.set({ cine: null, toured: [1, 2, 3, 4] }) })
   await page.waitForFunction(() => window.__game.state().playerZone === 2 && window.__game.state().loading === 1, null, { timeout: 120000 })

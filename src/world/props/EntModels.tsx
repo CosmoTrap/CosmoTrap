@@ -555,11 +555,7 @@ function Steam({ e }: { e: Ent }) {
   return (
     <group>
       <points ref={pts} geometry={geo} material={mat} frustumCulled={false} />
-      {!fixed && (
-        <RigidBody type="fixed" colliders={false}>
-          <CuboidCollider args={[1, 1.4, 1]} position={[0, 1.4, 0]} />
-        </RigidBody>
-      )}
+      {/* No collider: the gas can be crossed, at the price of a burn (see tick). */}
       <pointLight ref={light} name="steam-service-light" color="#ffd2a8" intensity={0} distance={4} position={[0, 1.6, 0]} />
     </group>
   )

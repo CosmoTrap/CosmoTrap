@@ -11,6 +11,8 @@ import { Astronaut, type AstronautHandle } from './Astronaut'
 import { endScene, runScene } from './FilmScenes'
 import { heli } from './zone4/Zone4'
 import { input } from '../player/input'
+import { LAUNCH, launchCamera } from './cine/LaunchStage'
+import { PAD, VEHICLES, vehiclePose } from './cine/Rescue'
 import { finishLunar } from '../game/lunar/logic'
 import { ROCKET } from '../game/lunar/map'
 
@@ -122,11 +124,12 @@ export function CineDirector() {
         // The door closes, then the picture fades while the cab travels.
         live.fade = sm(t, 0.55, 1.25)
         if (t > 1.3) once('enter', () => enterZone(pendingZone!))
-      } else if (!s.toured.includes(s.zone)) {
-        // First arrival on this floor: its title card, then its film scene.
+      } else if (!s.toured.includes(s.zone) && s.zone !== 2) {
+        // First arrival on this floor: its title card, then its film scene. Floor 2 has none: you simply step out.
         live.fade = 1
         useGame.setState({ cine: 'zoneCard', cineT0: performance.now() - 1300 })
       } else {
+        if (!s.toured.includes(s.zone)) useGame.setState({ toured: [...s.toured, s.zone] })
         liftArrival ||= performance.now()
         const a = (performance.now() - liftArrival) / 1000
         live.fade = Math.max(0, 1 - a / 0.9)
@@ -140,49 +143,86 @@ export function CineDirector() {
       if (!runScene(s.zone, t, !flags.current.started)) once('end', endTour)
       flags.current.started = true
     } else if (cine === 'fail') {
-      live.fade = Math.min(1, t / 3)
-      const lines = fr.story.fail[s.failCause ?? 'time']
-      const i = Math.min(lines.length - 1, Math.floor(t / 3))
-      once(`f${i}`, () => {
-        useGame.setState({ subtitle: lines[i] })
-        if (i === 0) {
-          audio.sfx('faint')
-          audio.stopAllLoops()
-        }
-      })
-      if (t > 7)
+      // Collapse, as hypoxia, blood loss or dehydration bring it on: the picture narrows to a tunnel and loses
+      // its colour, the eyes blink longer and longer, things that are not there swim at the edges, the legs
+      // give way, a last impact, darkness, and then the verdict.
+      const cause = s.failCause ?? 'time'
+      if (!death.start) {
+        death.start = new THREE.Vector3(live.pos[0], live.pos[1] + 1.62, live.pos[2])
+        death.yaw = live.yaw
+        death.pitch = live.pitch
+        audio.stopAllLoops()
+        audio.loop('fail-heart', 'heartbeat', { vol: 0.9 })
+      }
+      const meteor = cause === 'time' && s.zone < 4
+      if (meteor) {
+        // The meteor shower reaches the base: impacts, the hull groans, then the air goes.
+        once('m1', () => { audio.sfx('impact'); live.flash = 0.7; useGame.setState({ shake: 2.6 }) })
+        if (t > 1.6) once('m2', () => { audio.sfx('impact'); audio.sfx('alarm_o2', { vol: 1 }); live.flash = 0.5 })
+        useGame.setState({ shake: Math.max(0, 2.6 - t * 0.9) })
+      }
+      audio.setHeartRate(150 - 90 * sm(t, 2.5, 5.4))
+      live.faint = sm(t, 0.3, 5)
+      live.hallu = sm(t, 0.8, 3.2) * (1 - sm(t, 4.6, 5.6))
+      // Blinks: short, then longer, then the eyes stay shut.
+      const blink = (c: number, d: number) => Math.max(0, 1 - Math.abs(t - c) / d)
+      live.fade = Math.max(blink(1.5, 0.18), blink(2.9, 0.3), blink(4.0, 0.42), sm(t, 5.3, 6.1))
+      // The view sways, then the legs give way: down to the floor, rolling onto the side.
+      const fall = Math.pow(sm(t, 4.1, 5.2), 1.6)
+      const sway = Math.sin(t * 1.7) * 0.18 * sm(t, 0.4, 2.5) * (1 - fall)
+      const yaw = death.yaw + sway + fall * 0.4
+      const pitch = death.pitch * (1 - fall) - 0.15 * Math.sin(t * 1.1) * (1 - fall) + fall * 0.55
+      const eye = death.start.clone()
+      eye.y -= fall * 1.38
+      const dir = new THREE.Vector3(-Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch))
+      live.camOverride = { pos: eye.toArray() as [number, number, number], look: eye.clone().add(dir).toArray() as [number, number, number], fov: 72 + 10 * Math.sin(t * 2.3) * live.hallu, roll: fall * 1.25 + Math.sin(t * 1.3) * 0.05 * (1 - fall) }
+      if (t > 5.2) once('thud', () => { audio.sfx('impact', { vol: 0.8 }); useGame.setState({ shake: 1.2 }) })
+      if (t > 5.4) useGame.setState({ shake: Math.max(0, 1.2 - (t - 5.4) * 3) })
+      const lines = fr.story.fail[cause]
+      if (t > 0.2) once('f0', () => useGame.setState({ subtitle: lines[0] }))
+      if (t > 2.8 && lines[1]) once('f1', () => useGame.setState({ subtitle: lines[1] }))
+      if (t > 6) once('dark', () => { audio.stopLoop('fail-heart'); audio.sfx('faint'); useGame.setState({ subtitle: null }) })
+      // GAME OVER, and why.
+      if (t > 6.6) live.card = { title: fr.cine.gameOver, sub: fr.cine.deathCause[s.zone >= 4 && cause === 'time' ? 'night' : cause], a: sm(t, 6.6, 7.6) * (1 - sm(t, 11.2, 12)) }
+      if (t > 12.2)
         once('end', () => {
           closeFinishedRun()
+          resetDeath()
+          live.card = null
           live.fade = 0
-          useGame.setState({ cine: null, ended: true, ending: 'fail', screen: 'end', subtitle: null })
+          useGame.setState({ cine: null, ended: true, ending: 'fail', screen: 'end', subtitle: null, shake: 0 })
         })
     } else if (cine === 'launch') {
-      // compte à rebours
-      if (t < 4) {
+      // Countdown in the cockpit, then the departure seen from outside (see LaunchStage).
+      if (t < LAUNCH.outside) {
         const n = 3 - Math.floor(t)
-        live.countdown = n > 0 ? String(n) : fr.cine.liftoff
+        live.countdown = n > 0 ? String(n) : null
         once(`c${n}`, () => audio.sfx(n > 0 ? 'keypad' : 'success'))
-      } else live.countdown = null
+        live.fade = sm(t, LAUNCH.outside - 0.45, LAUNCH.outside)
+      } else {
+        live.countdown = null
+        live.fade = 1 - sm(t, LAUNCH.outside, LAUNCH.outside + 0.5)
+        live.camOverride = launchCamera(t)
+      }
       once('music', () => audio.oneShotMusic('launch'))
-      if (t > 3) once('rumble', () => audio.sfx('launch'))
-      const shake = t < 3 ? 0 : t < 9 ? sm(t, 3, 6) * 1.6 : t < 10 ? 0.4 : t < 17 ? 1.2 + Math.sin(t * 9) * 0.3 : 0
-      useGame.setState({ shake })
-      // la Lune s'éloigne sous la fusée
-      live.ext.y = t < 4 ? 0 : -Math.pow(t - 4, 2.2) * 6
-      if (t > 8.6 && t < 10) live.flash = sm(t, 8.6, 9.3) * (1 - sm(t, 9.4, 10))
-      if (t > 9.5) {
+      if (t > LAUNCH.outside) once('undock', () => { audio.sfx('airlock'); useGame.setState({ subtitle: fr.cine.undock }) })
+      if (t > LAUNCH.turn) once('turn', () => useGame.setState({ subtitle: fr.cine.turn }))
+      if (t > LAUNCH.ignition) once('ignite', () => { audio.sfx('launch'); useGame.setState({ subtitle: fr.cine.burn }) })
+      const thrust = sm(t, LAUNCH.ignition, LAUNCH.burn + 0.5) * (1 - sm(t, LAUNCH.burn + 4, LAUNCH.burn + 7))
+      useGame.setState({ shake: thrust * 0.9 + sm(t, LAUNCH.reentry, LAUNCH.reentry + 1) * 1.6 })
+      if (t > LAUNCH.reentry) {
         once('reentry', () => {
           audio.loop('reentry', 'reentry', { vol: 1 })
           useGame.setState({ subtitle: fr.cine.reentry })
         })
-        live.ext.plasma = Math.min(1, (t - 9.5) / 1.5) * (1 - sm(t, 16, 17.5))
+        live.flash = sm(t, LAUNCH.land - 0.9, LAUNCH.land - 0.1)
       }
-      if (t > 16.5) live.flash = sm(t, 16.5, 18)
-      if (t > 18)
+      if (t > LAUNCH.land)
         once('land', () => {
           audio.stopLoop('reentry')
           live.ext.y = 0
           live.ext.plasma = 0
+          live.camOverride = null
           useGame.setState({ shake: 0, subtitle: null })
           enterZone(4)
           useGame.setState({ cine: 'zoneCard', cineT0: performance.now() - 1300 })
@@ -190,39 +230,68 @@ export function CineDirector() {
           live.fade = 1
         })
     } else if (cine === 'heli') {
-      const sp = spawnOf(4)
-      void sp
-      const pad = new THREE.Vector3(6, 2.1, -60)
-      // fusée de détresse
-      if (t < 5) useGame.setState({ subtitle: fr.cine.heli })
-      // trajectoire de l'hélicoptère
-      const k = sm(t, 2, 13)
-      heli.visible = t > 2
+      const ground = (x: number, z: number) => terrainHeight(x, z)
+      const padY = ground(PAD.x, PAD.z)
+      // The rescue helicopter: far out, across the valley, then a slow descent onto the pad.
+      const pad = new THREE.Vector3(PAD.x, padY + 0.1, PAD.z)
+      const k = sm(t, 4, 18)
+      heli.visible = t > 4
       const from = new THREE.Vector3(-150, 70, -220)
       const hover = new THREE.Vector3(pad.x, pad.y + 9, pad.z - 4)
       const p = from.clone().lerp(hover, k)
       p.y += Math.sin(k * Math.PI) * 15
-      if (t > 13) p.copy(hover).setY(pad.y + 9 - sm(t, 13, 18) * 8.6)
+      if (t > 18) p.copy(hover).lerp(pad.clone().setZ(pad.z), sm(t, 18, 24.5))
       heli.x = p.x
-      heli.y = p.y + Math.sin(t * 1.3) * 0.15
+      heli.y = p.y + Math.sin(t * 1.3) * 0.15 * (1 - sm(t, 23, 24.5))
       heli.z = p.z
-      heli.yaw = Math.atan2(hover.x - from.x, hover.z - from.z) * (1 - sm(t, 11, 15)) + sm(t, 11, 15) * 0.6
-      if (t > 2) once('heliSnd', () => audio.loop('rotor', 'rotor', { vol: 0.2 }))
-      audio.loopVol('rotor', 0.2 + k * 1.2)
-      // caméra 3e personne : d'abord le tir, qu'elle suit dans le ciel, puis l'arrivée de l'hélicoptère
-      const a = t > 8 ? FLARE_ORBIT + (t - 8) * 0.05 : FLARE_ORBIT
-      const c = new THREE.Vector3(live.pos[0], live.pos[1], live.pos[2])
-      const follow = sm(t, 0.25, 1.1) * (1 - sm(t, 5.5, 7.5))
-      const rest = new THREE.Vector3(c.x, c.y + 1.3 + sm(t, 8, 12) * 0.6, c.z)
-      const look = rest.lerp(flarePosition(t), follow)
-      const camX = c.x + Math.sin(a) * 4.2, camZ = c.z + Math.cos(a) * 4.2
-      live.camOverride = {
-        // The ground can rise behind the player: the camera must never end up under the hill.
-        pos: [camX, Math.max(c.y + 0.9 + sm(t, 6, 8) * 0.7, terrainHeight(camX, camZ) + 0.8), camZ],
-        look: [look.x, look.y, look.z],
+      heli.yaw = Math.atan2(hover.x - from.x, hover.z - from.z) * (1 - sm(t, 15, 19)) + sm(t, 15, 19) * 0.6
+      if (t > 4) once('heliSnd', () => audio.loop('rotor', 'rotor', { vol: 0.2 }))
+      audio.loopVol('rotor', 0.25 + k * 1.1)
+      const moving = VEHICLES.some((v) => vehiclePose(v, t).moving)
+      if (t > 9) once('sirens', () => audio.loop('sirens', 'siren', { vol: 0.5 }))
+      if (t > 9) audio.loopVol('sirens', moving ? 0.5 : 0.12)
+      // Subtitles, each with its moment.
+      if (t > 0.2) once('s0', () => useGame.setState({ subtitle: fr.cine.flare }))
+      if (t > 7) once('s1', () => { useGame.setState({ subtitle: fr.cine.heliRadio }); audio.speak(fr.cine.heliRadio, { radio: true, id: 'radio' }) })
+      if (t > 13.5) once('s2', () => useGame.setState({ subtitle: fr.cine.convoy }))
+      if (t > 21) once('s3', () => useGame.setState({ subtitle: fr.cine.company }))
+      // The shots.
+      const me = new THREE.Vector3(live.pos[0], live.pos[1], live.pos[2])
+      const v3 = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z)
+      let cam: THREE.Vector3, look: THREE.Vector3, fov = 50
+      if (t < 7) {
+        // The flare, followed up into the sky from just behind the shoulder.
+        // Behind the player, opposite the way the flare flies: it climbs, bursts red, and drifts down.
+        cam = me.clone().add(v3(Math.sin(FLARE_ORBIT) * 4.2, 0, Math.cos(FLARE_ORBIT) * 4.2))
+        cam.y = Math.max(me.y + 0.9 + sm(t, 5, 7) * 0.7, ground(cam.x, cam.z) + 0.8)
+        look = me.clone().add(v3(0, 1.3, 0)).lerp(flarePosition(t), sm(t, 0.25, 1.1) * (1 - sm(t, 5.5, 7)))
+      } else if (t < 13.5) {
+        // From the pad, the sky: the rescue helicopter crossing the valley, the news crews arriving.
+        cam = v3(14, padY + 1.7, -50).lerp(v3(12, padY + 2.2, -48), sm(t, 7, 13.5))
+        look = v3(heli.x, heli.y, heli.z).lerp(v3(PAD.x, padY + 16, PAD.z), 0.25)
+        fov = 46
+      } else if (t < 21) {
+        // Low by the track: the emergency services coming down from the hills, lights flashing.
+        // Off to the side of the track, so that nothing drives through the camera.
+        cam = v3(36, ground(36, -49) + 1.6, -49)
+        const lead = vehiclePose(VEHICLES[Math.min(VEHICLES.length - 1, Math.floor(sm(t, 13.5, 21) * 4.2))], t)
+        look = v3(lead.x, lead.y + 1.2, lead.z).lerp(v3(PAD.x, padY + 1.5, PAD.z), sm(t, 18, 21))
+        fov = 44
+      } else if (t < 27) {
+        // Wide: the rescue helicopter settles on the pad, CosmoTrap arrives, the news crews circle.
+        // From above the treetops.
+        cam = v3(-14, padY + 13, -38).lerp(v3(-10, padY + 11, -42), sm(t, 21, 27))
+        look = v3(PAD.x + 4, padY + 2, PAD.z - 2)
+        fov = 52
+      } else {
+        // Crane shot over the whole scene.
+        cam = v3(22, padY + 4, -40).lerp(v3(34, padY + 22, -30), sm(t, 27, 31.5))
+        look = v3(PAD.x + 6, padY + 1, PAD.z - 2)
+        fov = 54
       }
-      if (t > 19) live.fade = sm(t, 19, 21)
-      if (t > 21.2)
+      live.camOverride = { pos: cam.toArray() as [number, number, number], look: look.toArray() as [number, number, number], fov }
+      if (t > 29.5) live.fade = sm(t, 29.5, 31.5)
+      if (t > 31.7)
         once('end', () => {
           audio.stopLoop('rotor')
           audio.stopAllLoops()
@@ -236,6 +305,15 @@ export function CineDirector() {
     }
   })
   return null
+}
+
+/** Where the collapse started, kept for the whole death scene. */
+const death = { start: null as THREE.Vector3 | null, yaw: 0, pitch: 0 }
+function resetDeath() {
+  death.start = null
+  live.faint = 0
+  live.hallu = 0
+  audio.stopLoop('fail-heart')
 }
 
 function afterTour() {
@@ -263,6 +341,8 @@ function resetCineView() {
   live.countdown = null
   live.ext.y = 0
   live.ext.plasma = 0
+  live.faint = 0
+  live.hallu = 0
   input.down.clear()
   input.jumpRequested = false
   input.look.dx = input.look.dy = 0

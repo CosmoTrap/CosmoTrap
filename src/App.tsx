@@ -121,7 +121,7 @@ export default function App() {
       {screen === 'credits' && <Credits />}
       {screen === 'end' && <End />}
       {screen === 'prologue' && <Prologue />}
-      <div className={`film-bars ${screen === 'prologue' || (playing && (cine === 'tour' || cine === 'launch' || cine === 'heli' || cine === 'fail')) ? 'on' : ''}`} aria-hidden>
+      <div className={`film-bars ${screen === 'prologue' || (playing && (cine === 'tour' || cine === 'launch' || cine === 'heli')) ? 'on' : ''}`} aria-hidden>
         <i />
         <i />
       </div>

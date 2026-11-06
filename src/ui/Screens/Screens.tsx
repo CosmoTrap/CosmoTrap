@@ -102,7 +102,8 @@ export function Prologue() {
     const timers = L.map((l, i) =>
       setTimeout(() => {
         setLine(l)
-        audio.speak(l, { rate: 1.0, id: `prologue_${i}` })
+        // The first line no longer gives the year (it is the locker's code): its recording would still say it.
+        audio.speak(l, { rate: 1.0, id: i === 0 ? undefined : `prologue_${i}` })
       }, 600 + i * 3500),
     )
     timers.push(
